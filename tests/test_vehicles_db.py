@@ -1,6 +1,10 @@
 import sqlite3
+from decimal import Decimal
+
+import pytest
 
 from compass.config import RAW_VALUE_OF_USE_CSV
+from compass.data.vehicles import find_by_codes, get_value_of_use
 
 
 def test_row_count(vehicles_conn: sqlite3.Connection) -> None:
@@ -62,3 +66,55 @@ def test_meta_records_source(vehicles_conn: sqlite3.Connection) -> None:
     assert meta["row_count"] == "77988"
     assert len(meta["source_sha256"]) == 64
     assert meta["built_at"]
+
+
+# --- data-access layer ----------------------------------------------------------------------
+
+
+def test_drive_mapping_via_records() -> None:
+    def summary(manufacturer_code: str, model_code: str) -> tuple[str, int, str]:
+        found = get_value_of_use(2026, 2025, 1, manufacturer_code, model_code)
+        assert found is not None
+        return found.commercial_name, found.drive_code, found.drive
+
+    assert summary("01014", "00003") == ("ATTO 3", 3, "electric")
+    assert summary("00672", "00130") == ("YARIS CROSS HSD", 1, "hybrid")
+    assert summary("00885", "00643") == ("PICANTO", 0, "petrol")
+
+
+def test_codes_alone_are_ambiguous_atto3_vs_tang() -> None:
+    # Same manufacturer/model codes + registration year -> two DIFFERENT vehicles.
+    matches = find_by_codes("01014", "00003", 2025)
+    assert [(m.vehicle_type_code, m.commercial_name, m.value_of_use) for m in matches] == [
+        (1, "ATTO 3", Decimal(3130)),
+        (2, "TANG", Decimal(6950)),
+    ]
+    assert matches[0].commercial_name != matches[1].commercial_name
+
+
+def test_full_official_key_returns_exactly_atto3() -> None:
+    record = get_value_of_use(2026, 2025, 1, "01014", "00003")
+    assert record is not None
+    assert record.commercial_name == "ATTO 3"
+    assert record.value_of_use == Decimal(3130)
+    assert isinstance(record.value_of_use, Decimal)
+    assert record.manufacturer_code == "01014"
+
+
+def test_unknown_key_returns_none_and_no_matches() -> None:
+    assert get_value_of_use(2026, 2025, 1, "01014", "99999") is None
+    assert find_by_codes("01014", "99999", 2025) == []
+    assert find_by_codes("01014", "00003", 2025, tax_year=2025) == []
+
+
+@pytest.mark.parametrize("bad", [413, "413", "0041", "00413 "])
+def test_codes_must_be_zero_padded_strings(bad: object) -> None:
+    with pytest.raises(ValueError, match="5-digit zero-padded string"):
+        find_by_codes(bad, "00296", 2025)  # type: ignore[arg-type]
+
+
+def test_records_are_frozen() -> None:
+    record = get_value_of_use(2026, 2025, 1, "01014", "00003")
+    assert record is not None
+    with pytest.raises(ValueError):
+        record.value_of_use = Decimal(0)  # type: ignore[misc]
