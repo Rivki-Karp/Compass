@@ -16,7 +16,9 @@ from pathlib import Path
 REPO_ROOT: Path = Path(__file__).resolve().parent
 
 # Order matters: later scripts may read outputs of earlier ones.
-DATA_SCRIPTS: list[str] = []
+DATA_SCRIPTS: list[str] = [
+    "scripts/build_vehicles_db.py",
+]
 
 
 def run(*args: str) -> None:
