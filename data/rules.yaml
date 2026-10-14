@@ -1,0 +1,115 @@
+# Compass business rules: the single source of truth for budgets, tracks and the net method.
+#
+# Converted from raw/strauss-rules.json (version mock-2026-10-12). Every original value is kept;
+# keys are snake_case. Rules marked "# derived:" are NOT in the source file. We reverse-engineered
+# them from the reference sheet (חישובים) or took them from the Excel/PDF. Each is pending
+# organizer confirmation.
+#
+# Conventions:
+#   - Money in ILS per month. Rates are quoted strings ("0.35") and are parsed to Decimal,
+#     never float.
+#   - Edit freely. The loader (compass/rules.py) validates the file and names any bad field.
+
+version: "mock-2026-10-12"
+note: "נתוני דמה של האתגר (קוד פתוח). בפיילוט מחליפים את הקובץ בנתונים האמיתיים - לא את הקוד."
+
+# Monthly car budget per eligibility group (ILS).
+budgets:
+  א: 3500
+  ב: 3700
+  ג: 4500
+  ד: 5200
+
+# Lowest -> highest. Must list exactly the budget groups.
+group_order: [א, ב, ג, ד]
+
+# An employee may choose a car from their own group or any lower group.
+choose_from: own_group_or_lower
+
+electric:
+  # gross_up: the employer grosses up a taxable component so the employee nets exactly net_bonus.
+  # gross:    a plain gross_amount is added to salary (and taxed normally).
+  # derived: per Excel ('250 ₪ ברוטו' alternative), pending organizer confirmation (option "gross")
+  method: gross_up
+  net_bonus: 250 # used when method = gross_up
+  # derived: per Excel/PDF, pending organizer confirmation
+  gross_amount: 250 # used when method = gross
+  # derived: verified against reference sheet, pending organizer confirmation
+  rounding: ceil # gross-up amount rounded UP to whole ILS (matches 440 / 473 in reference)
+  note: "העובד רואה +250 ₪ נטו בדיוק; המעסיק מגלם את המס"
+
+# Family track (מסלול ברוכת ילדים).
+family_track:
+  min_children: 4
+  child_max_age: 23
+  gap_split_employee: "0.5" # employee's share of (car cost - group budget); employer pays the rest
+  # derived: per Excel/PDF, pending organizer confirmation
+  # The source file had a single carPrice: 6000. The car cost is now PER CAR. It is the
+  # catalog's monthly_company_cost for cars in group "משפחתי" (CARNIVAL 6,000, SANTA FE 5,600).
+  note: "זכאים לרכב ממסלול ׳משפחתי׳ (6,000 ₪ לחודש); על הפער מעל התקציב - העובד 50%, המעסיק 50%"
+
+waiver:
+  allowed_by: occupation # see data/occupations.json (waiver_allowed, waiver_maintenance)
+  maintenance_is_taxable: true
+  maintenance_is_pensionable: false
+
+# A budget the employee doesn't use is not paid out as salary.
+unused_budget: not_paid
+
+net_method:
+  basis: monthly
+  tax_year: 2025
+  credit_point_value: 242
+
+  # Monthly income-tax brackets: each rate applies up to `up_to` (inclusive). The last bracket
+  # is open-ended (up_to: null).
+  brackets:
+    - { up_to: 7010, rate: "0.10" }
+    - { up_to: 10060, rate: "0.14" }
+    - { up_to: 16150, rate: "0.20" }
+    - { up_to: 22440, rate: "0.31" }
+    - { up_to: 46690, rate: "0.35" }
+    - { up_to: 60130, rate: "0.47" }
+    - { up_to: null, rate: "0.50" }
+
+  # Employee National Insurance: low_rate up to threshold, high_rate up to ceiling.
+  national_insurance:
+    threshold: 7522
+    ceiling: 50695
+    low_rate: "0.0104"
+    high_rate: "0.07"
+
+  # Employee health insurance, same structure.
+  health:
+    threshold: 7522
+    ceiling: 50695
+    low_rate: "0.0323"
+    high_rate: "0.0517"
+
+  # derived: verified against reference sheet, pending organizer confirmation
+  # Pension and study fund are calculated on these salary components only. They are NOT
+  # calculated on value of use, the electric gross-up, or waiver maintenance.
+  contribution_base: [base_salary, commissions, bonus]
+
+  pension_credit:
+    rate: "0.35"
+    income_ceiling: 9500
+    # derived: verified against reference sheet, pending organizer confirmation
+    # credit = rate * max_contribution_rate * min(contribution income, income_ceiling).
+    # It does not depend on the employee's actual pension %.
+    max_contribution_rate: "0.07"
+
+  note: "לוחות 2025 להמחשה; קרן השתלמות עובד - ניכוי נטו; שווי שימוש מתווסף לבסיס המס ולביטוח לאומי"
+
+# Tax Authority value-of-use dataset (data/vehicles.db).
+value_of_use:
+  source: "רשות המסים - הקובץ המורחב 2026"
+  # Official lookup key (CSV headers). A commercial name alone is never enough.
+  key: [שנת מס, שנת רישום, קוד סוג רכב, קוד תוצר, קוד דגם]
+  # drive_code meanings. NOTE: the CSV header text disagrees with this; the data follows
+  # this mapping (see raw/README.md).
+  drive_field:
+    0: בנזין
+    1: היברידי
+    2: פלאג-אין
+    3: חשמלי
