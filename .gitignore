@@ -1,0 +1,21 @@
+# Raw challenge files are not redistributed; only their description is committed.
+raw/*
+!raw/README.md
+
+# Generated databases (rebuilt by `python tasks.py data`)
+*.db
+*.db-journal
+*.db.tmp
+
+# Secrets
+.env
+
+# Python / tooling
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/

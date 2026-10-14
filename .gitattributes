@@ -1,0 +1,5 @@
+# Force LF everywhere so generated files are byte-identical on Windows and macOS.
+* text=auto eol=lf
+*.xlsx binary
+*.pdf binary
+*.db binary
