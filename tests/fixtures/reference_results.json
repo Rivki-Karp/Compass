@@ -1,0 +1,152 @@
+{
+  "E-001": {
+    "name": "נועה לוי",
+    "today": {
+      "raw": "COROLLA CROSS (2025)",
+      "kind": "car",
+      "car_id": "CAR-09"
+    },
+    "alternative": {
+      "raw": "ATTO 3 (2025)",
+      "kind": "car",
+      "car_id": "CAR-10"
+    },
+    "eligible": true,
+    "reason": "הרכב מהקבוצה שלך או נמוכה ממנה",
+    "net_today": 11032,
+    "net_alternative": 11693,
+    "net_diff": 661,
+    "tax_today": 3443,
+    "tax_alternative": 3283,
+    "ni_health_today": 2153,
+    "ni_health_alternative": 2092,
+    "electric_refund_gross": 440,
+    "family_track_employee_share": 0,
+    "explanation": "שווי שימוש 4,070 → 3,130 ₪ · +250 ₪ נטו החזר חשמל (מגולם)"
+  },
+  "E-002": {
+    "name": "דוד כהן",
+    "today": {
+      "raw": "NIRO (2025)",
+      "kind": "car",
+      "car_id": "CAR-05"
+    },
+    "alternative": {
+      "raw": "CARNIVAL (2025)",
+      "kind": "car",
+      "car_id": "CAR-19"
+    },
+    "eligible": true,
+    "reason": "מסלול ברוכת ילדים (5 ילדים); על הפער מעל התקציב - 50% עובד",
+    "net_today": 8600,
+    "net_alternative": 5078,
+    "net_diff": -3522,
+    "tax_today": 1369,
+    "tax_alternative": 2861,
+    "ni_health_today": 1250,
+    "ni_health_alternative": 1879,
+    "electric_refund_gross": 0,
+    "family_track_employee_share": 1150,
+    "explanation": "שווי שימוש 2,950 → 8,120 ₪ · השתתפות 250 → 500 ₪ · חלק העובד בפער המסלול המשפחתי 1,150 ₪"
+  },
+  "E-003": {
+    "name": "רחל פרידמן",
+    "today": {
+      "raw": "ויתור - אחזקת רכב 1500 ₪",
+      "kind": "waiver",
+      "maintenance": 1500
+    },
+    "alternative": {
+      "raw": "MG4 (2025)",
+      "kind": "car",
+      "car_id": "CAR-06"
+    },
+    "eligible": true,
+    "reason": "הרכב מהקבוצה שלך או נמוכה ממנה",
+    "net_today": 15047,
+    "net_alternative": 13109,
+    "net_diff": -1938,
+    "tax_today": 3419,
+    "tax_alternative": 3910,
+    "ni_health_today": 2144,
+    "ni_health_alternative": 2315,
+    "electric_refund_gross": 473,
+    "family_track_employee_share": 0,
+    "explanation": "נוסף שווי שימוש 2,430 ₪ ובוטלה אחזקה 1,500 ₪ · +250 ₪ נטו החזר חשמל (מגולם) · השתתפות 0 → 250 ₪"
+  },
+  "E-004": {
+    "name": "יוסי מזרחי",
+    "today": {
+      "raw": "TUCSON (2025)",
+      "kind": "car",
+      "car_id": "CAR-12"
+    },
+    "alternative": {
+      "raw": "EV3 (2025)",
+      "kind": "car",
+      "car_id": "CAR-11"
+    },
+    "eligible": true,
+    "reason": "הרכב מהקבוצה שלך או נמוכה ממנה",
+    "net_today": 10693,
+    "net_alternative": 11900,
+    "net_diff": 1207,
+    "tax_today": 3991,
+    "tax_alternative": 3497,
+    "ni_health_today": 2301,
+    "ni_health_alternative": 2128,
+    "electric_refund_gross": 440,
+    "family_track_employee_share": 0,
+    "explanation": "שווי שימוש 4,790 → 2,930 ₪ · +250 ₪ נטו החזר חשמל (מגולם) · השתתפות 400 → 300 ₪"
+  },
+  "E-005": {
+    "name": "מיכל אברהם",
+    "today": {
+      "raw": "MAZDA 3 (2025)",
+      "kind": "car",
+      "car_id": "CAR-13"
+    },
+    "alternative": {
+      "raw": "ויתור - אחזקת רכב 2000 ₪",
+      "kind": "waiver",
+      "maintenance": 2000
+    },
+    "eligible": true,
+    "reason": "העיסוק מאפשר ויתור",
+    "net_today": 14244,
+    "net_alternative": 17806,
+    "net_diff": 3562,
+    "tax_today": 6593,
+    "tax_alternative": 5694,
+    "ni_health_today": 3248,
+    "ni_health_alternative": 2935,
+    "electric_refund_gross": 0,
+    "family_track_employee_share": 0,
+    "explanation": "בוטל שווי שימוש 4,570 ₪, נוספה אחזקה 2,000 ₪ (חייבת במס) · השתתפות 350 → 0 ₪"
+  },
+  "E-006": {
+    "name": "אלי שמעון",
+    "today": {
+      "raw": "OCTAVIA (2025)",
+      "kind": "car",
+      "car_id": "CAR-15"
+    },
+    "alternative": {
+      "raw": "MODEL 3 (2025)",
+      "kind": "car",
+      "car_id": "CAR-14"
+    },
+    "eligible": true,
+    "reason": "הרכב מהקבוצה שלך או נמוכה ממנה",
+    "net_today": 17073,
+    "net_alternative": 17794,
+    "net_diff": 721,
+    "tax_today": 9367,
+    "tax_alternative": 9183,
+    "ni_health_today": 4170,
+    "ni_health_alternative": 4106,
+    "electric_refund_gross": 473,
+    "family_track_employee_share": 0,
+    "explanation": "שווי שימוש 5,150 → 4,150 ₪ · +250 ₪ נטו החזר חשמל (מגולם)"
+  }
+}

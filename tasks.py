@@ -18,6 +18,7 @@ REPO_ROOT: Path = Path(__file__).resolve().parent
 # Order matters: later scripts may read outputs of earlier ones.
 DATA_SCRIPTS: list[str] = [
     "scripts/build_vehicles_db.py",
+    "scripts/extract_excel.py",
 ]
 
 

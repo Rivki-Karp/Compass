@@ -1,0 +1,122 @@
+{
+  "E-001": {
+    "name": "נועה לוי",
+    "national_id": "312456783",
+    "occupation": "מנהל/ת מוצר",
+    "group": "ג",
+    "base_salary": 18500,
+    "commissions": 0,
+    "bonus": 0,
+    "pension_employee_rate": "0.06",
+    "study_fund_employee_rate": "0.025",
+    "credit_points": "2.75",
+    "children_under_23": 2,
+    "current": {
+      "raw": "COROLLA CROSS",
+      "kind": "car",
+      "car_id": "CAR-09"
+    },
+    "current_participation": 300,
+    "question": "אם אעבור מהקורולה קרוס ל-BYD Atto 3 החשמלי - כמה זה ישנה לי בנטו?"
+  },
+  "E-002": {
+    "name": "דוד כהן",
+    "national_id": "209876549",
+    "occupation": "נציג/ת מכירות שטח",
+    "group": "ב",
+    "base_salary": 9800,
+    "commissions": 2400,
+    "bonus": 0,
+    "pension_employee_rate": "0.06",
+    "study_fund_employee_rate": "0",
+    "credit_points": "2.25",
+    "children_under_23": 5,
+    "current": {
+      "raw": "NIRO",
+      "kind": "car",
+      "car_id": "CAR-05"
+    },
+    "current_participation": 250,
+    "question": "יש לי 5 ילדים. אם אקח קרניבל במסלול ברוכת ילדים - מה יקרה לנטו?"
+  },
+  "E-003": {
+    "name": "רחל פרידמן",
+    "national_id": "301122339",
+    "occupation": "מפתח/ת תוכנה",
+    "group": "ב",
+    "base_salary": 21000,
+    "commissions": 0,
+    "bonus": 0,
+    "pension_employee_rate": "0.065",
+    "study_fund_employee_rate": "0.025",
+    "credit_points": "2.75",
+    "children_under_23": 0,
+    "current": {
+      "raw": "אין (אחזקה 1500 ₪)",
+      "kind": "waiver",
+      "maintenance": 1500
+    },
+    "current_participation": 0,
+    "question": "היום אני מקבלת אחזקת רכב. אם אקח MG4 חשמלי - כמה אפסיד או ארוויח בנטו?"
+  },
+  "E-004": {
+    "name": "יוסי מזרחי",
+    "national_id": "287654321",
+    "occupation": "מנהל/ת אזור מכירות",
+    "group": "ג",
+    "base_salary": 16000,
+    "commissions": 3000,
+    "bonus": 0,
+    "pension_employee_rate": "0.06",
+    "study_fund_employee_rate": "0.025",
+    "credit_points": "2.25",
+    "children_under_23": 3,
+    "current": {
+      "raw": "TUCSON",
+      "kind": "car",
+      "car_id": "CAR-12"
+    },
+    "current_participation": 400,
+    "question": "אם אחליף את הטוסון ב-EV3 - מה ההפרש בנטו?"
+  },
+  "E-005": {
+    "name": "מיכל אברהם",
+    "national_id": "334455664",
+    "occupation": "מנהל/ת פיתוח",
+    "group": "ג",
+    "base_salary": 27000,
+    "commissions": 0,
+    "bonus": 0,
+    "pension_employee_rate": "0.07",
+    "study_fund_employee_rate": "0.025",
+    "credit_points": "2.75",
+    "children_under_23": 1,
+    "current": {
+      "raw": "MAZDA 3",
+      "kind": "car",
+      "car_id": "CAR-13"
+    },
+    "current_participation": 350,
+    "question": "אם אוותר על הרכב ואקבל אחזקה - כמה אקבל בנטו?"
+  },
+  "E-006": {
+    "name": "אלי שמעון",
+    "national_id": "255566770",
+    "occupation": "מנהל/ת מחלקה",
+    "group": "ד",
+    "base_salary": 32000,
+    "commissions": 0,
+    "bonus": 2000,
+    "pension_employee_rate": "0.06",
+    "study_fund_employee_rate": "0.025",
+    "credit_points": "2.25",
+    "children_under_23": 4,
+    "current": {
+      "raw": "OCTAVIA",
+      "kind": "car",
+      "car_id": "CAR-15"
+    },
+    "current_participation": 500,
+    "question": "אם אעבור מהאוקטביה לטסלה מודל 3 - מה יקרה לנטו?"
+  }
+}
