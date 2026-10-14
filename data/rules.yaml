@@ -46,7 +46,8 @@ family_track:
   # derived: per Excel/PDF, pending organizer confirmation
   # The source file had a single carPrice: 6000. The car cost is now PER CAR. It is the
   # catalog's monthly_company_cost for cars in group "משפחתי" (CARNIVAL 6,000, SANTA FE 5,600).
-  note: "זכאים לרכב ממסלול ׳משפחתי׳ (6,000 ₪ לחודש); על הפער מעל התקציב - העובד 50%, המעסיק 50%"
+  # Note reworded for per-car cost; the original text is preserved in raw/strauss-rules.json.
+  note: "זכאים לרכב ממסלול ׳משפחתי׳; עלות הרכב לפי הקטלוג (קיה קרניבל 6,000 ₪, יונדאי סנטה פה 5,600 ₪ לחודש); על הפער מעל התקציב - העובד 50%, המעסיק 50%"
 
 waiver:
   allowed_by: occupation # see data/occupations.json (waiver_allowed, waiver_maintenance)

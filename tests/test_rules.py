@@ -77,6 +77,12 @@ def test_rules_are_immutable(rules: Rules) -> None:
         rules.budgets["א"] = Decimal(1)  # type: ignore[index]
 
 
+# Free-text notes intentionally reworded in rules.yaml (originals stay in raw/strauss-rules.json).
+REWORDED_NOTES: dict[str, str] = {
+    "family_track.note": "car cost is per car from the catalog, not a single 6,000 ILS price",
+}
+
+
 @pytest.mark.skipif(not RAW_RULES_JSON.is_file(), reason="raw/ files not present")
 def test_every_original_value_is_kept(rules: Rules) -> None:
     src = json.loads(RAW_RULES_JSON.read_text(encoding="utf-8"))
@@ -96,7 +102,9 @@ def test_every_original_value_is_kept(rules: Rules) -> None:
     assert rules.family_track.min_children == ft["minChildren"]
     assert rules.family_track.child_max_age == ft["childMaxAge"]
     assert rules.family_track.gap_split_employee == Decimal(str(ft["gapSplitEmployee"]))
-    assert rules.family_track.note == ft["note"]
+    assert "family_track.note" in REWORDED_NOTES  # exempt: reworded on purpose
+    assert rules.family_track.note != ft["note"]
+    assert "6,000" in rules.family_track.note and "5,600" in rules.family_track.note
     # carPrice (6000) is intentionally replaced by per-car catalog cost (organizer decision).
 
     assert rules.waiver.allowed_by == src["waiver"]["allowedBy"]
