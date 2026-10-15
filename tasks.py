@@ -6,6 +6,7 @@ Usage:
     uv run python tasks.py test      # run the test suite
     uv run python tasks.py lint      # ruff check + ruff format --check
     uv run python tasks.py fmt       # apply ruff formatting and safe fixes
+    uv run python tasks.py demo E-001  # Hebrew net breakdown of a golden reference employee
 """
 
 import subprocess
@@ -52,20 +53,27 @@ def fmt() -> None:
     run(sys.executable, "-m", "ruff", "format", ".")
 
 
-TASKS: dict[str, Callable[[], None]] = {
+def demo(*args: str) -> None:
+    run(sys.executable, "-m", "compass.demo", *args)
+
+
+TASKS: dict[str, Callable[..., None]] = {
     "install": install,
     "data": data,
     "test": test,
     "lint": lint,
     "fmt": fmt,
+    "demo": demo,
 }
+TAKES_ARGS: set[str] = {"demo"}
 
 
 def main() -> None:
-    if len(sys.argv) != 2 or sys.argv[1] not in TASKS:
+    name = sys.argv[1] if len(sys.argv) > 1 else None
+    if name not in TASKS or (len(sys.argv) > 2 and name not in TAKES_ARGS):
         print(__doc__)
         sys.exit(2)
-    TASKS[sys.argv[1]]()
+    TASKS[name](*sys.argv[2:])
 
 
 if __name__ == "__main__":
