@@ -43,6 +43,26 @@ def to_display(value: Decimal, rules: Rules) -> int:
         return int(value.quantize(ONE, rounding=ROUND_HALF_UP))
 
 
-def floor_int(value: Decimal) -> int:
+def to_agora(value: Decimal) -> Decimal:
     with localcontext(_DISPLAY):
-        return int(value.to_integral_value(rounding=ROUND_FLOOR))
+        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def apportion(amounts: list[Decimal], total: int) -> list[int]:
+    """Round `amounts` to integers that sum to `total` exactly (largest-remainder method).
+
+    Each amount becomes its floor or its ceiling: floors first, then the remaining units go to
+    the largest fractional parts (ties: earlier item first). So whole amounts, zeros included,
+    never change. Requires |total - sum(amounts)| < 1, which always holds when `total` is a
+    difference of two half-up roundings or the rounding of the sum.
+    """
+    with localcontext(_DISPLAY):
+        floors = [int(a.to_integral_value(rounding=ROUND_FLOOR)) for a in amounts]
+        remainders = [a - f for a, f in zip(amounts, floors, strict=True)]
+    units = total - sum(floors)
+    fractional = [i for i, r in enumerate(remainders) if r > 0]
+    if not 0 <= units <= len(fractional):
+        raise ValueError(f"cannot apportion {amounts} to {total}: off by more than 1 in total")
+    for index in sorted(fractional, key=lambda i: -remainders[i])[:units]:
+        floors[index] += 1
+    return floors
