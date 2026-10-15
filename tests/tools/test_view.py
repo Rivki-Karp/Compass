@@ -100,7 +100,7 @@ def test_walkthrough_view(services: Services, runner: ToolRunner) -> None:
     ]
     assert view["today_title"] == "COROLLA CROSS 2025"
     assert view["alternative_title"] == "ויתור על הרכב"
-    assert (view["group"], view["group_label"], view["group_budget"]) == ("ב", "קבוצה ב'", 3700)
+    assert (view["group"], view["group_label"], view["group_budget"]) == ("ב", "קבוצה ב׳", 3700)
     assert not view["pending"] and not view["partial"] and not view["hypothetical"]
 
     inputs = _inputs(view)
@@ -299,8 +299,8 @@ def test_warning_messages_use_the_pill_group_label() -> None:
         for key in ("employee_group", "occupation_group", "car_group"):
             if key in code_facts:
                 assert group_label(code_facts[key]) in message, (code, message)
-        # never a bare group letter ("קבוצה ג"), only the pill's label ("קבוצה ג'")
-        assert not re.search(r"קבוצה [א-ת](?![א-ת'])", message), message
+        # never a bare letter or an ASCII apostrophe, only the pill's label ("קבוצה ג׳")
+        assert not re.search(r"קבוצה [א-ת](?![א-ת׳])", message), message
 
 
 def test_today_title_has_the_year_only_when_given(services: Services, runner: ToolRunner) -> None:

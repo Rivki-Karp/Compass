@@ -97,7 +97,8 @@ RULE_LABELS: dict[str, str] = {
 
 
 def group_label(group: str) -> str:
-    return f"קבוצה {group}'"
+    """The group as the UI shows it everywhere: the letter with a Hebrew geresh (U+05F3)."""
+    return f"קבוצה {group}׳"
 
 
 def alternative_title(scenario: Mapping[str, Any], car_name: str | None) -> str:

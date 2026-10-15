@@ -5,8 +5,10 @@
 *.db-journal
 *.db.tmp
 
-# Secrets
+# Secrets: .env and any local variant; only the template is committed
 .env
+.env.*
+!.env.example
 
 # Python / tooling
 .venv/
@@ -17,3 +19,10 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+
+# Web UI (also in web/.gitignore): dependencies, builds, Playwright artifacts
+web/node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/
+web/blob-report/

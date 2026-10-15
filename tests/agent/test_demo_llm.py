@@ -115,7 +115,7 @@ def test_sessions_run_side_by_side(client: TestClient) -> None:
     _say(client, second, E001.employee_messages[0])
     _say(client, first, WALKTHROUGH.employee_messages[1])
     assert _events(client, first, "comparison_ready")[-1]["view"]["display_diff"] == 2914
-    assert "ג'" in _replies(client, second)[0]
+    assert "ג׳" in _replies(client, second)[0]
 
 
 def test_an_unscripted_message_gets_a_reply_without_numbers(client: TestClient) -> None:
