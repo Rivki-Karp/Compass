@@ -21,6 +21,7 @@ uv run python tasks.py data      # rebuild all generated data from raw/ (needs t
 uv run python tasks.py test      # run the tests
 uv run python tasks.py lint      # ruff check + ruff format --check
 uv run python tasks.py fmt       # apply formatting
+uv run python tasks.py demo E-001  # Hebrew breakdown of a golden employee (E-001 … E-006)
 ```
 
 If you have `make`, `make install|data|test|lint|fmt` does the same.
@@ -40,6 +41,18 @@ compass/
     vehicles.py        get_value_of_use(), find_by_codes()          (vehicles.db)
     catalog.py         load_catalog(), get_car(), cars_for_group()  (catalog.json)
     occupations.py     load_occupations(), get_occupation()         (occupations.json)
+  engine/              deterministic net calculation (see "Engine" below)
+    models.py          EmployeeProfile, Scenario, NetBreakdown, Comparison, Eligibility, Option
+    context.py         build_context(): rules + catalog + occupations, cross-checked
+    decimal_math.py    exact() Decimal context; the only display rounding
+    tax.py             income tax, National Insurance, health, pension credit
+    net.py             compute_net() and the electric gross-up solver
+    compare.py         compare(): diff, delta lines, display lines, explanation facts
+    eligibility.py     check_eligibility()
+    options.py         list_options()
+    serialize.py       to_api_dict(): JSON-safe results (exact as strings, display as ints)
+  reference.py         the 6 golden fixtures as engine inputs (tests + demo)
+  demo.py              `tasks.py demo E-00X`
 data/
   rules.yaml           business rules: hand-edited, commented, validated on load
   catalog.json         20 company cars                  (generated from the Excel)
@@ -53,8 +66,8 @@ tests/                 pytest suite; fixtures/ holds the 6 golden reference empl
 tasks.py               cross-platform task runner (Makefile wraps it)
 ```
 
-Planned layers, not built yet: `compass/engine/` (deterministic net calculation),
-`compass/agent/` (Claude tool-use loop), `api/` (FastAPI + SSE), `web/` (React).
+Planned layers, not built yet: `compass/agent/` (Claude tool-use loop), `api/` (FastAPI +
+SSE), `web/` (React). The engine imports none of them.
 
 ## Data sources
 
@@ -89,18 +102,104 @@ issues.
   never pick one automatically.
 - Codes are zero-padded **strings** (`"00413"` ≠ `413`). Money is `Decimal`, never `float`.
 
-## Rules: derived values pending organizer confirmation
+## Engine
 
-[data/rules.yaml](data/rules.yaml) keeps every value from the source rules file. The rules
-below are **not** in that file. Each one is marked `# derived:` in the YAML.
+`compass/engine/` turns an employee profile and a scenario into an exact monthly net-salary
+breakdown, and compares two scenarios. Every number the product shows comes from here. All
+rule values come from `data/rules.yaml`, the catalog and the occupations; the engine has no
+rule constants of its own.
+
+### The formula (one scenario)
+
+```
+cash_income        = base_salary + commissions + bonus             # contributions base "gross"
+taxable_income     = cash_income + value_of_use + maintenance + electric_gross
+income_tax_before  = progressive brackets(taxable_income)           # last bracket open-ended
+credit_points_val  = credit_points * credit_point_value
+pension_credit     = rate * max_contribution_rate * min(cash_income, income_ceiling)
+income_tax         = max(0, income_tax_before - credit_points_val - pension_credit)
+national_insurance = low_rate * min(taxable, threshold) + high_rate * (min(taxable, ceiling) - threshold)⁺
+health             = same shape with the health rates
+employee_pension   = cash_income * pension_pct
+employee_study     = cash_income * study_fund_pct
+net = cash_income + maintenance + electric_gross
+      - income_tax - national_insurance - health
+      - employee_pension - employee_study
+      - participation - family_employee_share
+```
+
+- **Value of use** is taxable and in the NI/health base, but never cash and never pensionable.
+- **Maintenance** (waiver, or an existing maintenance payment) is cash and taxable, not
+  pensionable. For `Waiver()` it is the occupation's `waiver_maintenance`; a representative's
+  quote overrides it (`Waiver(maintenance=X, maintenance_source="representative")`).
+  `CurrentMaintenance` is for today only. The source is recorded in the metadata.
+- **Electric gross-up** (only `drive == electric`, not plug-in or hybrid): the gross `G` with
+  `net(G) − net(0) = net_bonus`, found by bisection on the full net function (60 fixed
+  iterations), so `G` may cross a bracket or the NI threshold. `G` is **not rounded**
+  (439.9085, 473.2160); the employee nets exactly 250. Method `gross` adds `gross_amount`.
+- **Family track**: `employee_share = gap_split_employee × max(0, car cost − group budget)`,
+  deducted from net (taxable income is unchanged). The car cost is the catalog's
+  `monthly_company_cost`.
+- **Participation** for a new car is the catalog default unless supplied; every result records
+  its source (`employee_input`, `catalog_default`, `representative`).
+- Every result's metadata carries both tax years (tables 2025, value of use 2026) and the
+  rules version.
+
+### Exactness and rounding
+
+Nothing is rounded inside the calculation (`net_method.rounding.during: none`). The engine
+runs in a Decimal context that traps `Inexact`, so any step that would have to round raises
+instead. This is why `sum(delta_lines) == diff` holds exactly.
+
+> Values from the engine carry more digits than Python's default 28-digit Decimal context.
+> Send results out through `compass.engine.serialize.to_api_dict()` (exact values as
+> fixed-point strings, display values as ints); never do Decimal arithmetic on them outside
+> the engine. A seeded fuzz test (2,000 random profiles) checks that the engine never raises
+> anything but `MissingInputs`.
+
+Display rounding (`display: shekel`) is whole ILS, half-up, applied only at the boundary:
+
+- `display_diff = round(alternative.net) − round(today.net)`, so the numbers on screen
+  subtract correctly. This is how the reference sheet computes `net_diff` (E-003: exact
+  −1,938.681, which rounds to −1,939; shown 13,109 − 15,047 = −1,938).
+- `display_delta_lines` are the delta lines rounded by the largest-remainder method so they
+  sum exactly to `display_diff` (the waterfall chart). Whole and zero lines never move.
+- Delta lines use one convention, `net_effect`: positive = more money for the employee.
+
+### Comparison, partial diff, eligibility
+
+- `compare()` returns the exact `diff`, `delta_lines` (signed effect of each line on net) and
+  `explanation_facts` (structured, e.g. `{"kind": "family_share", "amount": 1150}`; no prose).
+- If only the contribution rates are unknown, the diff is still returned when it is the same at
+  rates 0 and 0.2 (to the agora). The nets are then `None`, `missing` lists the rates and
+  `display_diff = round(diff)`.
+- `check_eligibility()` is separate from the calculation: ineligible scenarios are still
+  calculated (shown as hypothetical). Reason codes: `car_group_within`, `car_group_higher`,
+  `family_track`, `family_track_min_children`, `waiver_allowed`, `car_mandatory`,
+  `waiver_not_allowed`, `current_arrangement`, and `needs_info` with `unknown_group`,
+  `unknown_children`, `unknown_occupation`. The group is never inferred.
+- Non-blocking `warnings` on comparisons and eligibility verdicts:
+  `group_mismatch_with_occupation` (profile group ≠ occupation group) and
+  `current_car_above_group` (today's car is from a higher group than the profile's).
+- `list_options()` lists every catalog car and the waiver (if allowed), except today's
+  arrangement: eligible first by diff, then needs_info, then not_eligible.
+
+## Rules: our additions to the official file
+
+[data/rules.yaml](data/rules.yaml) keeps every value from the official rules file. The
+updated edition of that file (see [raw/README.md](raw/README.md) for its SHA-256) officially
+confirmed most of the rules we had previously reverse-engineered: the family-track cars and
+per-car catalogue price, the pension-credit `maxContributionRate` (0.07), the contributions
+base (`gross` = base + commissions + bonus), the participation treatment (net deduction, does
+not reduce value of use) and the rounding policy (none during the calculation, whole shekel
+for display only, which also overrides our earlier `electric.rounding: ceil`).
+
+Only these values are still **our own additions**, marked `# added:` in the YAML:
 
 | Rule | Value | Basis |
 |---|---|---|
-| `net_method.contribution_base` | `[base_salary, commissions, bonus]` | Verified against all 12 reference results. Pension and study fund are not calculated on value of use, the electric gross-up or waiver maintenance. |
-| `net_method.pension_credit.max_contribution_rate` | `0.07` | Verified against the reference results. Credit = 0.35 × 0.07 × min(income, 9,500), whatever the employee's actual pension %. |
-| `electric.rounding` | `ceil` | Verified against the reference results. The gross-up is rounded up to a whole ILS (440 / 473). |
-| `electric.method: gross` + `gross_amount: 250` | option | The Excel mentions a "250 ₪ gross" alternative that the source rules file does not contain. The default stays `gross_up`. |
-| Family-track car cost **per car** | `catalog.monthly_company_cost` | Per the Excel and PDF: CARNIVAL 6,000, SANTA FE 5,600. It replaces the single `familyTrack.carPrice: 6000` in the source. |
+| `electric.method: gross` + `gross_amount: 250` | option | The Excel mentions a "250 ₪ gross" alternative that the official file does not contain. The default stays `gross_up`. |
+| `value_of_use.tax_year` | `2026` | The dataset's tax year. It has to be explicit because it differs from the net-method tables' year (`net_method.tax_year: 2025`); both appear in every engine result. |
 
 The loader rejects invalid edits and names the bad field, for example:
 

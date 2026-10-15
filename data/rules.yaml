@@ -1,9 +1,9 @@
 # Compass business rules: the single source of truth for budgets, tracks and the net method.
 #
-# Converted from raw/strauss-rules.json (version mock-2026-10-12). Every original value is kept;
-# keys are snake_case. Rules marked "# derived:" are NOT in the source file. We reverse-engineered
-# them from the reference sheet (חישובים) or took them from the Excel/PDF. Each is pending
-# organizer confirmation.
+# Converted from raw/strauss-rules.json (version mock-2026-10-12; the version string was not bumped
+# when the file was updated, so raw/README.md records its SHA-256). Every original value is kept;
+# keys are snake_case. Values marked "# added:" are NOT in the source file; they are our own
+# additions, pending organizer confirmation.
 #
 # Conventions:
 #   - Money in ILS per month. Rates are quoted strings ("0.35") and are parsed to Decimal,
@@ -29,25 +29,25 @@ choose_from: own_group_or_lower
 electric:
   # gross_up: the employer grosses up a taxable component so the employee nets exactly net_bonus.
   # gross:    a plain gross_amount is added to salary (and taxed normally).
-  # derived: per Excel ('250 ₪ ברוטו' alternative), pending organizer confirmation (option "gross")
+  # added: option "gross" per the Excel ('250 ₪ ברוטו' alternative), pending organizer confirmation
   method: gross_up
   net_bonus: 250 # used when method = gross_up
-  # derived: per Excel/PDF, pending organizer confirmation
+  # added: per Excel/PDF, pending organizer confirmation
   gross_amount: 250 # used when method = gross
-  # derived: verified against reference sheet, pending organizer confirmation
-  rounding: ceil # gross-up amount rounded UP to whole ILS (matches 440 / 473 in reference)
+  # The gross-up amount is NOT rounded (see net_method.rounding).
   note: "העובד רואה +250 ₪ נטו בדיוק; המעסיק מגלם את המס"
 
 # Family track (מסלול ברוכת ילדים).
 family_track:
   min_children: 4
   child_max_age: 23
+  # Family-track cars (catalog ids). Each must exist in the catalog with group "משפחתי"; this is
+  # checked when the engine context is built (compass/engine/context.py).
+  cars: [CAR-19, CAR-20]
+  # The car cost is per car: the catalog's monthly_company_cost (CARNIVAL 6,000, SANTA FE 5,600).
+  price_source: catalogue
   gap_split_employee: "0.5" # employee's share of (car cost - group budget); employer pays the rest
-  # derived: per Excel/PDF, pending organizer confirmation
-  # The source file had a single carPrice: 6000. The car cost is now PER CAR. It is the
-  # catalog's monthly_company_cost for cars in group "משפחתי" (CARNIVAL 6,000, SANTA FE 5,600).
-  # Note reworded for per-car cost; the original text is preserved in raw/strauss-rules.json.
-  note: "זכאים לרכב ממסלול ׳משפחתי׳; עלות הרכב לפי הקטלוג (קיה קרניבל 6,000 ₪, יונדאי סנטה פה 5,600 ₪ לחודש); על הפער מעל התקציב - העובד 50%, המעסיק 50%"
+  note: "זכאים לרכב מקבוצת ׳משפחתי׳ בקטלוג (קרניבל 6,000 ₪, סנטה פה 5,600 ₪ - העלות לפי הקטלוג, לא מספר אחד); על הפער מעל תקציב הקבוצה - העובד 50% (ניכוי נטו), המעסיק 50%"
 
 waiver:
   allowed_by: occupation # see data/occupations.json (waiver_allowed, waiver_maintenance)
@@ -87,24 +87,40 @@ net_method:
     low_rate: "0.0323"
     high_rate: "0.0517"
 
-  # derived: verified against reference sheet, pending organizer confirmation
-  # Pension and study fund are calculated on these salary components only. They are NOT
-  # calculated on value of use, the electric gross-up, or waiver maintenance.
-  contribution_base: [base_salary, commissions, bonus]
-
+  # credit = rate * max_contribution_rate * min(gross cash income, income_ceiling).
+  # It does not depend on the employee's actual pension %.
   pension_credit:
     rate: "0.35"
-    income_ceiling: 9500
-    # derived: verified against reference sheet, pending organizer confirmation
-    # credit = rate * max_contribution_rate * min(contribution income, income_ceiling).
-    # It does not depend on the employee's actual pension %.
     max_contribution_rate: "0.07"
+    income_ceiling: 9500
+    note: "זיכוי 35% על הפרשת העובד לפנסיה, עד 7% מהכנסה מזכה של 9,500 ₪ (= עד 232.75 ₪ בחודש) - לכן בכל הדוגמאות הזיכוי זהה גם כשהעובד מפריש 6%"
+
+  # Employee pension and study fund are calculated on gross cash income:
+  # base_salary + commissions + bonus. NOT on value of use, the electric gross-up or maintenance.
+  contributions_base: gross
+  contributions_note: "פנסיה וקרן השתלמות של העובד מחושבות על כל הברוטו: בסיס + עמלות + בונוס (פישוט; בפועל לעיתים על הבסיס בלבד)"
+
+  # The employee's car participation is deducted from net only; it does not reduce the taxable
+  # value of use. Only these values are supported.
+  participation:
+    treatment: net_deduction
+    reduces_value_of_use: false
+    note: "השתתפות העובד ברכב יורדת מהנטו בלבד ואינה מקטינה את שווי השימוש החייב (פישוט)"
+
+  # No rounding anywhere in the calculation (including the electric gross-up); round to a whole
+  # shekel only for display.
+  rounding:
+    during: none
+    display: shekel
+    note: "החישוב כולו ללא עיגול (כולל גילום החזר החשמל); עיגול לשקל שלם רק בתצוגה - לכן העובד מקבל 250 ₪ נטו בדיוק"
 
   note: "לוחות 2025 להמחשה; קרן השתלמות עובד - ניכוי נטו; שווי שימוש מתווסף לבסיס המס ולביטוח לאומי"
 
 # Tax Authority value-of-use dataset (data/vehicles.db).
 value_of_use:
   source: "רשות המסים - הקובץ המורחב 2026"
+  # added: tax year of the value-of-use data (the net-method tables are net_method.tax_year).
+  tax_year: 2026
   # Official lookup key (CSV headers). A commercial name alone is never enough.
   key: [שנת מס, שנת רישום, קוד סוג רכב, קוד תוצר, קוד דגם]
   # drive_code meanings. NOTE: the CSV header text disagrees with this; the data follows
