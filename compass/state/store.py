@@ -1,0 +1,521 @@
+"""Session store: repository functions over SQLite (no ORM).
+
+Every operation is one write transaction (BEGIN IMMEDIATE) that also appends the event(s)
+describing the change, so the events table is the single source for the live UI. Subscribers
+are called after commit (the API uses this to wake SSE streams).
+
+The store holds JSON only. Callers convert Decimals to strings before storing.
+"""
+
+import json
+import sqlite3
+import uuid
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict
+
+SCHEMA_VERSION = 1
+SCHEMA_SQL = Path(__file__).with_name("schema.sql")
+
+SessionStatus = Literal["active", "waiting_for_rep", "closed"]
+Role = Literal["user", "assistant", "tool", "system_event"]
+SlotState = Literal["filled", "unknown", "pending_rep"]
+SlotSource = Literal["employee", "payslip", "representative", "derived"]
+TicketStatus = Literal["open", "answered"]
+
+# Event types (payload in parentheses):
+#   session_created (status) · session_status (status) · user_message (seq, content)
+#   profile_updated (fields) · current_situation_set (scenario) · comparison_ready (comparison)
+#   ticket_opened (ticket) · ticket_answered (ticket_id, answer, fields)
+EVENT_TYPES = frozenset(
+    {
+        "session_created",
+        "session_status",
+        "user_message",
+        "assistant_message",
+        "profile_updated",
+        "current_situation_set",
+        "comparison_ready",
+        "ticket_opened",
+        "ticket_answered",
+    }
+)
+
+
+class NotFound(LookupError):
+    """No such session or ticket."""
+
+
+class StateError(ValueError):
+    """The operation does not fit the current state (e.g. answering an answered ticket)."""
+
+
+class _Model(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+
+class Slot(_Model):
+    field: str
+    value: Any  # JSON; None unless state == "filled"
+    state: SlotState
+    source: SlotSource
+    updated_at: str
+
+
+class SlotUpdate(_Model):
+    value: Any = None
+    state: SlotState = "filled"
+    source: SlotSource
+
+
+class Event(_Model):
+    session_id: str
+    seq: int
+    type: str
+    payload: Any
+    created_at: str
+
+
+class Message(_Model):
+    seq: int
+    role: Role
+    content: Any
+    created_at: str
+
+
+class Ticket(_Model):
+    id: str
+    session_id: str
+    question: str
+    context: Any
+    blocking_fields: list[str]
+    quick_answers: list[Any]
+    status: TicketStatus
+    answer: Any
+    created_at: str
+    answered_at: str | None
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat(timespec="milliseconds")
+
+
+def _dump(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+class Store:
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.subscribers: list[Callable[[Event], None]] = []
+        path.parent.mkdir(parents=True, exist_ok=True)
+        conn = self._connect()
+        try:
+            conn.executescript(SCHEMA_SQL.read_text(encoding="utf-8"))
+            row = conn.execute("SELECT version FROM schema_version").fetchone()
+            if row is None:
+                conn.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
+            elif row[0] != SCHEMA_VERSION:
+                raise StateError(
+                    f"{path}: schema version {row[0]}, expected {SCHEMA_VERSION}; "
+                    "delete the file to recreate it"
+                )
+        finally:
+            conn.close()
+
+    # --- plumbing ---------------------------------------------------------------------------
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.path, isolation_level=None, timeout=10)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA busy_timeout = 10000")
+        return conn
+
+    @contextmanager
+    def _write(self) -> Iterator[tuple[sqlite3.Connection, list[Event]]]:
+        """One write transaction; events appended in it are published after commit."""
+        conn = self._connect()
+        events: list[Event] = []
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                yield conn, events
+            except BaseException:
+                conn.execute("ROLLBACK")
+                raise
+            conn.execute("COMMIT")
+        finally:
+            conn.close()
+        for event in events:
+            for subscriber in list(self.subscribers):
+                subscriber(event)
+
+    @contextmanager
+    def _read(self) -> Iterator[sqlite3.Connection]:
+        conn = self._connect()
+        try:
+            yield conn
+        finally:
+            conn.close()
+
+    @staticmethod
+    def _require_session(conn: sqlite3.Connection, session_id: str) -> sqlite3.Row:
+        row = conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
+        if row is None:
+            raise NotFound(f"session {session_id!r} not found")
+        return row
+
+    @staticmethod
+    def _event(
+        conn: sqlite3.Connection, events: list[Event], session_id: str, type_: str, payload: Any
+    ) -> Event:
+        if type_ not in EVENT_TYPES:
+            raise ValueError(f"unknown event type {type_!r}")
+        seq = conn.execute(
+            "SELECT COALESCE(MAX(seq), 0) + 1 FROM events WHERE session_id = ?", (session_id,)
+        ).fetchone()[0]
+        now = _now()
+        conn.execute(
+            "INSERT INTO events (session_id, seq, type, payload_json, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (session_id, seq, type_, _dump(payload), now),
+        )
+        conn.execute("UPDATE sessions SET updated_at = ? WHERE id = ?", (now, session_id))
+        event = Event(session_id=session_id, seq=seq, type=type_, payload=payload, created_at=now)
+        events.append(event)
+        return event
+
+    @staticmethod
+    def _set_status(
+        conn: sqlite3.Connection,
+        events: list[Event],
+        session_id: str,
+        status: SessionStatus,
+    ) -> None:
+        current = Store._require_session(conn, session_id)["status"]
+        if current != status:
+            conn.execute("UPDATE sessions SET status = ? WHERE id = ?", (status, session_id))
+            Store._event(conn, events, session_id, "session_status", {"status": status})
+
+    @staticmethod
+    def _upsert_slots(
+        conn: sqlite3.Connection, session_id: str, updates: Mapping[str, SlotUpdate]
+    ) -> None:
+        now = _now()
+        for field, update in updates.items():
+            value = update.value if update.state == "filled" else None
+            conn.execute(
+                "INSERT INTO profile_slots (session_id, field, value_json, state, source, "
+                "updated_at) VALUES (?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT (session_id, field) DO UPDATE SET value_json = excluded.value_json, "
+                "state = excluded.state, source = excluded.source, "
+                "updated_at = excluded.updated_at",
+                (session_id, field, _dump(value), update.state, update.source, now),
+            )
+
+    # --- sessions ---------------------------------------------------------------------------
+
+    def create_session(self) -> str:
+        session_id = uuid.uuid4().hex
+        now = _now()
+        with self._write() as (conn, events):
+            conn.execute(
+                "INSERT INTO sessions (id, created_at, updated_at, status) VALUES (?, ?, ?, ?)",
+                (session_id, now, now, "active"),
+            )
+            self._event(conn, events, session_id, "session_created", {"status": "active"})
+        return session_id
+
+    def session_status(self, session_id: str) -> SessionStatus:
+        with self._read() as conn:
+            return self._require_session(conn, session_id)["status"]
+
+    def set_status(self, session_id: str, status: SessionStatus) -> None:
+        with self._write() as (conn, events):
+            self._set_status(conn, events, session_id, status)
+
+    # --- messages ---------------------------------------------------------------------------
+
+    def add_message(self, session_id: str, role: Role, content: Any) -> int:
+        """Store a message; user and assistant messages also append an event."""
+        with self._write() as (conn, events):
+            self._require_session(conn, session_id)
+            seq = conn.execute(
+                "SELECT COALESCE(MAX(seq), 0) + 1 FROM messages WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()[0]
+            conn.execute(
+                "INSERT INTO messages (session_id, seq, role, content_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (session_id, seq, role, _dump(content), _now()),
+            )
+            if role in ("user", "assistant"):
+                payload = {"message_seq": seq, "content": content}
+                self._event(conn, events, session_id, f"{role}_message", payload)
+        return seq
+
+    def messages(self, session_id: str) -> list[Message]:
+        with self._read() as conn:
+            self._require_session(conn, session_id)
+            return self._messages(conn, session_id)
+
+    @staticmethod
+    def _messages(conn: sqlite3.Connection, session_id: str) -> list[Message]:
+        rows = conn.execute(
+            "SELECT * FROM messages WHERE session_id = ? ORDER BY seq", (session_id,)
+        ).fetchall()
+        return [
+            Message(
+                seq=r["seq"],
+                role=r["role"],
+                content=json.loads(r["content_json"]),
+                created_at=r["created_at"],
+            )
+            for r in rows
+        ]
+
+    # --- profile slots ----------------------------------------------------------------------
+
+    def update_slots(self, session_id: str, updates: Mapping[str, SlotUpdate]) -> None:
+        if not updates:
+            return
+        with self._write() as (conn, events):
+            self._require_session(conn, session_id)
+            self._upsert_slots(conn, session_id, updates)
+            fields = {
+                field: {"state": u.state, "source": u.source, "value": u.value}
+                for field, u in updates.items()
+            }
+            self._event(conn, events, session_id, "profile_updated", {"fields": fields})
+
+    def slots(self, session_id: str) -> dict[str, Slot]:
+        with self._read() as conn:
+            self._require_session(conn, session_id)
+            return self._slots(conn, session_id)
+
+    @staticmethod
+    def _slots(conn: sqlite3.Connection, session_id: str) -> dict[str, Slot]:
+        rows = conn.execute(
+            "SELECT * FROM profile_slots WHERE session_id = ? ORDER BY field", (session_id,)
+        ).fetchall()
+        return {
+            r["field"]: Slot(
+                field=r["field"],
+                value=json.loads(r["value_json"]),
+                state=r["state"],
+                source=r["source"],
+                updated_at=r["updated_at"],
+            )
+            for r in rows
+        }
+
+    # --- scenarios --------------------------------------------------------------------------
+
+    def set_today(self, session_id: str, payload: Any) -> None:
+        with self._write() as (conn, events):
+            self._require_session(conn, session_id)
+            self._put_scenario(conn, session_id, "today", payload)
+            self._event(conn, events, session_id, "current_situation_set", {"scenario": payload})
+
+    @staticmethod
+    def _put_scenario(conn: sqlite3.Connection, session_id: str, kind: str, payload: Any) -> None:
+        conn.execute(
+            "INSERT INTO scenarios (session_id, kind, payload_json, updated_at) "
+            "VALUES (?, ?, ?, ?) ON CONFLICT (session_id, kind) DO UPDATE SET "
+            "payload_json = excluded.payload_json, updated_at = excluded.updated_at",
+            (session_id, kind, _dump(payload), _now()),
+        )
+
+    def scenarios(self, session_id: str) -> dict[str, Any]:
+        with self._read() as conn:
+            self._require_session(conn, session_id)
+            return self._scenarios(conn, session_id)
+
+    @staticmethod
+    def _scenarios(conn: sqlite3.Connection, session_id: str) -> dict[str, Any]:
+        rows = conn.execute(
+            "SELECT kind, payload_json FROM scenarios WHERE session_id = ? ORDER BY kind",
+            (session_id,),
+        ).fetchall()
+        return {r["kind"]: json.loads(r["payload_json"]) for r in rows}
+
+    def record_comparison(self, session_id: str, alternative: Any, comparison: Any) -> str:
+        """Store the alternative (reusing its kind if it was compared before) and append
+        comparison_ready with the full comparison: the session's last comparison."""
+        with self._write() as (conn, events):
+            self._require_session(conn, session_id)
+            rows = conn.execute(
+                "SELECT kind, payload_json FROM scenarios WHERE session_id = ? "
+                "AND kind LIKE 'alternative:%'",
+                (session_id,),
+            ).fetchall()
+            existing = {r["payload_json"]: r["kind"] for r in rows}
+            kind = existing.get(_dump(alternative))
+            if kind is None:
+                kind = f"alternative:{len(rows) + 1}"
+            self._put_scenario(conn, session_id, kind, alternative)
+            payload = {"alternative_kind": kind, "comparison": comparison}
+            self._event(conn, events, session_id, "comparison_ready", payload)
+        return kind
+
+    # --- tickets ----------------------------------------------------------------------------
+
+    def open_ticket(
+        self,
+        session_id: str,
+        question: str,
+        context: Any,
+        blocking_fields: Sequence[str],
+        quick_answers: Sequence[Any],
+    ) -> Ticket:
+        """Create a ticket, mark its blocking slots pending_rep, and wait for the representative."""
+        ticket_id = uuid.uuid4().hex
+        now = _now()
+        with self._write() as (conn, events):
+            self._require_session(conn, session_id)
+            conn.execute(
+                "INSERT INTO tickets (id, session_id, question, context_json, "
+                "blocking_fields_json, quick_answers_json, status, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, 'open', ?)",
+                (
+                    ticket_id,
+                    session_id,
+                    question,
+                    _dump(context),
+                    _dump(list(blocking_fields)),
+                    _dump(list(quick_answers)),
+                    now,
+                ),
+            )
+            pending = {
+                f: SlotUpdate(state="pending_rep", source="representative") for f in blocking_fields
+            }
+            self._upsert_slots(conn, session_id, pending)
+            ticket = self._ticket(conn, ticket_id)
+            self._event(conn, events, session_id, "ticket_opened", {"ticket": ticket.model_dump()})
+            self._set_status(conn, events, session_id, "waiting_for_rep")
+        return ticket
+
+    def answer_ticket(self, ticket_id: str, answer: Any, values: Mapping[str, Any]) -> Ticket:
+        """Fill the given slots (source representative), close the ticket, resume the session."""
+        with self._write() as (conn, events):
+            ticket = self._ticket(conn, ticket_id)
+            if ticket.status != "open":
+                raise StateError(f"ticket {ticket_id} is already {ticket.status}")
+            filled = {f: SlotUpdate(value=v, source="representative") for f, v in values.items()}
+            self._upsert_slots(conn, ticket.session_id, filled)
+            conn.execute(
+                "UPDATE tickets SET status = 'answered', answer_json = ?, answered_at = ? "
+                "WHERE id = ?",
+                (_dump(answer), _now(), ticket_id),
+            )
+            payload = {"ticket_id": ticket_id, "answer": answer, "fields": dict(values)}
+            self._event(conn, events, ticket.session_id, "ticket_answered", payload)
+            self._set_status(conn, events, ticket.session_id, "active")
+            return self._ticket(conn, ticket_id)
+
+    @staticmethod
+    def _ticket(conn: sqlite3.Connection, ticket_id: str) -> Ticket:
+        row = conn.execute("SELECT * FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+        if row is None:
+            raise NotFound(f"ticket {ticket_id!r} not found")
+        return Store._ticket_from_row(row)
+
+    @staticmethod
+    def _ticket_from_row(row: sqlite3.Row) -> Ticket:
+        return Ticket(
+            id=row["id"],
+            session_id=row["session_id"],
+            question=row["question"],
+            context=json.loads(row["context_json"]),
+            blocking_fields=json.loads(row["blocking_fields_json"]),
+            quick_answers=json.loads(row["quick_answers_json"]),
+            status=row["status"],
+            answer=None if row["answer_json"] is None else json.loads(row["answer_json"]),
+            created_at=row["created_at"],
+            answered_at=row["answered_at"],
+        )
+
+    def ticket(self, ticket_id: str) -> Ticket:
+        with self._read() as conn:
+            return self._ticket(conn, ticket_id)
+
+    def tickets(
+        self, status: TicketStatus | None = None, session_id: str | None = None
+    ) -> list[Ticket]:
+        with self._read() as conn:
+            return self._tickets(conn, status, session_id)
+
+    @staticmethod
+    def _tickets(
+        conn: sqlite3.Connection, status: TicketStatus | None, session_id: str | None
+    ) -> list[Ticket]:
+        where: list[str] = []
+        params: list[str] = []
+        if status is not None:
+            where.append("status = ?")
+            params.append(status)
+        if session_id is not None:
+            where.append("session_id = ?")
+            params.append(session_id)
+        sql = "SELECT * FROM tickets"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        rows = conn.execute(sql + " ORDER BY created_at, id", params).fetchall()
+        return [Store._ticket_from_row(r) for r in rows]
+
+    # --- events -----------------------------------------------------------------------------
+
+    def events_after(self, session_id: str, after_seq: int = 0) -> list[Event]:
+        with self._read() as conn:
+            self._require_session(conn, session_id)
+            rows = conn.execute(
+                "SELECT * FROM events WHERE session_id = ? AND seq > ? ORDER BY seq",
+                (session_id, after_seq),
+            ).fetchall()
+        return [
+            Event(
+                session_id=r["session_id"],
+                seq=r["seq"],
+                type=r["type"],
+                payload=json.loads(r["payload_json"]),
+                created_at=r["created_at"],
+            )
+            for r in rows
+        ]
+
+    # --- snapshot ---------------------------------------------------------------------------
+
+    def snapshot(self, session_id: str) -> dict[str, Any]:
+        """Everything the UI needs to restore after a refresh, read in one transaction."""
+        with self._read() as conn:
+            conn.execute("BEGIN")  # one consistent read
+            session = self._require_session(conn, session_id)
+            last = conn.execute(
+                "SELECT MAX(seq) FROM events WHERE session_id = ?", (session_id,)
+            ).fetchone()[0]
+            comparison = conn.execute(
+                "SELECT payload_json FROM events WHERE session_id = ? AND type = "
+                "'comparison_ready' ORDER BY seq DESC LIMIT 1",
+                (session_id,),
+            ).fetchone()
+            snapshot = {
+                "id": session_id,
+                "status": session["status"],
+                "created_at": session["created_at"],
+                "updated_at": session["updated_at"],
+                "messages": [m.model_dump() for m in self._messages(conn, session_id)],
+                "slots": {f: s.model_dump() for f, s in self._slots(conn, session_id).items()},
+                "scenarios": self._scenarios(conn, session_id),
+                "open_tickets": [t.model_dump() for t in self._tickets(conn, "open", session_id)],
+                "last_comparison": None if comparison is None else json.loads(comparison[0]),
+                "last_event_seq": last or 0,
+            }
+            conn.execute("COMMIT")
+        return snapshot
