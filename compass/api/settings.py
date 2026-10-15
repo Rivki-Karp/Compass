@@ -21,6 +21,26 @@ def _path(value: str | None, default: Path) -> Path:
     return path if path.is_absolute() else REPO_ROOT / path
 
 
+DEFAULT_MODEL = "claude-sonnet-5-5"
+DEFAULT_MAX_TOOL_ROUNDS = 8
+
+
+class SettingsError(ValueError):
+    """A setting in .env or the environment has an invalid value."""
+
+
+def _positive_int(value: str | None, name: str) -> int:
+    if not value:
+        return DEFAULT_MAX_TOOL_ROUNDS
+    try:
+        number = int(value)
+    except ValueError:
+        raise SettingsError(f"{name} must be a whole number (got {value!r})") from None
+    if number < 1:
+        raise SettingsError(f"{name} must be at least 1 (got {number})")
+    return number
+
+
 DEFAULT_CORS_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")  # Vite dev server
 
 
@@ -37,11 +57,19 @@ class Settings:
     # Shared bearer tokens. Unset -> the guarded endpoints answer 503 (never open by default).
     rep_token: str | None = field(default=None, repr=False)  # /api/tickets*
     admin_token: str | None = field(default=None, repr=False)  # /api/admin/*
+    # The agent (Claude). No key -> the API runs with NullAgentRunner; chat/eval refuse to start.
+    anthropic_api_key: str | None = field(default=None, repr=False)  # never printed
+    model: str = DEFAULT_MODEL
+    max_tool_rounds: int = DEFAULT_MAX_TOOL_ROUNDS
 
     @classmethod
     def from_env(cls, env_file: Path | None = ENV_FILE) -> "Settings":
         file_values = {} if env_file is None or not env_file.is_file() else dotenv_values(env_file)
-        env = {k: v for k, v in file_values.items() if v is not None} | dict(os.environ)
+        # The real environment wins; an empty variable counts as unset (so `KEY=` in a shell
+        # doesn't hide the value in .env).
+        env = {k: v for k, v in file_values.items() if v} | {
+            k: v for k, v in os.environ.items() if v
+        }
         origins = env.get("COMPASS_CORS_ORIGINS")
         return cls(
             app_db=_path(env.get("COMPASS_APP_DB"), APP_DB),
@@ -49,6 +77,11 @@ class Settings:
             dev_tools=env.get("COMPASS_DEV_TOOLS") == "1",
             rep_token=env.get("COMPASS_REP_TOKEN") or None,
             admin_token=env.get("COMPASS_ADMIN_TOKEN") or None,
+            anthropic_api_key=env.get("ANTHROPIC_API_KEY") or None,
+            model=env.get("COMPASS_MODEL") or DEFAULT_MODEL,
+            max_tool_rounds=_positive_int(
+                env.get("COMPASS_MAX_TOOL_ROUNDS"), "COMPASS_MAX_TOOL_ROUNDS"
+            ),
             cors_origins=tuple(o.strip() for o in origins.split(","))
             if origins
             else DEFAULT_CORS_ORIGINS,

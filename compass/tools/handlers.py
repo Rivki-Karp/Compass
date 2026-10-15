@@ -29,6 +29,7 @@ from compass.engine.serialize import plain_json, to_api_dict
 from compass.search import SearchResult
 from compass.state import Slot, SlotUpdate
 from compass.tools.profile import (
+    ALTERNATIVE_PARTICIPATION,
     CURRENT_PARTICIPATION,
     PAYSLIP_FIELDS,
     PROFILE_FIELDS,
@@ -37,6 +38,7 @@ from compass.tools.profile import (
     FieldError,
     alternative_participation,
     is_fillable,
+    is_participation,
     profile_from_slots,
     slot_name,
     to_slot_value,
@@ -194,6 +196,13 @@ def save_profile(services: Services, session_id: str, data: SaveProfileInput) ->
         "warnings": _warnings(services, session_id),
     }
     summary["payslip_fields_unknown"] = [f for f in PAYSLIP_FIELDS if f in summary["unknown"]]
+    # The group in effect and its budget (from the rules), so the agent can state what was
+    # derived ("קבוצה ב', תקציב 3,700 ₪") without another tool call.
+    group = slots.get("group")
+    filled = group is not None and group.state == "filled"
+    summary["group"] = group.value if filled else None
+    summary["group_source"] = group.source if filled else None
+    summary["group_budget"] = plain_json(ctx.rules.budgets[group.value]) if filled else None
     if occupation_error is not None:  # partial success: the rest was saved
         occupation_error.details["partial_result"] = summary
         raise occupation_error
@@ -357,19 +366,40 @@ class AlternativeInput(_Input):
     kind: Literal["car", "waiver"]
     car_id: str | None = Field(None, description="Catalog id, for kind = car")
     participation: Decimal | None = Field(
-        None, ge=0, description="Only if the employee or a representative stated it"
+        None,
+        ge=0,
+        description=(
+            "Only if the employee stated it. Omit it after a representative's answer: the "
+            "answer is applied automatically"
+        ),
     )
     maintenance: Decimal | None = Field(
-        None, gt=0, description="Waiver maintenance quoted by a representative"
+        None,
+        gt=0,
+        description=(
+            "Only when a representative quoted a waiver maintenance amount. Omit it otherwise: "
+            "the occupation's maintenance is used automatically (do not copy it from "
+            "lookup_occupation; an amount equal to the occupation's counts as the occupation's)"
+        ),
     )
 
 
-def _alternative(services: Services, data: AlternativeInput) -> Scenario:
+def _occupation_maintenance(services: Services, session_id: str) -> Decimal | None:
+    title = _profile(services, session_id).occupation
+    occupation = None if title is None else services.ctx.occupations.get(title)
+    return None if occupation is None else occupation.waiver_maintenance
+
+
+def _alternative(services: Services, session_id: str, data: AlternativeInput) -> Scenario:
     ctx = services.ctx
     if data.kind == "waiver":
         if data.car_id is not None or data.participation is not None:
             raise ToolError("invalid_input", "a waiver has no car_id or participation")
-        if data.maintenance is None:
+        # An amount equal to the occupation's is the occupation's: only a different amount
+        # was quoted by a representative. The source must not depend on how the model calls.
+        if data.maintenance is None or data.maintenance == _occupation_maintenance(
+            services, session_id
+        ):
             return Waiver()
         return Waiver(maintenance=data.maintenance, maintenance_source="representative")
     if data.car_id is None or data.car_id not in ctx.catalog:
@@ -394,7 +424,7 @@ class CheckEligibilityInput(_Input):
 def check_eligibility(
     services: Services, session_id: str, data: CheckEligibilityInput
 ) -> dict[str, Any]:
-    scenario = _alternative(services, data.scenario)
+    scenario = _alternative(services, session_id, data.scenario)
     verdict = to_api_dict(
         engine_eligibility(_profile(services, session_id), scenario, services.ctx),
         services.ctx.rules,
@@ -420,7 +450,9 @@ def _with_participation(
 ) -> tuple[Scenario, dict[str, Any]]:
     """Apply a representative's participation answer to a car scenario.
 
-    - explicit participation in the call wins (employee input);
+    - explicit participation in the call wins (employee input), unless it equals the
+      representative's answer: then it is that answer (the source must not depend on whether
+      the model repeats the amount);
     - a filled slot (the representative answered) -> that amount, source representative;
     - an open ticket blocking it (pending_rep) -> the catalog default for now, flagged
       pending_rep, never silently final.
@@ -429,7 +461,11 @@ def _with_participation(
         return scenario, {"field": None, "pending_rep": False, "effective_from": None}
     slot = slots.get(field)
     info: dict[str, Any] = {"field": field, "pending_rep": False, "effective_from": None}
-    if explicit or slot is None:
+    if slot is None:
+        return scenario, info
+    if explicit and not (
+        slot.state == "filled" and Decimal(slot.value["amount"]) == scenario.participation
+    ):
         return scenario, info
     if slot.state == "pending_rep":
         info["pending_rep"] = True
@@ -457,14 +493,26 @@ def _today_for_engine(
 
 
 def compare(services: Services, session_id: str, data: CompareInput) -> dict[str, Any]:
+    scenario, payload = _comparison(
+        services,
+        session_id,
+        _alternative(services, session_id, data.alternative),
+        explicit=data.alternative.participation is not None,
+    )
+    kind = services.store.record_comparison(session_id, scenario.model_dump(mode="json"), payload)
+    return {"alternative_kind": kind, **payload}
+
+
+def _comparison(
+    services: Services, session_id: str, alternative: Scenario, explicit: bool
+) -> tuple[Scenario, dict[str, Any]]:
+    """The compare payload for one alternative, with participation resolved from the slots."""
     ctx = services.ctx
     slots = services.store.slots(session_id)
     today, today_info = _today_for_engine(services, session_id, slots)
+    car_id = getattr(alternative, "car_id", None) or ""
     scenario, alt_info = _with_participation(
-        _alternative(services, data.alternative),
-        slots,
-        alternative_participation(data.alternative.car_id or ""),
-        explicit=data.alternative.participation is not None,
+        alternative, slots, alternative_participation(car_id), explicit=explicit
     )
     profile = profile_from_slots(slots)
     try:
@@ -489,8 +537,7 @@ def compare(services: Services, session_id: str, data: CompareInput) -> dict[str
             "effective_from": today_info["effective_from"],
         },
     }
-    kind = services.store.record_comparison(session_id, scenario.model_dump(mode="json"), payload)
-    return {"alternative_kind": kind, **payload}
+    return scenario, payload
 
 
 # --- 7. list_options --------------------------------------------------------------------------
@@ -540,6 +587,11 @@ def list_options(services: Services, session_id: str, data: ListOptionsInput) ->
         )
         data_out["pending_rep"] = info.get("pending_rep", False)
         data_out["participation_effective_from"] = info.get("effective_from")
+        # Catalog facts, so the agent can offer same-drive alternatives without lookups.
+        car = ctx.catalog.get(getattr(option.scenario, "car_id", ""))
+        data_out["commercial_name"] = None if car is None else car.commercial_name
+        data_out["group"] = None if car is None else car.group
+        data_out["drive"] = None if car is None else car.drive
     return {"options": listed}
 
 
@@ -654,4 +706,58 @@ def ask_representative(
         [qa.model_dump() for qa in data.quick_answers],
         pending_slots=[slot_name(f) for f in data.blocking_fields],
     )
+    _recompute_as_pending(services, session_id, ticket.id, data.blocking_fields)
     return {"ticket_id": ticket.id, "status": ticket.status, "context": context}
+
+
+def _uses_catalog_default(payload: Mapping[str, Any], field: str) -> bool | None:
+    """Whether this comparison used `field` at the catalog default (None: it didn't use it)."""
+    if field == CURRENT_PARTICIPATION:
+        return payload["today_participation"]["source"] == "catalog_default"
+    if payload["alternative"].get("car_id") != field.removeprefix(ALTERNATIVE_PARTICIPATION):
+        return None
+    return payload["participation_source"] == "catalog_default"
+
+
+def _recompute_as_pending(
+    services: Services, session_id: str, ticket_id: str, fields: list[str]
+) -> None:
+    """A comparison shown at a catalog default must not stay final once a ticket asks for that
+    participation, whatever order the model called the tools in. Recompute the latest
+    comparison that used the field (same alternative, no model call) and append it as a
+    server-emitted comparison_ready with pending_rep. compare's own result is unchanged."""
+    comparisons = [
+        e for e in services.store.events_after(session_id) if e.type == "comparison_ready"
+    ]
+    targets: dict[int, str] = {}  # event seq -> the field it waits for
+    for field in fields:
+        if not is_participation(field):
+            continue
+        for event in reversed(comparisons):  # the latest comparison that used the field
+            used = _uses_catalog_default(event.payload, field)
+            if used is not None:
+                if used:
+                    targets.setdefault(event.seq, field)
+                break
+    for seq, field in sorted(targets.items()):
+        event = next(e for e in comparisons if e.seq == seq)
+        try:
+            scenario, payload = _comparison(
+                services,
+                session_id,
+                SCENARIO.validate_python(event.payload["alternative"]),
+                explicit=False,
+            )
+        except ToolError:  # the profile changed since and no longer computes: nothing to redo
+            continue
+        services.store.record_comparison(
+            session_id,
+            scenario.model_dump(mode="json"),
+            {
+                **payload,
+                "origin": "server",
+                "recomputed_from": seq,
+                "ticket_id": ticket_id,
+                "pending_field": field,
+            },
+        )

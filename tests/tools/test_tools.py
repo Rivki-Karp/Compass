@@ -327,6 +327,41 @@ def test_alternative_validation(runner: ToolRunner, sid: str) -> None:
     )
 
 
+def test_waiver_maintenance_equal_to_the_occupation_is_the_occupation(
+    runner: ToolRunner, sid: str
+) -> None:
+    # The live walkthrough: the model copied the developer's 1,500 into compare.
+    _ready(runner, sid)
+    implicit = ok(runner.run(sid, "compare", {"alternative": {"kind": "waiver"}}))
+    explicit = ok(
+        runner.run(sid, "compare", {"alternative": {"kind": "waiver", "maintenance": 1500}})
+    )
+    for result in (implicit, explicit):
+        alternative = result["comparison"]["alternative"]
+        assert alternative["metadata"]["maintenance_source"] == "occupation"
+        assert alternative["display"]["net"] == 13914
+    assert explicit["comparison"]["display_diff"] == implicit["comparison"]["display_diff"]
+    eligibility = ok(
+        runner.run(sid, "check_eligibility", {"scenario": {"kind": "waiver", "maintenance": 1500}})
+    )
+    assert eligibility["eligibility"]["status"] == "eligible"
+
+
+def test_waiver_maintenance_without_an_occupation_is_the_representatives(
+    runner: ToolRunner, sid: str
+) -> None:
+    # No occupation to match: an explicit amount can only be a representative's quote.
+    profile = {k: v for k, v in DEVELOPER.items() if k != "occupation_query"}
+    ok(runner.run(sid, "save_profile", {**profile, "group": "ב"}))
+    ok(runner.run(sid, "set_current_situation", COROLLA_CROSS_TODAY))
+    result = ok(
+        runner.run(sid, "compare", {"alternative": {"kind": "waiver", "maintenance": 1500}})
+    )
+    assert result["comparison"]["alternative"]["metadata"]["maintenance_source"] == (
+        "representative"
+    )
+
+
 def test_list_options(runner: ToolRunner, sid: str) -> None:
     err(runner.run(sid, "list_options", {}), "missing_inputs")
     _ready(runner, sid)
@@ -401,3 +436,42 @@ def test_ask_representative_validation(runner: ToolRunner, sid: str) -> None:
         "quick_answers": [{"id": "a", "label": "x", "values": {"pension_percent": 50}}],
     }
     err(runner.run(sid, "ask_representative", bad_quick), "invalid_input")
+
+
+# --- additive fields for the agent ------------------------------------------------------------
+
+
+def test_save_profile_reports_group_and_budget(runner: ToolRunner, sid: str) -> None:
+    result = ok(runner.run(sid, "save_profile", DEVELOPER))
+    assert (result["group"], result["group_source"], result["group_budget"]) == (
+        "ב",
+        "derived",
+        "3700",
+    )
+    stated = ok(runner.run(sid, "save_profile", {"group": "ג"}))
+    assert (stated["group"], stated["group_source"], stated["group_budget"]) == (
+        "ג",
+        "employee",
+        "4500",
+    )
+
+
+def test_save_profile_without_group(runner: ToolRunner, sid: str) -> None:
+    result = ok(runner.run(sid, "save_profile", {"base_salary": 9000}))
+    assert result["group"] is None and result["group_budget"] is None
+    assert result["group_source"] is None
+
+
+def test_list_options_carries_catalog_facts(runner: ToolRunner, sid: str) -> None:
+    _ready(runner, sid)
+    options = ok(runner.run(sid, "list_options", {}))["options"]
+    by_car = {o["scenario"].get("car_id"): o for o in options}
+    atto = by_car["CAR-10"]
+    assert (atto["commercial_name"], atto["group"], atto["drive"]) == ("ATTO 3", "ג", "electric")
+    assert by_car["CAR-19"]["group"] == "משפחתי"
+    waiver = by_car[None]
+    assert (waiver["commercial_name"], waiver["group"], waiver["drive"]) == (None, None, None)
+    # Existing fields are unchanged.
+    assert {"scenario", "eligibility", "comparison", "participation_source", "pending_rep"} <= set(
+        atto
+    )

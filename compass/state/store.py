@@ -42,6 +42,12 @@ EVENT_TYPES = frozenset(
         "comparison_ready",
         "ticket_opened",
         "ticket_answered",
+        # The agent (Day 3): live progress for the UI and judges mode.
+        "agent_started",
+        "tool_call",
+        "tool_result",
+        "guard_check",
+        "agent_error",
     }
 )
 
@@ -242,8 +248,11 @@ class Store:
 
     # --- messages ---------------------------------------------------------------------------
 
-    def add_message(self, session_id: str, role: Role, content: Any) -> int:
-        """Store a message; user and assistant messages also append an event."""
+    def add_message(
+        self, session_id: str, role: Role, content: Any, emit_event: bool = True
+    ) -> int:
+        """Store a message; user and assistant messages also append an event unless
+        `emit_event` is False (the agent's transcript rows: it emits its own events)."""
         with self._write() as (conn, events):
             self._require_session(conn, session_id)
             seq = conn.execute(
@@ -255,10 +264,16 @@ class Store:
                 "VALUES (?, ?, ?, ?, ?)",
                 (session_id, seq, role, _dump(content), _now()),
             )
-            if role in ("user", "assistant"):
+            if emit_event and role in ("user", "assistant"):
                 payload = {"message_seq": seq, "content": content}
                 self._event(conn, events, session_id, f"{role}_message", payload)
         return seq
+
+    def append_event(self, session_id: str, type_: str, payload: Any) -> Event:
+        """Append one event (a known type) to the session's log."""
+        with self._write() as (conn, events):
+            self._require_session(conn, session_id)
+            return self._event(conn, events, session_id, type_, payload)
 
     def messages(self, session_id: str) -> list[Message]:
         with self._read() as conn:

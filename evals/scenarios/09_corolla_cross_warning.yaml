@@ -1,0 +1,26 @@
+name: corolla_cross_warning
+description: 'Developer in ב with COROLLA CROSS 2025: the warning is a question; the group stays ב'
+turns:
+- employee: אני מפתחת תוכנה. שכר בסיס 18,500, אין לי עמלות או בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%, 3
+    נקודות זיכוי. היום יש לי קורולה קרוס 2025 ואני משתתפת ב-300 ₪.
+checks:
+- tool_called:
+    name: set_current_situation
+    ok: true
+    result:
+      warnings:
+      - code: current_car_above_group
+- slot:
+    field: group
+    value: ב
+    source: derived
+- tool_not_called:
+    name: save_profile
+    input:
+      group: ג
+- reply:
+    turn: 0
+    matches:
+    - ג'|ג׳|קבוצה ג
+    - אישור|נציג
+    - \?

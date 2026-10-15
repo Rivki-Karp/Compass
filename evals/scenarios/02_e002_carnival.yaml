@@ -1,0 +1,15 @@
+name: e002_carnival
+description: 'Golden E-002: NIRO -> CARNIVAL on the family track (-3,522)'
+turns:
+- employee: אני דוד, נציג מכירות שטח. שכר בסיס 9,800, עמלות 2,400 בחודש, אין בונוסים. פנסיה 6%, אין לי
+    קרן השתלמות (0%), 2.25 נקודות זיכוי. היום יש לי קיה נירו 2025 ואני משתתף ב-250 ₪. יש לי 5 ילדים מתחת
+    לגיל 23. אם אקח קרניבל במסלול ברוכת ילדים - מה יקרה לנטו?
+until_compare: true
+checks:
+- comparison:
+    alternative:
+      kind: car
+      car_id: CAR-19
+    today_net: 8600
+    alternative_net: 5078
+    diff: -3522

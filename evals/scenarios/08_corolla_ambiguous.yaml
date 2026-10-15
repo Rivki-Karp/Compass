@@ -1,0 +1,15 @@
+name: corolla_ambiguous
+description: '"קורולה" alone: the agent asks regular or Cross and does not pick'
+turns:
+- employee: אני מפתח תוכנה. שכר בסיס 18,500, אין לי עמלות או בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%, 3
+    נקודות זיכוי. היום יש לי קורולה ואני משתתף ב-250 ₪.
+checks:
+- tool_called:
+    name: lookup_vehicle
+- tool_not_called:
+    name: set_current_situation
+    turn: 0
+- reply:
+    turn: 0
+    matches:
+    - קרוס|CROSS|Cross

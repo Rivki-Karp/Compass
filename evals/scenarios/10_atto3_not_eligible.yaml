@@ -1,0 +1,26 @@
+name: atto3_not_eligible
+description: 'Group ב asks for ATTO 3: a clear no, eligible electric alternatives, a hypothetical offer'
+turns:
+- employee: אני מפתחת תוכנה. שכר בסיס 18,500, אין לי עמלות או בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%, 3
+    נקודות זיכוי. היום יש לי קיה נירו 2025 ואני משתתפת ב-250 ₪. אפשר לעבור ל-ATTO 3?
+checks:
+- slot:
+    field: group
+    value: ב
+- tool_not_called:
+    name: save_profile
+    input:
+      group: ג
+- tool_not_called:
+    name: compare
+    input:
+      alternative:
+        car_id: CAR-10
+    result:
+      hypothetical: false
+- reply:
+    turn: 0
+    matches:
+    - MG4|MG 4|אם ג'י
+    - KONA|קונה|DOLPHIN|דולפין
+    - היפותטי|בכפוף לאישור|אם יאושר|בתנאי|אישור

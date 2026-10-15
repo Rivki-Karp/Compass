@@ -1,0 +1,18 @@
+name: technician_waiver
+description: 'A technician (car mandatory) asks to waive: never presented as eligible'
+turns:
+- employee: אני טכנאי שירות. שכר בסיס 12,000, אין לי עמלות או בונוסים. פנסיה 6%, קרן השתלמות 2.5%, 2.25
+    נקודות זיכוי. היום יש לי פיקנטו 2025 ואני משתתף ב-200 ₪. אני רוצה לוותר על הרכב ולקבל אחזקה. כמה אקבל
+    בנטו?
+checks:
+- tool_not_called:
+    name: compare
+    input:
+      alternative:
+        kind: waiver
+    result:
+      hypothetical: false
+- reply:
+    turn: 0
+    matches:
+    - חובה|מחייב|לא ניתן|לא אפשרי|אינו זמין|לא זמין

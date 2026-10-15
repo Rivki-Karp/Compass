@@ -9,6 +9,9 @@ Usage:
     uv run python tasks.py demo E-001  # Hebrew net breakdown of a golden reference employee
     uv run python tasks.py calc      # interactive calculator: your own profile and scenarios
     uv run python tasks.py serve     # API on http://127.0.0.1:8000 (docs at /docs), auto-reload
+    uv run python tasks.py chat      # terminal chat with the agent (ANTHROPIC_API_KEY in .env)
+    uv run python tasks.py eval      # agent evals against the real model -> evals/report.md
+    uv run python tasks.py eval --only walkthrough,e001_rep_flow --repeat 3 --effort medium
     uv run python tasks.py openapi   # write openapi.json (commit it with API changes)
 """
 
@@ -65,7 +68,26 @@ def calc() -> None:
 
 
 def serve() -> None:
-    run(sys.executable, "-m", "uvicorn", "compass.api.main:app", "--reload", "--port", "8000")
+    # One process: the agent's per-session workers and locks live in memory.
+    run(
+        sys.executable,
+        "-m",
+        "uvicorn",
+        "compass.api.main:app",
+        "--reload",
+        "--workers",
+        "1",
+        "--port",
+        "8000",
+    )
+
+
+def chat() -> None:
+    run(sys.executable, "-m", "compass.agent.chat")
+
+
+def evals(*args: str) -> None:
+    run(sys.executable, "-m", "evals", *args)
 
 
 def openapi() -> None:
@@ -82,8 +104,10 @@ TASKS: dict[str, Callable[..., None]] = {
     "calc": calc,
     "serve": serve,
     "openapi": openapi,
+    "chat": chat,
+    "eval": evals,
 }
-TAKES_ARGS: set[str] = {"demo"}
+TAKES_ARGS: set[str] = {"demo", "eval"}
 
 
 def main() -> None:
