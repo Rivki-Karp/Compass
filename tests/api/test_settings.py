@@ -14,6 +14,7 @@ ENV_VARS = (
     "COMPASS_APP_DB",
     "COMPASS_RULES",
     "COMPASS_CORS_ORIGINS",
+    "COMPASS_LLM",
 )
 
 
@@ -137,3 +138,15 @@ def test_real_env_file_loads_agent_settings() -> None:
     settings = Settings.from_env()
     assert settings.max_tool_rounds >= 1
     assert (settings.anthropic_api_key or "<none>") not in repr(settings)
+
+
+def test_llm_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from compass.api.settings import SettingsError
+
+    assert Settings.from_env(env_file=None).llm == "anthropic"
+    env_file = tmp_path / ".env"
+    env_file.write_text("COMPASS_LLM=scripted\n", encoding="utf-8")
+    assert Settings.from_env(env_file=env_file).llm == "scripted"
+    monkeypatch.setenv("COMPASS_LLM", "gpt")
+    with pytest.raises(SettingsError, match="COMPASS_LLM"):
+        Settings.from_env(env_file=None)

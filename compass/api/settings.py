@@ -41,6 +41,19 @@ def _positive_int(value: str | None, name: str) -> int:
     return number
 
 
+LLM_CHOICES = ("anthropic", "scripted")
+
+
+def _llm(value: str | None) -> str:
+    """COMPASS_LLM: "anthropic" (default: Claude, needs ANTHROPIC_API_KEY) or "scripted" (demo
+    mode: the scripted model, no key, no network)."""
+    if not value:
+        return "anthropic"
+    if value not in LLM_CHOICES:
+        raise SettingsError(f"COMPASS_LLM must be one of {', '.join(LLM_CHOICES)} (got {value!r})")
+    return value
+
+
 DEFAULT_CORS_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")  # Vite dev server
 
 
@@ -61,6 +74,8 @@ class Settings:
     anthropic_api_key: str | None = field(default=None, repr=False)  # never printed
     model: str = DEFAULT_MODEL
     max_tool_rounds: int = DEFAULT_MAX_TOOL_ROUNDS
+    # "anthropic" or "scripted" (demo mode: compass/agent/demo_llm.py).
+    llm: str = "anthropic"
 
     @classmethod
     def from_env(cls, env_file: Path | None = ENV_FILE) -> "Settings":
@@ -79,6 +94,7 @@ class Settings:
             admin_token=env.get("COMPASS_ADMIN_TOKEN") or None,
             anthropic_api_key=env.get("ANTHROPIC_API_KEY") or None,
             model=env.get("COMPASS_MODEL") or DEFAULT_MODEL,
+            llm=_llm(env.get("COMPASS_LLM")),
             max_tool_rounds=_positive_int(
                 env.get("COMPASS_MAX_TOOL_ROUNDS"), "COMPASS_MAX_TOOL_ROUNDS"
             ),

@@ -1,4 +1,5 @@
-"""Build the agent for a configuration: Claude when a key is set, otherwise the null runner."""
+"""Build the agent for a configuration: the scripted demo model (COMPASS_LLM=scripted), Claude
+when a key is set, otherwise the null runner."""
 
 from compass.agent.llm import AnthropicClient, LLMClient
 from compass.agent.prompts import load_system_prompt
@@ -36,6 +37,10 @@ def build_claude_runner(
 
 
 def build_agent(settings: Settings, services: Services, tool_runner: ToolRunner) -> AgentRunner:
+    if settings.llm == "scripted":  # demo mode: only the model is scripted
+        from compass.agent.demo_llm import DemoClient
+
+        return build_claude_runner(settings, services, llm=DemoClient(), tool_runner=tool_runner)
     if not settings.anthropic_api_key:
         return NullAgentRunner()
     return build_claude_runner(settings, services, tool_runner=tool_runner)

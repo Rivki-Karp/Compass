@@ -410,6 +410,20 @@ def create_app(
             )
         return JSONResponse({"version": rules.version, "sha256": services.rules_sha256})
 
+    llm_mode = (
+        "scripted"
+        if settings.llm == "scripted"
+        else "anthropic"
+        if settings.anthropic_api_key
+        else "none"
+    )
+
+    scripts = None
+    if llm_mode == "scripted":
+        from compass.agent.demo_llm import demo_scripts  # the agent layer sits above the API
+
+        scripts = demo_scripts()
+
     @api.get("/health", tags=["admin"])
     def health() -> dict[str, Any]:
         rules = services.ctx.rules
@@ -427,6 +441,9 @@ def create_app(
                 "value_of_use_year": rules.value_of_use.tax_year,
             },
             "dev_tools": settings.dev_tools,
+            # "scripted": demo mode (the UI shows its badge and the scripts' messages).
+            "llm": llm_mode,
+            "demo_scripts": scripts,
         }
 
     app.include_router(api)
