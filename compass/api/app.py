@@ -182,7 +182,8 @@ def create_app(settings: Settings | None = None, agent: AgentRunner | None = Non
             finally:
                 broker.unsubscribe(session_id, waiter)
 
-        return EventSourceResponse(events(), ping=int(settings.heartbeat_seconds) or 15)
+        ping = max(1, round(settings.heartbeat_seconds))  # sse-starlette pings in whole seconds
+        return EventSourceResponse(events(), ping=ping)
 
     @api.post("/sessions/{session_id}/tools/{name}", tags=["dev"])
     def run_tool(

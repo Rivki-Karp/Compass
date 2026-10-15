@@ -24,6 +24,9 @@ uv run python tasks.py test      # run the tests
 uv run python tasks.py lint      # ruff check + ruff format --check
 uv run python tasks.py fmt       # apply formatting
 uv run python tasks.py demo E-001  # Hebrew breakdown of a golden employee (E-001 … E-006)
+uv run python tasks.py calc      # interactive calculator for your own numbers
+uv run python tasks.py serve     # the API on http://127.0.0.1:8000 (Swagger at /docs)
+uv run python tasks.py openapi   # regenerate openapi.json after API changes
 ```
 
 If you have `make`, `make install|data|test|lint|fmt` does the same.
@@ -41,7 +44,7 @@ compass/
   rules.py             load_rules(): validated, frozen view of data/rules.yaml
   data/
     drive.py           drive_code -> petrol|hybrid|plugin|electric
-    vehicles.py        get_value_of_use(), find_by_codes()          (vehicles.db)
+    vehicles.py        get_value_of_use(), find_by_codes(), find_by_names()  (vehicles.db)
     catalog.py         load_catalog(), get_car(), cars_for_group()  (catalog.json)
     occupations.py     load_occupations(), get_occupation()         (occupations.json)
   engine/              deterministic net calculation (see "Engine" below)
@@ -54,23 +57,31 @@ compass/
     eligibility.py     check_eligibility()
     options.py         list_options()
     serialize.py       to_api_dict(): JSON-safe results (exact as strings, display as ints)
+  search/              normalize() + fuzzy search: occupations, catalog (+ aliases), Tax Authority
+  state/               SQLite session store (data/app.db): sessions, messages, slots, tickets, events
+  tools/               the 9 agent tools, their registry and ToolRunner (never raises)
+  api/                 FastAPI app: sessions, SSE, dev tools, tickets, data, admin
   reference.py         the 6 golden fixtures as engine inputs (tests + demo)
-  demo.py              `tasks.py demo E-00X`
+  demo.py / calc.py    `tasks.py demo E-00X` / `tasks.py calc`
 data/
   rules.yaml           business rules: hand-edited, commented, validated on load
+  aliases.yaml         how employees name the catalog cars (Hebrew + spellings), curated
   catalog.json         20 company cars                  (generated from the Excel)
   occupations.json     14 occupations                   (generated from the Excel)
   vehicles.db          Tax Authority dataset in SQLite  (generated, git-ignored)
+  app.db               session store                    (created on startup, git-ignored)
 raw/                   raw challenge inputs, committed byte-for-byte (see raw/README.md)
 scripts/
   build_vehicles_db.py raw CSV  -> data/vehicles.db
   extract_excel.py     raw xlsx -> data/*.json + tests/fixtures/reference_*.json
 tests/                 pytest suite; fixtures/ holds the 6 golden reference employees
+openapi.json           the API schema, committed for frontend type generation
 tasks.py               cross-platform task runner (Makefile wraps it)
 ```
 
-Planned layers, not built yet: `compass/agent/` (Claude tool-use loop), `api/` (FastAPI +
-SSE), `web/` (React). The engine imports none of them.
+Planned layers, not built yet: `compass/agent/` (the Claude tool-use loop, which plugs into
+the tool registry and the `AgentRunner` seam) and `web/` (React). Nothing calls an LLM yet,
+and the engine imports none of the layers above it.
 
 ## Data sources
 
@@ -186,6 +197,84 @@ Display rounding (`display: shekel`) is whole ILS, half-up, applied only at the 
   `current_car_above_group` (today's car is from a higher group than the profile's).
 - `list_options()` lists every catalog car and the waiver (if allowed), except today's
   arrangement: eligible first by diff, then needs_info, then not_eligible.
+
+## Search
+
+`compass/search/` matches what employees type to occupations and cars.
+
+- `normalize()` runs on queries and candidates alike: case, whitespace and punctuation;
+  geresh and apostrophes are dropped inside a word (`ג'י` = `גי`); Hebrew final letters;
+  niqqud; gender forms (`מפתח/ת` → `מפתח`); letters split from digits (`atto3` = `atto 3`).
+- Score = the mean of rapidfuzz `WRatio` and plain `ratio`. `WRatio` alone rewards matching
+  only part of the query: the typo `קורולה קורס` scores 90.9 for COROLLA CROSS but also 90.0
+  for COROLLA. The blend separates them (90.9 vs 80.3).
+- `confident` = top score ≥ 85, a lead of ≥ 10 over the next candidate, **and** the top
+  car's name is not strictly extended by another car's name. That last rule is why
+  `קורולה` alone is **not** confident: it is an exact alias of COROLLA, but COROLLA CROSS's
+  name extends it, and a wrong pick would silently change the value of use. We ask instead.
+  Callers never auto-pick an unconfident result.
+- Vehicles: catalog cars first (with `data/aliases.yaml`). Only when no catalog car scores
+  70 does the search fall back to the Tax Authority dataset, returning up to 5 **full-key**
+  records (`in_catalog: false`). A commercial name is not a key, so those usually tie and
+  stay unconfident.
+
+## Tools
+
+`compass/tools/` is what the agent (Day 3) will call. Each tool is a Pydantic input model,
+a handler and a description; `tool_definitions()` exports them in Anthropic format.
+`ToolRunner.run(session_id, name, input)` validates, executes and persists, and **never
+raises**: it returns `{"ok": true, ...}` or `{"ok": false, "error": {"code": ...}}` with
+`invalid_input`, `missing_inputs` (`fields`, and which are `unknown` / `pending_rep`),
+`not_found`, `ambiguous` (`candidates`), `not_eligible` (`reason`) or `internal_error`.
+Tools return numbers **only** from the engine or the data files; none calculates money.
+
+| Tool | What it does |
+|---|---|
+| `save_profile` | Stores any stated details (percentages in percent: 6.5 → 0.065). `occupation_query` is searched; if confident it also sets the group (source `derived`) unless the employee stated one. Returns `saved`, `missing`, `unknown`, `warnings` and `payslip_fields_unknown` (drives the "upload payslip" button). |
+| `lookup_occupation` | Search result plus each occupation's group, car_mandatory, waiver_allowed and waiver_maintenance. |
+| `lookup_vehicle` | Search result plus each car's group, drive, value of use, default participation and `in_catalog`. |
+| `set_current_situation` | Today: a company car (catalog id, or a Tax Authority key from `lookup_vehicle`, which needs the participation), a maintenance payment, or none. Returns warnings such as `current_car_above_group` / `current_car_not_in_catalog`. |
+| `check_eligibility` | Engine verdict for an alternative; `not_eligible` with the reason, or `missing_inputs`. |
+| `compare` | Engine comparison of today vs an alternative (`to_api_dict`), stored as the session's last comparison (`comparison_ready`). Ineligible alternatives are still calculated and marked `hypothetical`; unknown contribution rates give a partial result. |
+| `list_options` | Every catalog car and the waiver (if allowed) with eligibility and diff vs today. |
+| `get_rule` | A whitelisted rule (`budgets`, `choose_from`, `unused_budget`, `electric_bonus`, `family_track`, `waiver`, `participation`, `value_of_use`, `tax_tables_year`): value + the official Hebrew note. |
+| `ask_representative` | Opens a ticket with a context snapshot; its blocking fields become `pending_rep` and the session `waiting_for_rep`. |
+
+Profile slots hold a value, a state (`filled`, `unknown`, `pending_rep`) and a source
+(`employee`, `payslip`, `representative`, `derived`). Only filled slots reach the engine;
+nothing unknown is ever replaced by a "typical" value. There is no national-ID field, and a
+`display_name` that looks like an ID number is rejected.
+
+## API
+
+```sh
+uv run python tasks.py serve                       # http://127.0.0.1:8000/docs
+COMPASS_DEV_TOOLS=1 uv run python tasks.py serve   # also enable the dev tools endpoint
+```
+
+Settings come from the environment: `COMPASS_APP_DB` (default `data/app.db`),
+`COMPASS_RULES` (default `data/rules.yaml`), `COMPASS_DEV_TOOLS=1`, `COMPASS_CORS_ORIGINS`
+(default: the Vite dev server). The session store is created on startup.
+
+| Method & path | Purpose |
+|---|---|
+| `POST /api/sessions` | Create a session → `{id}` |
+| `GET /api/sessions/{id}` | Full snapshot for a refresh: messages, slots, scenarios, open tickets, last comparison, last event seq |
+| `POST /api/sessions/{id}/messages` | Store a user message (202) and hand it to the `AgentRunner` (a no-op until Day 3) |
+| `GET /api/sessions/{id}/events` | Server-sent events: replays everything after `Last-Event-ID` (or `?after=`), then streams live; heartbeat every 15 s |
+| `POST /api/sessions/{id}/tools/{name}` | Run a tool directly: **dev / demo only** (`COMPASS_DEV_TOOLS=1`, otherwise 404) |
+| `GET /api/tickets?status=open` | Representative inbox |
+| `POST /api/tickets/{id}/answer` | `{answer_text?, quick_answer_id?, values?}`: values are validated like `save_profile` and fill the blocking fields (source `representative`); blocking fields left without a value become `unknown`. Resumes the session and appends `ticket_answered` to the employee's stream |
+| `GET /api/rules`, `/api/catalog`, `/api/occupations` | Read-only data for the UI (money as exact strings) |
+| `POST /api/admin/reload-rules` | Re-read and validate `rules.yaml` live. Invalid → 422 with the readable message, and the previous rules stay active |
+| `GET /api/health` | ok, the rules version and SHA-256, and the data versions |
+
+The events table is the single source for the live UI: every state change appends an event
+(`session_created`, `session_status`, `user_message`, `assistant_message`,
+`profile_updated`, `current_situation_set`, `comparison_ready`, `ticket_opened`,
+`ticket_answered`), and the SSE stream replays them by `seq`.
+
+The admin and representative endpoints have **no authentication yet**.
 
 ## Rules: our additions to the official file
 
