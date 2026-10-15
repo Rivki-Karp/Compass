@@ -456,6 +456,11 @@ $0.02–0.03, a clarifying exchange about $0.01, and the four-turn representativ
 (E-001) $0.056. Prompt caching covers most of the input: a typical comparison reads
 ~50k tokens from the cache and writes ~2k new ones.
 
+**Effort `low` vs `medium`** ([evals/report-medium.md](evals/report-medium.md), 15 runs):
+both pass 15/15 with no guard retries or template fallbacks. `medium` cost $0.028 per run
+against $0.025 for `low` (+11%), and its mean latency was 13.5 s against 15.5 s, a gap
+from two slow `low` runs. Same quality at a lower cost, so the agent stays at `low`.
+
 ## Rules: our additions to the official file
 
 [data/rules.yaml](data/rules.yaml) keeps every value from the official rules file. The
