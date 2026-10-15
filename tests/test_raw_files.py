@@ -24,12 +24,13 @@ RECORDED = _recorded()
 
 def test_every_raw_file_is_recorded() -> None:
     present = {p.name for p in RAW_DIR.iterdir() if p.is_file() and p.name != "README.md"}
-    assert present == set(RECORDED) == {
+    expected = {
         "strauss-rules.json",
         "value_of_use_2026.csv",
         "strauss_challenge_data.xlsx",
         "challenge_brief.pdf",
     }
+    assert present == set(RECORDED) == expected
 
 
 @pytest.mark.parametrize("name", sorted(RECORDED))
