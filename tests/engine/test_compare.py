@@ -50,12 +50,12 @@ def test_reference_diffs_and_lines(
     assert result.today.net is not None and result.alternative.net is not None
     with exact():  # engine values carry more digits than the default 28-digit context
         assert result.diff == result.alternative.net - result.today.net
-        assert sum(line.amount for line in result.delta_lines) == result.diff
+        assert sum(line.net_effect for line in result.delta_lines) == result.diff
     assert result.display_diff == case.expected["net_diff"]
-    assert sum(line.amount for line in result.display_delta_lines) == result.display_diff
+    assert sum(line.net_effect for line in result.display_delta_lines) == result.display_diff
     for exact_line, shown in zip(result.delta_lines, result.display_delta_lines, strict=True):
         assert shown.line == exact_line.line
-        assert abs(D(shown.amount) - exact_line.amount) < 1
+        assert abs(D(shown.net_effect) - exact_line.net_effect) < 1
     assert not result.partial
 
 
@@ -72,7 +72,7 @@ def test_display_diff_is_the_difference_of_displayed_nets(
 def test_e001_delta_lines(cases: dict[str, ReferenceCase], ctx: EngineContext) -> None:
     case = cases["E-001"]
     lines = {
-        line.line: line.amount
+        line.line: line.net_effect
         for line in compare(case.profile, case.today, case.alternative, ctx).delta_lines
     }
     assert lines["cash_income"] == lines["maintenance"] == 0
@@ -110,7 +110,7 @@ EXPECTED_FACTS = {
     ],
     "E-005": [
         {"kind": "value_of_use_removed", "amount": 4570},
-        {"kind": "maintenance_added", "amount": 2000},
+        {"kind": "maintenance_added", "amount": 2000, "source": "occupation"},
         {"kind": "participation_change", "from": 350, "to": 0, "source": None},
     ],
     "E-006": [
@@ -146,7 +146,7 @@ def test_partial_diff_without_contribution_rates(
     assert result.today.net is None and result.alternative.net is None
     assert result.today.employee_pension is None and result.alternative.employee_study is None
     assert result.today.income_tax == full.today.income_tax  # everything else is still known
-    assert sum(line.amount for line in result.display_delta_lines) == 661
+    assert sum(line.net_effect for line in result.display_delta_lines) == 661
 
 
 def test_partial_diff_with_one_rate_known(cases: dict[str, ReferenceCase], ctx: EngineContext):

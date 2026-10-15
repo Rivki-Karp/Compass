@@ -50,6 +50,7 @@ compass/
     compare.py         compare(): diff, delta lines, display lines, explanation facts
     eligibility.py     check_eligibility()
     options.py         list_options()
+    serialize.py       to_api_dict(): JSON-safe results (exact as strings, display as ints)
   reference.py         the 6 golden fixtures as engine inputs (tests + demo)
   demo.py              `tasks.py demo E-00X`
 data/
@@ -129,7 +130,9 @@ net = cash_income + maintenance + electric_gross
 
 - **Value of use** is taxable and in the NI/health base, but never cash and never pensionable.
 - **Maintenance** (waiver, or an existing maintenance payment) is cash and taxable, not
-  pensionable. For `Waiver()` it is the occupation's `waiver_maintenance`.
+  pensionable. For `Waiver()` it is the occupation's `waiver_maintenance`; a representative's
+  quote overrides it (`Waiver(maintenance=X, maintenance_source="representative")`).
+  `CurrentMaintenance` is for today only. The source is recorded in the metadata.
 - **Electric gross-up** (only `drive == electric`, not plug-in or hybrid): the gross `G` with
   `net(G) − net(0) = net_bonus`, found by bisection on the full net function (60 fixed
   iterations), so `G` may cross a bracket or the NI threshold. `G` is **not rounded**
@@ -149,8 +152,10 @@ runs in a Decimal context that traps `Inexact`, so any step that would have to r
 instead. This is why `sum(delta_lines) == diff` holds exactly.
 
 > Values from the engine carry more digits than Python's default 28-digit Decimal context.
-> Do arithmetic on them inside `compass.engine.decimal_math.exact()`, or round them for
-> display first.
+> Send results out through `compass.engine.serialize.to_api_dict()` (exact values as
+> fixed-point strings, display values as ints); never do Decimal arithmetic on them outside
+> the engine. A seeded fuzz test (2,000 random profiles) checks that the engine never raises
+> anything but `MissingInputs`.
 
 Display rounding (`display: shekel`) is whole ILS, half-up, applied only at the boundary:
 
@@ -159,6 +164,7 @@ Display rounding (`display: shekel`) is whole ILS, half-up, applied only at the 
   −1,938.681, which rounds to −1,939; shown 13,109 − 15,047 = −1,938).
 - `display_delta_lines` are the delta lines rounded by the largest-remainder method so they
   sum exactly to `display_diff` (the waterfall chart). Whole and zero lines never move.
+- Delta lines use one convention, `net_effect`: positive = more money for the employee.
 
 ### Comparison, partial diff, eligibility
 
@@ -172,6 +178,9 @@ Display rounding (`display: shekel`) is whole ILS, half-up, applied only at the 
   `family_track`, `family_track_min_children`, `waiver_allowed`, `car_mandatory`,
   `waiver_not_allowed`, `current_arrangement`, and `needs_info` with `unknown_group`,
   `unknown_children`, `unknown_occupation`. The group is never inferred.
+- Non-blocking `warnings` on comparisons and eligibility verdicts:
+  `group_mismatch_with_occupation` (profile group ≠ occupation group) and
+  `current_car_above_group` (today's car is from a higher group than the profile's).
 - `list_options()` lists every catalog car and the waiver (if allowed), except today's
   arrangement: eligible first by diff, then needs_info, then not_eligible.
 

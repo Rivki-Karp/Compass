@@ -24,6 +24,7 @@ from compass.engine.models import (
     CurrentMaintenance,
     EmployeeProfile,
     FamilyCar,
+    MaintenanceSource,
     Metadata,
     MissingInputs,
     NetBreakdown,
@@ -31,6 +32,7 @@ from compass.engine.models import (
     Scenario,
     Waiver,
 )
+from compass.rules import Rules
 
 # Gross-up solver (numerical settings, not business rules).
 GROSS_UP_ITERATIONS = 60  # fixed: same inputs -> same G, digit for digit
@@ -56,8 +58,8 @@ def missing_inputs(profile: EmployeeProfile, scenario: Scenario) -> list[str]:
     missing = [name for name in _ALWAYS_REQUIRED if getattr(profile, name) is None]
     if isinstance(scenario, FamilyCar) and profile.group is None:
         missing.append("group")  # the family share is measured against the group budget
-    if isinstance(scenario, Waiver) and profile.occupation is None:
-        missing.append("occupation")  # the waiver maintenance depends on the occupation
+    if isinstance(scenario, Waiver) and scenario.maintenance is None and profile.occupation is None:
+        missing.append("occupation")  # the waiver maintenance comes from the occupation
     return missing
 
 
@@ -70,6 +72,7 @@ class _Fixed:
     cash_income: Decimal
     value_of_use: Decimal
     maintenance: Decimal
+    maintenance_source: MaintenanceSource | None
     credit_points: Decimal
     participation: Decimal
     participation_source: ParticipationSource | None
@@ -97,6 +100,7 @@ def _fix(profile: EmployeeProfile, scenario: Scenario, ctx: EngineContext) -> _F
         car: CatalogCar | None = None
         value_of_use = maintenance = participation = family_share = ZERO
         source: ParticipationSource | None = None
+        maintenance_source: MaintenanceSource | None = None
 
         if isinstance(scenario, CompanyCar | FamilyCar):
             car = _car(scenario, ctx)
@@ -115,13 +119,17 @@ def _fix(profile: EmployeeProfile, scenario: Scenario, ctx: EngineContext) -> _F
                 gap = max(ZERO, car.monthly_company_cost - rules.budgets[profile.group])
                 family_share = rules.family_track.gap_split_employee * gap
         elif isinstance(scenario, Waiver):
-            assert profile.occupation is not None
-            occupation = ctx.occupations.get(profile.occupation)
-            if occupation is None:
-                raise MissingInputs(["occupation"])  # not a known title: treat as unknown
-            maintenance = occupation.waiver_maintenance
+            if scenario.maintenance is not None:  # quoted by a representative
+                maintenance = scenario.maintenance
+            else:
+                assert profile.occupation is not None
+                occupation = ctx.occupations.get(profile.occupation)
+                if occupation is None:
+                    raise MissingInputs(["occupation"])  # not a known title: treat as unknown
+                maintenance = occupation.waiver_maintenance
+            maintenance_source = scenario.maintenance_source
         elif isinstance(scenario, CurrentMaintenance):
-            maintenance = scenario.amount
+            maintenance, maintenance_source = scenario.amount, "employee_input"
 
     return _Fixed(
         scenario=scenario,
@@ -129,6 +137,7 @@ def _fix(profile: EmployeeProfile, scenario: Scenario, ctx: EngineContext) -> _F
         cash_income=cash_income,
         value_of_use=value_of_use,
         maintenance=maintenance,
+        maintenance_source=maintenance_source,
         credit_points=profile.credit_points,
         participation=participation,
         participation_source=source,
@@ -136,14 +145,27 @@ def _fix(profile: EmployeeProfile, scenario: Scenario, ctx: EngineContext) -> _F
     )
 
 
-def _breakdown(
+@dataclass(frozen=True)
+class _Lines:
+    taxable: Decimal
+    before: Decimal
+    points: Decimal
+    credit: Decimal
+    income_tax: Decimal
+    ni: Decimal
+    hl: Decimal
+    pension: Decimal | None
+    study: Decimal | None
+    net: Decimal | None
+
+
+def _lines(
     fixed: _Fixed,
     electric_gross: Decimal,
     pension_pct: Decimal | None,
     study_fund_pct: Decimal | None,
-    ctx: EngineContext,
-) -> NetBreakdown:
-    rules = ctx.rules
+    rules: Rules,
+) -> _Lines:
     nm = rules.net_method
     with exact():
         taxable_maintenance = fixed.maintenance if rules.waiver.maintenance_is_taxable else ZERO
@@ -171,6 +193,18 @@ def _breakdown(
                 - fixed.participation
                 - fixed.family_employee_share
             )
+    return _Lines(taxable, before, points, credit, income_tax, ni, hl, pension, study, net)
+
+
+def _breakdown(
+    fixed: _Fixed,
+    electric_gross: Decimal,
+    pension_pct: Decimal | None,
+    study_fund_pct: Decimal | None,
+    ctx: EngineContext,
+) -> NetBreakdown:
+    rules = ctx.rules
+    lines = _lines(fixed, electric_gross, pension_pct, study_fund_pct, rules)
     electric = fixed.car is not None and fixed.car.drive == "electric"
     return NetBreakdown(
         scenario=fixed.scenario,
@@ -179,23 +213,24 @@ def _breakdown(
         value_of_use=fixed.value_of_use,
         maintenance=fixed.maintenance,
         electric_gross=electric_gross,
-        taxable_income=taxable,
-        income_tax_before_credits=before,
-        credit_points_value=points,
-        pension_credit=credit,
-        income_tax=income_tax,
-        national_insurance=ni,
-        health=hl,
-        employee_pension=pension,
-        employee_study=study,
+        taxable_income=lines.taxable,
+        income_tax_before_credits=lines.before,
+        credit_points_value=lines.points,
+        pension_credit=lines.credit,
+        income_tax=lines.income_tax,
+        national_insurance=lines.ni,
+        health=lines.hl,
+        employee_pension=lines.pension,
+        employee_study=lines.study,
         participation=fixed.participation,
         family_employee_share=fixed.family_employee_share,
-        net=net,
+        net=lines.net,
         metadata=Metadata(
             rules_version=rules.version,
-            tax_tables_year=nm.tax_year,
+            tax_tables_year=rules.net_method.tax_year,
             value_of_use_year=rules.value_of_use.tax_year,
             participation_source=fixed.participation_source,
+            maintenance_source=fixed.maintenance_source,
             electric_method=rules.electric.method if electric else None,
         ),
     )
@@ -211,7 +246,7 @@ def solve_gross_up(fixed: _Fixed, ctx: EngineContext) -> Decimal:
     target = ctx.rules.electric.net_bonus
 
     def net_at(g: Decimal) -> Decimal:
-        net = _breakdown(fixed, g, ZERO, ZERO, ctx).net
+        net = _lines(fixed, g, ZERO, ZERO, ctx.rules).net
         assert net is not None
         return net
 

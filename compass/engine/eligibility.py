@@ -6,7 +6,9 @@ Reason codes:
     not_eligible:  car_group_higher, family_track_min_children, car_mandatory, waiver_not_allowed
     needs_info:    unknown_group, unknown_children, unknown_occupation
 
-The group is never inferred (not from the current car, not from the occupation).
+The group is never inferred (not from the current car, not from the occupation). When those
+disagree with the profile's group, a non-blocking warning says so:
+    group_mismatch_with_occupation, current_car_above_group
 """
 
 from compass.engine.context import EngineContext
@@ -15,6 +17,7 @@ from compass.engine.models import (
     CurrentMaintenance,
     Eligibility,
     EmployeeProfile,
+    EngineWarning,
     FamilyCar,
     Scenario,
     Waiver,
@@ -78,9 +81,49 @@ def _waiver(profile: EmployeeProfile, ctx: EngineContext) -> Eligibility:
     return Eligibility(status="eligible", reason="waiver_allowed", facts=facts)
 
 
+def profile_warnings(
+    profile: EmployeeProfile, today: Scenario | None, ctx: EngineContext
+) -> tuple[EngineWarning, ...]:
+    """Non-blocking checks of the profile's group against its occupation and today's car."""
+    warnings: list[EngineWarning] = []
+    order = ctx.rules.group_order
+    occupation = None if profile.occupation is None else ctx.occupations.get(profile.occupation)
+    if profile.group is not None and occupation is not None and occupation.group != profile.group:
+        warnings.append(
+            EngineWarning(
+                code="group_mismatch_with_occupation",
+                facts={
+                    "employee_group": profile.group,
+                    "occupation": occupation.title,
+                    "occupation_group": occupation.group,
+                },
+            )
+        )
+    car = ctx.catalog.get(today.car_id) if isinstance(today, CompanyCar) else None
+    if (
+        car is not None
+        and profile.group in order
+        and car.group in order
+        and order.index(car.group) > order.index(profile.group)
+    ):
+        warnings.append(
+            EngineWarning(
+                code="current_car_above_group",
+                facts={"employee_group": profile.group, "car_id": car.id, "car_group": car.group},
+            )
+        )
+    return tuple(warnings)
+
+
 def check_eligibility(
     profile: EmployeeProfile, scenario: Scenario, ctx: EngineContext
 ) -> Eligibility:
+    """The verdict for `scenario`, plus the profile's group warnings (today is not known here)."""
+    verdict = _verdict(profile, scenario, ctx)
+    return verdict.model_copy(update={"warnings": profile_warnings(profile, None, ctx)})
+
+
+def _verdict(profile: EmployeeProfile, scenario: Scenario, ctx: EngineContext) -> Eligibility:
     if isinstance(scenario, CompanyCar):
         return _company_car(profile, scenario, ctx)
     if isinstance(scenario, FamilyCar):

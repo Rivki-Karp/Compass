@@ -67,8 +67,9 @@ def test_delta_lines_sum_to_diff(ctx: EngineContext, electric_ids: list[str]) ->
         for alternative in alternatives:
             result = compare(_profile(salary), TODAY, alternative, ctx)
             with exact():
-                assert sum(line.amount for line in result.delta_lines) == result.diff
-            assert sum(line.amount for line in result.display_delta_lines) == result.display_diff
+                assert sum(line.net_effect for line in result.delta_lines) == result.diff
+            shown = sum(line.net_effect for line in result.display_delta_lines)
+            assert shown == result.display_diff
 
 
 def test_net_never_exceeds_cash(ctx: EngineContext, electric_ids: list[str]) -> None:

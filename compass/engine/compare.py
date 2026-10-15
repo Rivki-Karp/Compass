@@ -10,6 +10,7 @@ from typing import Any, get_args
 
 from compass.engine.context import EngineContext
 from compass.engine.decimal_math import ZERO, apportion, exact, to_agora, to_display
+from compass.engine.eligibility import profile_warnings
 from compass.engine.models import (
     Comparison,
     DeltaLine,
@@ -41,7 +42,7 @@ def delta_lines(today: NetBreakdown, alternative: NetBreakdown) -> tuple[DeltaLi
         lines = []
         for name in DELTA_LINES:
             change = _line(alternative, name) - _line(today, name)
-            lines.append(DeltaLine(line=name, amount=change if name in _ADDED else -change))
+            lines.append(DeltaLine(line=name, net_effect=change if name in _ADDED else -change))
     return tuple(lines)
 
 
@@ -64,7 +65,13 @@ def _facts(today: NetBreakdown, alt: NetBreakdown, ctx: EngineContext) -> list[d
         facts.append({"kind": "value_of_use_removed", "amount": show(today.value_of_use)})
 
     if alt.maintenance and not today.maintenance:
-        facts.append({"kind": "maintenance_added", "amount": show(alt.maintenance)})
+        facts.append(
+            {
+                "kind": "maintenance_added",
+                "amount": show(alt.maintenance),
+                "source": alt.metadata.maintenance_source,
+            }
+        )
     elif today.maintenance and not alt.maintenance:
         facts.append({"kind": "maintenance_removed", "amount": show(today.maintenance)})
     elif today.maintenance != alt.maintenance:
@@ -73,6 +80,7 @@ def _facts(today: NetBreakdown, alt: NetBreakdown, ctx: EngineContext) -> list[d
                 "kind": "maintenance_change",
                 "from": show(today.maintenance),
                 "to": show(alt.maintenance),
+                "source": alt.metadata.maintenance_source,
             }
         )
 
@@ -117,6 +125,7 @@ def _unknown(breakdown: NetBreakdown, missing: list[str]) -> NetBreakdown:
 
 
 def _build(
+    profile: EmployeeProfile,
     today: NetBreakdown,
     alternative: NetBreakdown,
     ctx: EngineContext,
@@ -127,7 +136,7 @@ def _build(
     lines = delta_lines(today, alternative)
     with exact():
         diff = alternative.net - today.net
-        total = sum((line.amount for line in lines), ZERO)
+        total = sum((line.net_effect for line in lines), ZERO)
     if total != diff:  # exact arithmetic: any mismatch is a bug, never rounding noise
         raise AssertionError(f"delta lines sum to {total}, diff is {diff}")
 
@@ -137,12 +146,12 @@ def _build(
     else:
         display_diff = to_display(alternative.net, ctx.rules) - to_display(today.net, ctx.rules)
         shown_today, shown_alt = today, alternative
-    rounded = apportion([line.amount for line in lines], display_diff)
+    rounded = apportion([line.net_effect for line in lines], display_diff)
     display_lines = tuple(
-        DisplayDeltaLine(line=line.line, amount=amount)
+        DisplayDeltaLine(line=line.line, net_effect=amount)
         for line, amount in zip(lines, rounded, strict=True)
     )
-    assert sum(line.amount for line in display_lines) == display_diff
+    assert sum(line.net_effect for line in display_lines) == display_diff
 
     return Comparison(
         today=shown_today,
@@ -152,6 +161,7 @@ def _build(
         delta_lines=lines,
         display_delta_lines=display_lines,
         explanation_facts=tuple(_facts(today, alternative, ctx)),
+        warnings=profile_warnings(profile, today.scenario, ctx),
         missing=tuple(missing),
     )
 
@@ -176,6 +186,7 @@ def compare(
     if not missing:
         pension, study = profile.pension_pct, profile.study_fund_pct
         return _build(
+            profile,
             compute_with_rates(profile, today, ctx, pension, study),
             compute_with_rates(profile, alternative, ctx, pension, study),
             ctx,
@@ -196,7 +207,7 @@ def compare(
     diffs = {to_agora(d) for d in exact_diffs}
     if len(diffs) != 1:
         raise MissingInputs(missing)  # the diff depends on the unknown rates
-    return _build(*probes[0], ctx, missing)
+    return _build(profile, *probes[0], ctx, missing)
 
 
 def _net(breakdown: NetBreakdown) -> Decimal:

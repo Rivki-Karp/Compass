@@ -9,7 +9,7 @@ from decimal import Decimal
 from types import MappingProxyType
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 
 class MissingInputs(ValueError):
@@ -61,6 +61,8 @@ class EmployeeProfile(_Frozen):
 # --- scenarios ------------------------------------------------------------------------------
 
 ParticipationSource = Literal["employee_input", "catalog_default", "representative"]
+# "employee_input": today's existing maintenance (CurrentMaintenance).
+MaintenanceSource = Literal["occupation", "representative", "employee_input"]
 
 
 class CompanyCar(_Frozen):
@@ -84,13 +86,28 @@ class FamilyCar(_Frozen):
 
 
 class Waiver(_Frozen):
-    """Give up the car; maintenance = the occupation's waiver_maintenance."""
+    """Give up the car.
+
+    maintenance None -> the occupation's waiver_maintenance (source "occupation"). A value
+    quoted by a representative must say so: maintenance=X, maintenance_source="representative".
+    """
 
     kind: Literal["waiver"] = "waiver"
+    maintenance: OptionalAmount = None
+    maintenance_source: Literal["occupation", "representative"] = "occupation"
+
+    @model_validator(mode="after")
+    def _source_matches_value(self) -> "Waiver":
+        if (self.maintenance is None) != (self.maintenance_source == "occupation"):
+            raise ValueError(
+                "maintenance comes from the occupation (maintenance=None) or from a "
+                "representative (maintenance=X, maintenance_source='representative')"
+            )
+        return self
 
 
 class CurrentMaintenance(_Frozen):
-    """No car today and an existing maintenance payment of `amount` (e.g. E-003)."""
+    """Today only: no car and an existing maintenance payment of `amount` (e.g. E-003)."""
 
     kind: Literal["current_maintenance"] = "current_maintenance"
     amount: Amount
@@ -109,6 +126,7 @@ class Metadata(_Frozen):
     tax_tables_year: int  # rules.net_method.tax_year
     value_of_use_year: int  # rules.value_of_use.tax_year
     participation_source: ParticipationSource | None  # None: no car in this scenario
+    maintenance_source: MaintenanceSource | None  # None: no maintenance in this scenario
     electric_method: Literal["gross_up", "gross"] | None  # None: not an electric car
 
 
@@ -159,18 +177,27 @@ DeltaLineName = Literal[
 
 
 class DeltaLine(_Frozen):
-    """Signed effect of one formula line on net (alternative minus today).
-
-    Deductions are negated, so a higher income tax in the alternative is a negative line.
+    """Effect of one formula line on net, alternative vs today: positive = more money for the
+    employee. Deductions are negated, so a higher income tax is a negative net_effect.
     """
 
     line: DeltaLineName
-    amount: Decimal
+    net_effect: Decimal
 
 
 class DisplayDeltaLine(_Frozen):
     line: DeltaLineName
-    amount: int
+    net_effect: int  # same convention as DeltaLine, whole ILS
+
+
+class EngineWarning(_Frozen):
+    """Non-blocking: something the employee or representative should double-check.
+
+    Codes: group_mismatch_with_occupation, current_car_above_group.
+    """
+
+    code: str
+    facts: FrozenFacts = Field(default_factory=dict)
 
 
 class Comparison(_Frozen):
@@ -183,6 +210,7 @@ class Comparison(_Frozen):
     delta_lines: tuple[DeltaLine, ...]  # sum == diff exactly
     display_delta_lines: tuple[DisplayDeltaLine, ...]  # largest remainder; sum == display_diff
     explanation_facts: tuple[FrozenFacts, ...]
+    warnings: tuple[EngineWarning, ...] = ()
     missing: tuple[str, ...] = ()  # non-empty -> partial: nets are None, diff is still exact
 
     @property
@@ -199,6 +227,7 @@ class Eligibility(_Frozen):
     status: EligibilityStatus
     reason: str  # machine code, e.g. "car_group_higher"
     facts: FrozenFacts = Field(default_factory=dict)
+    warnings: tuple[EngineWarning, ...] = ()
 
 
 class Option(_Frozen):

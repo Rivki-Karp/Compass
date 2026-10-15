@@ -108,21 +108,25 @@ def render(
         rule,
         f"{_money(result.display_diff, rules, signed=True)}  הפרש בנטו (חלופה פחות היום)",
         "",
-        "מה הזיז את הנטו (סכום השורות = ההפרש):",
+        "השפעה על הנטו (+ = יותר כסף לעובד; סכום השורות = ההפרש):",
     ]
     for line in result.display_delta_lines:
-        if line.amount:
-            out.append(f"{_money(line.amount, rules, signed=True)}  {DELTA_LABELS[line.line]}")
-    out.append(f"{_money(sum(x.amount for x in result.display_delta_lines), rules, True)}  סה״כ")
+        if line.net_effect:
+            out.append(f"{_money(line.net_effect, rules, signed=True)}  {DELTA_LABELS[line.line]}")
+    total = sum(line.net_effect for line in result.display_delta_lines)
+    out.append(f"{_money(total, rules, signed=True)}  סה״כ")
     meta = alt.metadata
     out += [
         "",
         f"שנת לוחות מס: {meta.tax_tables_year} · שנת שווי שימוש: {meta.value_of_use_year} · "
         f"גרסת כללים: {meta.rules_version}",
         f"מקור ההשתתפות בחלופה: {meta.participation_source or '-'}"
+        f" · מקור האחזקה: {meta.maintenance_source or '-'}"
         f" · שיטת החזר חשמל: {meta.electric_method or '-'}",
         "עובדות להסבר: " + "; ".join(str(dict(f)) for f in result.explanation_facts),
     ]
+    if result.warnings:
+        out.append("אזהרות: " + "; ".join(f"{w.code} {dict(w.facts)}" for w in result.warnings))
     return "\n".join(out)
 
 

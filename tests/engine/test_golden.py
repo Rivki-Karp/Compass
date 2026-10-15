@@ -51,7 +51,7 @@ def test_golden(cases: dict[str, ReferenceCase], ctx: EngineContext, employee_id
         }
     assert got == {key: case.expected[key] for key in got}
     assert check_eligibility(case.profile, case.alternative, ctx).status == "eligible"
-    assert sum(line.amount for line in result.display_delta_lines) == result.display_diff
+    assert sum(line.net_effect for line in result.display_delta_lines) == result.display_diff
 
 
 def test_waiver_maintenance_matches_the_reference(cases: dict[str, ReferenceCase], ctx):
