@@ -7,6 +7,7 @@ Usage:
     uv run python tasks.py lint      # ruff check + ruff format --check
     uv run python tasks.py fmt       # apply ruff formatting and safe fixes
     uv run python tasks.py demo E-001  # Hebrew net breakdown of a golden reference employee
+    uv run python tasks.py calc      # interactive calculator: your own profile and scenarios
 """
 
 import subprocess
@@ -57,6 +58,10 @@ def demo(*args: str) -> None:
     run(sys.executable, "-m", "compass.demo", *args)
 
 
+def calc() -> None:
+    run(sys.executable, "-m", "compass.calc")
+
+
 TASKS: dict[str, Callable[..., None]] = {
     "install": install,
     "data": data,
@@ -64,6 +69,7 @@ TASKS: dict[str, Callable[..., None]] = {
     "lint": lint,
     "fmt": fmt,
     "demo": demo,
+    "calc": calc,
 }
 TAKES_ARGS: set[str] = {"demo"}
 
