@@ -33,6 +33,7 @@ from starlette.concurrency import run_in_threadpool
 
 from compass.api.agent import AgentRunner
 from compass.api.broker import Broker
+from compass.api.redact import public_message, public_payload
 from compass.api.settings import Settings
 from compass.config import CATALOG_JSON, OCCUPATIONS_JSON
 from compass.engine.context import ContextError
@@ -107,6 +108,28 @@ def _token_guard(
     return check
 
 
+def _optional_token(
+    expected: str | None, scheme: HTTPBearer, role: str, env_var: str
+) -> Callable[..., bool]:
+    """Dependency: True with a valid `Authorization: Bearer <token>`, False without one. A token
+    that is given but wrong is an error (401), never a silent downgrade; unconfigured -> 503."""
+
+    def check(
+        credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(scheme)],
+    ) -> bool:
+        if credentials is None:
+            return False
+        if not expected:
+            raise HTTPException(503, f"{role} access is not configured (set {env_var})")
+        if not hmac.compare_digest(credentials.credentials.encode(), expected.encode()):
+            raise HTTPException(
+                401, f"missing or invalid {role} token", headers={"WWW-Authenticate": "Bearer"}
+            )
+        return True
+
+    return check
+
+
 AgentFactory = Callable[[Settings, Services, ToolRunner], AgentRunner]
 
 
@@ -177,6 +200,14 @@ def create_app(
         )
     )
 
+    admin_optional = _optional_token(
+        settings.admin_token,
+        HTTPBearer(auto_error=False, scheme_name="AdminToken"),
+        "admin",
+        "COMPASS_ADMIN_TOKEN",
+    )
+    IsAdmin = Annotated[bool, Depends(admin_optional)]
+
     def require_session(session_id: str) -> None:
         try:
             store.session_status(session_id)
@@ -190,12 +221,17 @@ def create_app(
         return SessionCreated(id=store.create_session())
 
     @api.get("/sessions/{session_id}", tags=["sessions"])
-    def get_session(session_id: str) -> dict[str, Any]:
-        """Full snapshot: everything the UI needs to restore after a refresh."""
+    def get_session(session_id: str, admin: IsAdmin) -> dict[str, Any]:
+        """Snapshot: everything the UI needs to restore after a refresh. Without the admin
+        bearer, messages are the employee's and the shown replies' text only."""
         try:
-            return store.snapshot(session_id)
+            snapshot = store.snapshot(session_id)
         except NotFound:
             raise HTTPException(404, f"session {session_id} not found") from None
+        if not admin:
+            shown = (public_message(m) for m in snapshot["messages"])
+            snapshot["messages"] = [m for m in shown if m is not None]
+        return snapshot
 
     @api.post(
         "/sessions/{session_id}/messages",
@@ -219,13 +255,15 @@ def create_app(
     async def stream_events(
         request: Request,
         session_id: str,
+        admin: IsAdmin,
         last_event_id: Annotated[int | None, Header(alias="Last-Event-ID", ge=0)] = None,
         after: Annotated[
             int | None, Query(ge=0, description="Replay after this seq (no header)")
         ] = None,
     ) -> EventSourceResponse:
         """Server-sent events. Replays everything after Last-Event-ID (or `after`), then
-        streams live; a comment heartbeat keeps the connection open."""
+        streams live; a comment heartbeat keeps the connection open. Without the admin bearer
+        each payload is redacted to its public part (compass/api/redact.py)."""
         require_session(session_id)
         start = last_event_id if last_event_id is not None else (after or 0)
 
@@ -238,10 +276,13 @@ def create_app(
                     batch = await run_in_threadpool(store.events_after, session_id, cursor)
                     for event in batch:
                         cursor = event.seq
+                        data = event.model_dump()
+                        if not admin:
+                            data["payload"] = public_payload(event.type, event.payload)
                         yield ServerSentEvent(
                             id=str(event.seq),
                             event=event.type,
-                            data=json.dumps(event.model_dump(), ensure_ascii=False),
+                            data=json.dumps(data, ensure_ascii=False),
                         )
                     if await request.is_disconnected():
                         return

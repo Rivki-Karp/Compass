@@ -310,7 +310,7 @@
     },
     "/api/sessions/{session_id}": {
       "get": {
-        "description": "Full snapshot: everything the UI needs to restore after a refresh.",
+        "description": "Snapshot: everything the UI needs to restore after a refresh. Without the admin\nbearer, messages are the employee's and the shown replies' text only.",
         "operationId": "get_session_api_sessions__session_id__get",
         "parameters": [
           {
@@ -347,6 +347,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "AdminToken": []
+          }
+        ],
         "summary": "Get Session",
         "tags": [
           "sessions"
@@ -355,7 +360,7 @@
     },
     "/api/sessions/{session_id}/events": {
       "get": {
-        "description": "Server-sent events. Replays everything after Last-Event-ID (or `after`), then\nstreams live; a comment heartbeat keeps the connection open.",
+        "description": "Server-sent events. Replays everything after Last-Event-ID (or `after`), then\nstreams live; a comment heartbeat keeps the connection open. Without the admin bearer\neach payload is redacted to its public part (compass/api/redact.py).",
         "operationId": "stream_events_api_sessions__session_id__events_get",
         "parameters": [
           {
@@ -422,6 +427,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "AdminToken": []
+          }
+        ],
         "summary": "Stream Events",
         "tags": [
           "sessions"

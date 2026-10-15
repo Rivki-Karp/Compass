@@ -68,60 +68,71 @@ def extract(text: str) -> list[dict[str, Any]]:
 
 
 class Allowed:
-    """The numbers (signed) and dates a reply may use."""
+    """The numbers (signed) and dates a reply may use, each with the source it was first seen in:
+    a tool name, "employee" or "representative" (judges mode shows it per number)."""
 
     def __init__(self) -> None:
-        self.values: set[Decimal] = set()
-        self.dates: set[str] = set()
+        self.values: dict[Decimal, str] = {}
+        self.dates: dict[str, str] = {}
 
-    def add_value(self, value: Decimal) -> None:
+    def add_value(self, value: Decimal, source: str) -> None:
         value = value.normalize()
-        self.values.add(value)
+        self.values.setdefault(value, source)
         if 0 < abs(value) < 1:  # a fraction: allow its percentage form too
-            self.values.add((value * 100).normalize())
+            self.values.setdefault((value * 100).normalize(), source)
 
-    def add_text(self, text: str) -> None:
+    def add_text(self, text: str, source: str) -> None:
         for token in extract(text):
             if "date" in token:
-                self.dates.add(token["date"])
+                self.dates.setdefault(token["date"], source)
             else:
-                self.add_value(token["value"])
+                self.add_value(token["value"], source)
 
-    def add_json(self, data: Any) -> None:
+    def add_json(self, data: Any, source: str) -> None:
         if isinstance(data, bool) or data is None:
             return
         if isinstance(data, int | float | Decimal):
-            self.add_value(Decimal(str(data)))
+            self.add_value(Decimal(str(data)), source)
         elif isinstance(data, str):
-            self.add_text(data)
+            self.add_text(data, source)
         elif isinstance(data, dict):
             for key, value in data.items():
-                self.add_text(str(key))
-                self.add_json(value)
+                self.add_text(str(key), source)
+                self.add_json(value, source)
         elif isinstance(data, list | tuple):
             for item in data:
-                self.add_json(item)
+                self.add_json(item, source)
 
-    def permits(self, token: dict[str, Any]) -> bool:
+    def source_of(self, token: dict[str, Any]) -> str | None:
+        """Where a token's value comes from ("harmless" for small counts, years and bare
+        day/month dates); None if the reply may not use it."""
         if "date" in token:
             date = token["date"]
-            return date.startswith("--") or date in self.dates  # day/month alone is harmless
+            return self.dates.get(date) or ("harmless" if date.startswith("--") else None)
         value: Decimal = token["value"]
         if token["signed"]:
-            return value in self.values
+            return self.values.get(value)
+        found = self.values.get(value) or self.values.get(-value)
+        if found is not None:
+            return found
         whole = value == value.to_integral_value()
         if whole and (int(value) in HARMLESS_INTEGERS or int(value) in HARMLESS_YEARS):
-            return True
-        return value in self.values or -value in self.values
+            return "harmless"
+        return None
+
+    def permits(self, token: dict[str, Any]) -> bool:
+        return self.source_of(token) is not None
 
 
 def check_text(text: str, allowed: Allowed) -> GuardVerdict:
     tokens = extract(text)
-    violations = [t["raw"] for t in tokens if not allowed.permits(t)]
+    sources = {t["raw"]: allowed.source_of(t) for t in tokens}
+    violations = [raw for raw, source in sources.items() if source is None]
     return GuardVerdict(
         passed=not violations,
         numbers=[t["raw"] for t in tokens],
-        violations=list(dict.fromkeys(violations)),
+        violations=violations,
+        sources={raw: source for raw, source in sources.items() if source is not None},
     )
 
 
@@ -130,13 +141,14 @@ def allowed_for_session(store: Store, session_id: str) -> Allowed:
     for row in store.messages(session_id):
         content = row.content if isinstance(row.content, dict) else {}
         if row.role == "user":
-            allowed.add_text(content.get("text", ""))
+            allowed.add_text(content.get("text", ""), "employee")
         elif row.role == "tool":
             for result in content.get("results", []):
-                allowed.add_json(result.get("full"))
+                allowed.add_json(result.get("full"), result.get("name") or "tool")
         elif is_server_event(row, "rep_answer"):
             allowed.add_json(
-                {k: content.get(k) for k in ("answer_text", "values", "effective_from")}
+                {k: content.get(k) for k in ("answer_text", "values", "effective_from")},
+                "representative",
             )
     return allowed
 

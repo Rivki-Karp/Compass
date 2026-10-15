@@ -44,6 +44,7 @@ EVENT_TYPES = frozenset(
         "ticket_answered",
         # The agent (Day 3): live progress for the UI and judges mode.
         "agent_started",
+        "agent_finished",
         "tool_call",
         "tool_result",
         "guard_check",
