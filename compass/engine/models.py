@@ -11,6 +11,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
+from compass.data.drive import Drive
+
 
 class MissingInputs(ValueError):
     """Required profile inputs are unknown. `fields` lists all of them at once."""
@@ -113,9 +115,28 @@ class CurrentMaintenance(_Frozen):
     amount: Amount
 
 
+class ExternalCar(_Frozen):
+    """Today only: a company car that is not in the catalog (another model or registration year).
+
+    `value_of_use` and `drive` come from the Tax Authority dataset (vehicles.db) by the full
+    official key `vehicle_key`. There is no catalog default participation, so it is required.
+    The car's group is unknown, so it is never checked against the employee's group.
+    """
+
+    kind: Literal["external_car"] = "external_car"
+    vehicle_key: str  # tax year-registration year-type-manufacturer-model
+    label: str = ""  # e.g. "COROLLA CROSS 2023", for display only
+    value_of_use: Amount
+    drive: Drive
+    participation: Amount
+    participation_source: Literal["employee_input", "representative"] = "employee_input"
+
+
 Scenario = Annotated[
-    CompanyCar | FamilyCar | Waiver | CurrentMaintenance, Field(discriminator="kind")
+    CompanyCar | FamilyCar | Waiver | CurrentMaintenance | ExternalCar,
+    Field(discriminator="kind"),
 ]
+TODAY_ONLY = (ExternalCar,)  # scenarios that can describe today but not an alternative
 
 
 # --- results --------------------------------------------------------------------------------
@@ -142,7 +163,8 @@ class NetBreakdown(_Frozen):
     """
 
     scenario: Scenario
-    car_id: str | None
+    car_id: str | None  # catalog car
+    vehicle_key: str | None = None  # ExternalCar (Tax Authority full key)
     cash_income: Decimal
     value_of_use: Decimal
     maintenance: Decimal
@@ -193,7 +215,7 @@ class DisplayDeltaLine(_Frozen):
 class EngineWarning(_Frozen):
     """Non-blocking: something the employee or representative should double-check.
 
-    Codes: group_mismatch_with_occupation, current_car_above_group.
+    Codes: group_mismatch_with_occupation, current_car_above_group, current_car_not_in_catalog.
     """
 
     code: str

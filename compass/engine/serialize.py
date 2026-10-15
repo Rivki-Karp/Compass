@@ -17,7 +17,9 @@ from compass.rules import Rules
 
 # NetBreakdown fields that are formula lines (amounts in ILS).
 BREAKDOWN_LINES: tuple[str, ...] = tuple(
-    name for name in NetBreakdown.model_fields if name not in ("scenario", "car_id", "metadata")
+    name
+    for name in NetBreakdown.model_fields
+    if name not in ("scenario", "car_id", "vehicle_key", "metadata")
 )
 
 ApiResult = Comparison | NetBreakdown | Eligibility | Option | Sequence[Option]
@@ -47,6 +49,7 @@ def _breakdown(breakdown: NetBreakdown, rules: Rules) -> dict[str, Any]:
     return {
         "scenario": _plain(breakdown.scenario),
         "car_id": breakdown.car_id,
+        "vehicle_key": breakdown.vehicle_key,
         "exact": {name: _plain(value) for name, value in lines.items()},
         "display": {name: _shown(value, rules) for name, value in lines.items()},
         "metadata": _plain(breakdown.metadata),
