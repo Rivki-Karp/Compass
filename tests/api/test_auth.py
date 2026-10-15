@@ -74,7 +74,7 @@ def test_dev_tools_stay_behind_their_flag(make_settings: Callable[..., Settings]
 def test_tokens_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COMPASS_REP_TOKEN", "s3cr3t-rep-xyz")
     monkeypatch.setenv("COMPASS_ADMIN_TOKEN", "")
-    settings = Settings.from_env()
+    settings = Settings.from_env(env_file=None)  # ignore a developer's real .env
     assert settings.rep_token == "s3cr3t-rep-xyz"
     assert settings.admin_token is None  # empty = unset
     assert "s3cr3t" not in repr(settings)  # tokens are never printed

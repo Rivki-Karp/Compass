@@ -15,7 +15,8 @@ Built for the "קוד פתוח" AI Hackathon 2026 (final: Wed 21/10/2026).
 
 ## Quickstart
 
-Requires [uv](https://docs.astral.sh/uv/). These commands work on Windows, macOS and Linux:
+Requires [uv](https://docs.astral.sh/uv/). These commands work as-is in PowerShell, cmd and
+bash, on Windows, macOS and Linux:
 
 ```sh
 uv run python tasks.py install   # create .venv with Python 3.12 and sync uv.lock
@@ -30,6 +31,18 @@ uv run python tasks.py openapi   # regenerate openapi.json after API changes
 ```
 
 If you have `make`, `make install|data|test|lint|fmt` does the same.
+
+**Local settings** live in a `.env` file (git-ignored), read automatically by the API, so no
+shell needs environment variables set by hand. Start from the example, which enables the
+dev tools endpoint and sets demo tokens:
+
+```sh
+cp .env.example .env                 # bash / macOS / Linux
+```
+
+```powershell
+Copy-Item .env.example .env          # PowerShell
+```
 
 The raw challenge files (public hackathon material, about 20 MB) are committed in `raw/`
 byte-for-byte; [raw/README.md](raw/README.md) lists them with their SHA-256.
@@ -262,14 +275,37 @@ representative, who answers (say 350 ₪), and the conversation continues with t
 ## API
 
 ```sh
-uv run python tasks.py serve                       # http://127.0.0.1:8000/docs
-COMPASS_DEV_TOOLS=1 uv run python tasks.py serve   # also enable the dev tools endpoint
+uv run python tasks.py serve        # http://127.0.0.1:8000/docs (any shell)
 ```
 
-Settings come from the environment: `COMPASS_APP_DB` (default `data/app.db`),
-`COMPASS_RULES` (default `data/rules.yaml`), `COMPASS_DEV_TOOLS=1`, `COMPASS_REP_TOKEN`,
-`COMPASS_ADMIN_TOKEN`, `COMPASS_CORS_ORIGINS` (default: the Vite dev server). The session
-store is created on startup.
+Settings are read from `.env` (see [.env.example](.env.example)) and from the environment,
+which wins over the file: `COMPASS_DEV_TOOLS=1`, `COMPASS_REP_TOKEN`, `COMPASS_ADMIN_TOKEN`,
+`COMPASS_APP_DB` (default `data/app.db`), `COMPASS_RULES` (default `data/rules.yaml`) and
+`COMPASS_CORS_ORIGINS` (default: the Vite dev server). Relative paths are relative to the
+repo root. The session store is created on startup.
+
+To override one setting for a single run without editing `.env`:
+
+```sh
+COMPASS_DEV_TOOLS=0 uv run python tasks.py serve                    # bash
+```
+
+```powershell
+$env:COMPASS_DEV_TOOLS = "0"; uv run python tasks.py serve          # PowerShell
+Remove-Item Env:COMPASS_DEV_TOOLS                                   # undo afterwards
+```
+
+Calling a guarded endpoint (the representative inbox), with the token from `.env`:
+
+```sh
+curl -H "Authorization: Bearer demo-rep-token-change-me" \
+  "http://127.0.0.1:8000/api/tickets?status=open"                    # bash
+```
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:8000/api/tickets?status=open" `
+  -Headers @{ Authorization = "Bearer demo-rep-token-change-me" }   # PowerShell
+```
 
 | Method & path | Purpose |
 |---|---|

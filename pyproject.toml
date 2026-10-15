@@ -8,6 +8,7 @@ dependencies = [
     "fastapi>=0.143.1",
     "openpyxl>=3.1",
     "pydantic>=2",
+    "python-dotenv>=1.2.4",
     "pyyaml>=6",
     "rapidfuzz>=3.14.6",
     "sse-starlette>=3.5.0",

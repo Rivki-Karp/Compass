@@ -7,6 +7,7 @@ REPO_ROOT: Path = Path(__file__).resolve().parents[1]
 RAW_DIR: Path = REPO_ROOT / "raw"
 DATA_DIR: Path = REPO_ROOT / "data"
 FIXTURES_DIR: Path = REPO_ROOT / "tests" / "fixtures"
+ENV_FILE: Path = REPO_ROOT / ".env"  # local settings and secrets (git-ignored; see .env.example)
 
 # Raw inputs (not committed; see raw/README.md)
 RAW_RULES_JSON: Path = RAW_DIR / "strauss-rules.json"
