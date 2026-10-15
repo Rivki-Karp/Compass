@@ -301,13 +301,13 @@ Remove-Item Env:COMPASS_DEV_TOOLS                                   # undo after
 Calling a guarded endpoint (the representative inbox), with the token from `.env`:
 
 ```sh
-curl -H "Authorization: Bearer demo-rep-token-change-me" \
+curl -H "Authorization: Bearer rep-demo-change-me" \
   "http://127.0.0.1:8000/api/tickets?status=open"                    # bash
 ```
 
 ```powershell
 Invoke-RestMethod "http://127.0.0.1:8000/api/tickets?status=open" `
-  -Headers @{ Authorization = "Bearer demo-rep-token-change-me" }   # PowerShell
+  -Headers @{ Authorization = "Bearer rep-demo-change-me" }   # PowerShell
 ```
 
 | Method & path | Purpose |
