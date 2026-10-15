@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from helpers import ADMIN_TOKEN, REP_TOKEN
 
 from compass.api import Settings, create_app
 from compass.config import RULES_YAML
@@ -25,6 +26,8 @@ def make_settings(tmp_path: Path, rules_copy: Path) -> Callable[..., Settings]:
             "rules_path": rules_copy,
             "dev_tools": True,
             "heartbeat_seconds": 1.0,
+            "rep_token": REP_TOKEN,
+            "admin_token": ADMIN_TOKEN,
         }
         values.update(overrides)
         return Settings(**values)  # type: ignore[arg-type]

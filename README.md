@@ -235,15 +235,29 @@ Tools return numbers **only** from the engine or the data files; none calculates
 | `lookup_vehicle` | Search result plus each car's group, drive, value of use, default participation and `in_catalog`. |
 | `set_current_situation` | Today: a company car (catalog id, or a Tax Authority key from `lookup_vehicle`, which needs the participation), a maintenance payment, or none. Returns warnings such as `current_car_above_group` / `current_car_not_in_catalog`. |
 | `check_eligibility` | Engine verdict for an alternative; `not_eligible` with the reason, or `missing_inputs`. |
-| `compare` | Engine comparison of today vs an alternative (`to_api_dict`), stored as the session's last comparison (`comparison_ready`). Ineligible alternatives are still calculated and marked `hypothetical`; unknown contribution rates give a partial result. |
+| `compare` | Engine comparison of today vs an alternative (`to_api_dict`), stored as the session's last comparison (`comparison_ready`). Ineligible alternatives are still calculated and marked `hypothetical`; unknown contribution rates give a partial result. Also returns the alternative's `participation_source` and `pending_rep` (see below). |
 | `list_options` | Every catalog car and the waiver (if allowed) with eligibility and diff vs today. |
 | `get_rule` | A whitelisted rule (`budgets`, `choose_from`, `unused_budget`, `electric_bonus`, `family_track`, `waiver`, `participation`, `value_of_use`, `tax_tables_year`): value + the official Hebrew note. |
-| `ask_representative` | Opens a ticket with a context snapshot; its blocking fields become `pending_rep` and the session `waiting_for_rep`. |
+| `ask_representative` | Opens a ticket with a context snapshot; its blocking fields (profile fields, `current_participation` or `alternative_participation:<car_id>`) become `pending_rep` and the session `waiting_for_rep`. |
 
 Profile slots hold a value, a state (`filled`, `unknown`, `pending_rep`) and a source
 (`employee`, `payslip`, `representative`, `derived`). Only filled slots reach the engine;
 nothing unknown is ever replaced by a "typical" value. There is no national-ID field, and a
 `display_name` that looks like an ID number is rejected.
+
+### Participation from a representative
+
+The challenge's core scenario: the new car's participation is unknown, so the agent asks a
+representative, who answers (say 350 ₪), and the conversation continues with that amount.
+
+- Two fields only a representative fills (as ticket blocking fields):
+  `current_participation` (today's car) and `alternative_participation:<car_id>`. The slot
+  value is `{amount, effective_from}`; the answer may carry an `effective_from` date.
+- `compare` resolves the participation per car: an amount stated in the call wins
+  (`employee_input`); else a representative's answer (`representative`); else the catalog
+  default (`catalog_default`). While a ticket blocking that car's participation is open, it
+  computes with the default but returns `pending_rep: true`, so the agent never presents it
+  as final. Today's car gets the same treatment (`today_participation`).
 
 ## API
 
@@ -253,8 +267,9 @@ COMPASS_DEV_TOOLS=1 uv run python tasks.py serve   # also enable the dev tools e
 ```
 
 Settings come from the environment: `COMPASS_APP_DB` (default `data/app.db`),
-`COMPASS_RULES` (default `data/rules.yaml`), `COMPASS_DEV_TOOLS=1`, `COMPASS_CORS_ORIGINS`
-(default: the Vite dev server). The session store is created on startup.
+`COMPASS_RULES` (default `data/rules.yaml`), `COMPASS_DEV_TOOLS=1`, `COMPASS_REP_TOKEN`,
+`COMPASS_ADMIN_TOKEN`, `COMPASS_CORS_ORIGINS` (default: the Vite dev server). The session
+store is created on startup.
 
 | Method & path | Purpose |
 |---|---|
@@ -263,10 +278,10 @@ Settings come from the environment: `COMPASS_APP_DB` (default `data/app.db`),
 | `POST /api/sessions/{id}/messages` | Store a user message (202) and hand it to the `AgentRunner` (a no-op until Day 3) |
 | `GET /api/sessions/{id}/events` | Server-sent events: replays everything after `Last-Event-ID` (or `?after=`), then streams live; heartbeat every 15 s |
 | `POST /api/sessions/{id}/tools/{name}` | Run a tool directly: **dev / demo only** (`COMPASS_DEV_TOOLS=1`, otherwise 404) |
-| `GET /api/tickets?status=open` | Representative inbox |
-| `POST /api/tickets/{id}/answer` | `{answer_text?, quick_answer_id?, values?}`: values are validated like `save_profile` and fill the blocking fields (source `representative`); blocking fields left without a value become `unknown`. Resumes the session and appends `ticket_answered` to the employee's stream |
+| `GET /api/tickets?status=open` | Representative inbox (**rep token**) |
+| `POST /api/tickets/{id}/answer` | `{answer_text?, quick_answer_id?, values?, effective_from?}` (**rep token**): values are validated like `save_profile` and fill the blocking fields (source `representative`); blocking fields left without a value become `unknown`. Resumes the session and appends `ticket_answered` to the employee's stream |
 | `GET /api/rules`, `/api/catalog`, `/api/occupations` | Read-only data for the UI (money as exact strings) |
-| `POST /api/admin/reload-rules` | Re-read and validate `rules.yaml` live. Invalid → 422 with the readable message, and the previous rules stay active |
+| `POST /api/admin/reload-rules` | Re-read and validate `rules.yaml` live (**admin token**). Invalid → 422 with the readable message, and the previous rules stay active |
 | `GET /api/health` | ok, the rules version and SHA-256, and the data versions |
 
 The events table is the single source for the live UI: every state change appends an event
@@ -274,7 +289,11 @@ The events table is the single source for the live UI: every state change append
 `profile_updated`, `current_situation_set`, `comparison_ready`, `ticket_opened`,
 `ticket_answered`), and the SSE stream replays them by `seq`.
 
-The admin and representative endpoints have **no authentication yet**.
+**Access.** `/api/tickets*` needs `Authorization: Bearer $COMPASS_REP_TOKEN` and
+`/api/admin/*` needs `Authorization: Bearer $COMPASS_ADMIN_TOKEN` (shared tokens, compared in
+constant time). If a token's variable is unset, its endpoints answer **503 "not
+configured"**, never open by default; a missing or wrong token is 401. The dev tools
+endpoint stays behind `COMPASS_DEV_TOOLS=1` and no token opens it.
 
 ## Rules: our additions to the official file
 

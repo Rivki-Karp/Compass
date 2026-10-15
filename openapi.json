@@ -55,6 +55,19 @@
             ],
             "title": "Answer Text"
           },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When a participation amount takes effect (participation fields only)",
+            "title": "Effective From"
+          },
           "quick_answer_id": {
             "anyOf": [
               {
@@ -132,6 +145,16 @@
         "title": "ValidationError",
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "AdminToken": {
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "RepToken": {
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
@@ -155,6 +178,11 @@
             "description": "Successful Response"
           }
         },
+        "security": [
+          {
+            "AdminToken": []
+          }
+        ],
         "summary": "Reload Rules",
         "tags": [
           "admin"
@@ -578,6 +606,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "RepToken": []
+          }
+        ],
         "summary": "List Tickets",
         "tags": [
           "representative"
@@ -633,6 +666,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "RepToken": []
+          }
+        ],
         "summary": "Answer Ticket",
         "tags": [
           "representative"

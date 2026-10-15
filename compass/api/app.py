@@ -5,16 +5,28 @@ uv run python tasks.py serve     # uvicorn with reload, http://127.0.0.1:8000/do
 
 import asyncio
 import hashlib
+import hmac
 import json
 import sqlite3
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager, suppress
+from datetime import date
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Body, FastAPI, Header, HTTPException, Query, Request
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    FastAPI,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 from sse_starlette import EventSourceResponse, ServerSentEvent
 from starlette.concurrency import run_in_threadpool
@@ -28,7 +40,13 @@ from compass.engine.serialize import plain_json
 from compass.rules import RulesError
 from compass.state import NotFound, StateError, Store
 from compass.tools import ToolRunner
-from compass.tools.profile import PROFILE_FIELDS, SLOT_OF, FieldError, to_slot_value
+from compass.tools.profile import (
+    FieldError,
+    is_fillable,
+    is_participation,
+    slot_name,
+    to_slot_value,
+)
 from compass.tools.services import Services
 
 
@@ -52,6 +70,9 @@ class TicketAnswer(_Body):
     answer_text: str | None = Field(None, max_length=4000)
     quick_answer_id: str | None = None
     values: dict[str, Any] = Field(default_factory=dict, description="Tool field -> value")
+    effective_from: date | None = Field(
+        None, description="When a participation amount takes effect (participation fields only)"
+    )
 
 
 def _sha256(path: Path) -> str | None:
@@ -70,6 +91,25 @@ def _vehicles_meta(path: Path) -> dict[str, str]:
             conn.close()
     except sqlite3.Error:
         return {}
+
+
+def _token_guard(
+    expected: str | None, scheme: HTTPBearer, role: str, env_var: str
+) -> Callable[..., None]:
+    """Dependency: `Authorization: Bearer <token>`. Unconfigured -> 503, wrong -> 401."""
+
+    def check(
+        credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(scheme)],
+    ) -> None:
+        if not expected:
+            raise HTTPException(503, f"{role} access is not configured (set {env_var})")
+        given = "" if credentials is None else credentials.credentials
+        if not hmac.compare_digest(given.encode(), expected.encode()):
+            raise HTTPException(
+                401, f"missing or invalid {role} token", headers={"WWW-Authenticate": "Bearer"}
+            )
+
+    return check
 
 
 def create_app(settings: Settings | None = None, agent: AgentRunner | None = None) -> FastAPI:
@@ -108,6 +148,22 @@ def create_app(settings: Settings | None = None, agent: AgentRunner | None = Non
     app.state.runner = runner
     app.state.agent = agent
     api = APIRouter(prefix="/api")
+    rep_only = Depends(
+        _token_guard(
+            settings.rep_token,
+            HTTPBearer(auto_error=False, scheme_name="RepToken"),
+            "representative",
+            "COMPASS_REP_TOKEN",
+        )
+    )
+    admin_only = Depends(
+        _token_guard(
+            settings.admin_token,
+            HTTPBearer(auto_error=False, scheme_name="AdminToken"),
+            "admin",
+            "COMPASS_ADMIN_TOKEN",
+        )
+    )
 
     def require_session(session_id: str) -> None:
         try:
@@ -197,14 +253,14 @@ def create_app(settings: Settings | None = None, agent: AgentRunner | None = Non
 
     # --- representative -------------------------------------------------------------------
 
-    @api.get("/tickets", tags=["representative"])
+    @api.get("/tickets", tags=["representative"], dependencies=[rep_only])
     def list_tickets(
         status: Literal["open", "answered"] | None = None,
     ) -> list[dict[str, Any]]:
         """The representative inbox."""
         return [t.model_dump() for t in store.tickets(status=status)]
 
-    @api.post("/tickets/{ticket_id}/answer", tags=["representative"])
+    @api.post("/tickets/{ticket_id}/answer", tags=["representative"], dependencies=[rep_only])
     def answer_ticket(ticket_id: str, body: TicketAnswer) -> dict[str, Any]:
         """Answer a ticket: fill its blocking fields (source representative), resume the
         employee's session and tell the agent. Blocking fields left without a value become
@@ -231,21 +287,25 @@ def create_app(settings: Settings | None = None, agent: AgentRunner | None = Non
         errors: list[str] = []
         slot_values: dict[str, Any] = {}
         for field, raw in values.items():
-            if field not in PROFILE_FIELDS or field not in ticket.blocking_fields:
+            if field not in ticket.blocking_fields or not is_fillable(field, services.ctx):
                 errors.append(f"{field}: not a blocking field of this ticket")
                 continue
+            when = body.effective_from if is_participation(field) else None
             try:
-                slot_values[SLOT_OF[field]] = to_slot_value(field, raw, services.ctx)
+                slot_values[slot_name(field)] = to_slot_value(field, raw, services.ctx, when)
             except FieldError as error:
                 errors.append(str(error))
         if errors:
             raise HTTPException(422, errors)
 
-        unknown = [SLOT_OF[f] for f in ticket.blocking_fields if f not in values]
+        if body.effective_from is not None and not any(map(is_participation, values)):
+            raise HTTPException(422, "effective_from applies to participation fields only")
+        unknown = [slot_name(f) for f in ticket.blocking_fields if f not in values]
         answer = {
             "text": body.answer_text,
             "quick_answer_id": body.quick_answer_id,
             "values": plain_json(values),
+            "effective_from": None if body.effective_from is None else str(body.effective_from),
         }
         try:
             answered = store.answer_ticket(ticket_id, answer, slot_values, unknown=unknown)
@@ -275,7 +335,7 @@ def create_app(settings: Settings | None = None, agent: AgentRunner | None = Non
 
     # --- admin ----------------------------------------------------------------------------
 
-    @api.post("/admin/reload-rules", tags=["admin"])
+    @api.post("/admin/reload-rules", tags=["admin"], dependencies=[admin_only])
     def reload_rules() -> JSONResponse:
         """Re-read and validate rules.yaml live. Invalid -> 422; the previous rules stay."""
         try:

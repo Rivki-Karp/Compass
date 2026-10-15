@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi.testclient import TestClient
+from helpers import ADMIN, REP
 
 from compass.api import Settings, create_app
 from compass.api.openapi import OPENAPI_JSON, render
@@ -50,7 +51,7 @@ def test_agent_runner_is_called(make_settings: Callable[..., Settings]) -> None:
         ticket = tool(
             client, sid, "ask_representative", {"question": "?", "blocking_fields": ["bonus"]}
         )["ticket_id"]
-        client.post(f"/api/tickets/{ticket}/answer", json={"values": {"bonus": 0}})
+        client.post(f"/api/tickets/{ticket}/answer", json={"values": {"bonus": 0}}, headers=REP)
     assert calls == [("message", 1), ("ticket", ticket)]
 
 
@@ -95,15 +96,17 @@ def _ticket(client: TestClient, sid: str) -> str:
 
 def test_ticket_inbox(client: TestClient, sid: str) -> None:
     ticket = _ticket(client, sid)
-    inbox = client.get("/api/tickets", params={"status": "open"}).json()
+    inbox = client.get("/api/tickets", params={"status": "open"}, headers=REP).json()
     assert [t["id"] for t in inbox] == [ticket]
     assert inbox[0]["blocking_fields"] == ["pension_percent", "bonus"]
-    assert client.get("/api/tickets", params={"status": "nope"}).status_code == 422
+    assert client.get("/api/tickets", params={"status": "nope"}, headers=REP).status_code == 422
 
 
 def test_answer_with_quick_answer(client: TestClient, sid: str) -> None:
     ticket = _ticket(client, sid)
-    response = client.post(f"/api/tickets/{ticket}/answer", json={"quick_answer_id": "std"})
+    response = client.post(
+        f"/api/tickets/{ticket}/answer", json={"quick_answer_id": "std"}, headers=REP
+    )
     assert response.status_code == 200 and response.json()["status"] == "answered"
     slots = client.get(f"/api/sessions/{sid}").json()["slots"]
     assert slots["pension_pct"]["value"] == "0.06" and slots["bonus"]["value"] == "0"
@@ -113,7 +116,7 @@ def test_answer_with_quick_answer(client: TestClient, sid: str) -> None:
 def test_answer_text_only_marks_fields_unknown(client: TestClient, sid: str) -> None:
     ticket = _ticket(client, sid)
     body = {"answer_text": "אין לי את הנתון", "values": {"bonus": 1200}}
-    assert client.post(f"/api/tickets/{ticket}/answer", json=body).status_code == 200
+    assert client.post(f"/api/tickets/{ticket}/answer", json=body, headers=REP).status_code == 200
     snapshot = client.get(f"/api/sessions/{sid}").json()
     assert snapshot["slots"]["bonus"]["value"] == "1200"
     assert snapshot["slots"]["pension_pct"]["state"] == "unknown"  # answered, but no value
@@ -123,14 +126,24 @@ def test_answer_text_only_marks_fields_unknown(client: TestClient, sid: str) -> 
 def test_answer_validation(client: TestClient, sid: str) -> None:
     ticket = _ticket(client, sid)
     answer = f"/api/tickets/{ticket}/answer"
-    assert client.post(answer, json={}).status_code == 422
-    assert client.post(answer, json={"values": {"pension_percent": 50}}).status_code == 422
-    assert client.post(answer, json={"values": {"base_salary": 9000}}).status_code == 422
-    assert client.post(answer, json={"quick_answer_id": "nope"}).status_code == 422
-    assert client.post(answer, json={"values": {"national_id": "1"}}).status_code == 422
-    assert client.post("/api/tickets/nope/answer", json={"answer_text": "x"}).status_code == 404
-    assert client.post(answer, json={"answer_text": "ok"}).status_code == 200
-    assert client.post(answer, json={"answer_text": "again"}).status_code == 409
+    assert client.post(answer, json={}, headers=REP).status_code == 422
+    assert (
+        client.post(answer, json={"values": {"pension_percent": 50}}, headers=REP).status_code
+        == 422
+    )
+    assert (
+        client.post(answer, json={"values": {"base_salary": 9000}}, headers=REP).status_code == 422
+    )
+    assert client.post(answer, json={"quick_answer_id": "nope"}, headers=REP).status_code == 422
+    assert (
+        client.post(answer, json={"values": {"national_id": "1"}}, headers=REP).status_code == 422
+    )
+    assert (
+        client.post("/api/tickets/nope/answer", json={"answer_text": "x"}, headers=REP).status_code
+        == 404
+    )
+    assert client.post(answer, json={"answer_text": "ok"}, headers=REP).status_code == 200
+    assert client.post(answer, json={"answer_text": "again"}, headers=REP).status_code == 409
 
 
 # --- data, health, openapi --------------------------------------------------------------------
@@ -189,7 +202,7 @@ def test_reload_rules_ok(client: TestClient, rules_copy: Path) -> None:
     rules_copy.write_text(
         rules_copy.read_text(encoding="utf-8") + "\n# touched\n", encoding="utf-8"
     )
-    response = client.post("/api/admin/reload-rules")
+    response = client.post("/api/admin/reload-rules", headers=ADMIN)
     assert response.status_code == 200
     assert response.json()["sha256"] != before
     assert client.get("/api/health").json()["rules"]["sha256"] == response.json()["sha256"]

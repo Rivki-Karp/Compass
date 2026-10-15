@@ -6,6 +6,7 @@ and both save_profile and the representative's ticket answer validate through it
 """
 
 from collections.abc import Mapping
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -56,6 +57,34 @@ MAX_CREDIT_POINTS = Decimal(15)
 CREDIT_POINT_STEP = Decimal("0.25")
 MAX_CHILDREN = 20
 MAX_NAME_LENGTH = 80
+MAX_PARTICIPATION = Decimal(20_000)
+
+# Participation fields: filled by a representative (ticket blocking fields), not by save_profile.
+# Slot value: {"amount": "350", "effective_from": "2026-11-01" | None}.
+CURRENT_PARTICIPATION = "current_participation"
+ALTERNATIVE_PARTICIPATION = "alternative_participation:"  # + catalog car id
+
+
+def alternative_participation(car_id: str) -> str:
+    return f"{ALTERNATIVE_PARTICIPATION}{car_id}"
+
+
+def is_participation(field: str) -> bool:
+    return field == CURRENT_PARTICIPATION or field.startswith(ALTERNATIVE_PARTICIPATION)
+
+
+def is_fillable(field: str, ctx: EngineContext) -> bool:
+    """A field a ticket may block on and a representative may fill."""
+    if field in SLOT_OF or field == CURRENT_PARTICIPATION:
+        return True
+    return (
+        field.startswith(ALTERNATIVE_PARTICIPATION)
+        and field.removeprefix(ALTERNATIVE_PARTICIPATION) in ctx.catalog
+    )
+
+
+def slot_name(field: str) -> str:
+    return SLOT_OF.get(field, field)  # participation fields are their own slot names
 
 
 class FieldError(ValueError):
@@ -78,8 +107,26 @@ def _decimal(field: str, raw: Any) -> Decimal:
     return value
 
 
-def to_slot_value(field: str, raw: Any, ctx: EngineContext) -> Any:
-    """Validate one tool-unit value and return its JSON slot value. Raises FieldError."""
+def to_slot_value(
+    field: str, raw: Any, ctx: EngineContext, effective_from: date | None = None
+) -> Any:
+    """Validate one tool-unit value and return its JSON slot value. Raises FieldError.
+
+    `effective_from` applies to participation fields only (when the amount takes effect).
+    """
+    if is_participation(field):
+        if not is_fillable(field, ctx):
+            car_id = field.removeprefix(ALTERNATIVE_PARTICIPATION)
+            raise FieldError(field, f"unknown catalog car {car_id!r}")
+        amount = _decimal(field, raw)
+        if not 0 <= amount <= MAX_PARTICIPATION:
+            raise FieldError(field, f"must be 0-{MAX_PARTICIPATION:,} (got {amount})")
+        return {
+            "amount": str(amount),
+            "effective_from": None if effective_from is None else effective_from.isoformat(),
+        }
+    if effective_from is not None:
+        raise FieldError(field, "effective_from applies to participation fields only")
     if field not in SLOT_OF:
         raise FieldError(field, "unknown profile field")
     if field == "display_name":

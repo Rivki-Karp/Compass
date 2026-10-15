@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 import yaml
 from fastapi.testclient import TestClient
+from helpers import ADMIN, REP
 from live import SSEReader, live_server
 
 from compass.api import Settings, create_app
@@ -129,7 +130,7 @@ def test_representative_round_trip_over_sse(make_settings: Callable[..., Setting
             },
         )
         ticket_id = asked["ticket_id"]
-        inbox = http.get("/api/tickets", params={"status": "open"}).json()
+        inbox = http.get("/api/tickets", params={"status": "open"}, headers=REP).json()
         assert [t["id"] for t in inbox] == [ticket_id]
         assert inbox[0]["context"]["occupation"] == "מפתח/ת תוכנה"
 
@@ -138,7 +139,9 @@ def test_representative_round_trip_over_sse(make_settings: Callable[..., Setting
             stream.wait_for("ticket_opened")  # replayed from the events table
             seen = len(stream.events)
             answer = http.post(
-                f"/api/tickets/{ticket_id}/answer", json={"values": {"study_fund_percent": 3}}
+                f"/api/tickets/{ticket_id}/answer",
+                json={"values": {"study_fund_percent": 3}},
+                headers=REP,
             )
             assert answer.status_code == 200
             live = stream.wait_for("ticket_answered")  # delivered live
@@ -216,7 +219,7 @@ def test_reload_rules_changes_the_next_comparison(
     data = yaml.safe_load(rules_copy.read_text(encoding="utf-8"))
     data["budgets"]["ב"] = 4000
     rules_copy.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
-    assert client.post("/api/admin/reload-rules").status_code == 200
+    assert client.post("/api/admin/reload-rules", headers=ADMIN).status_code == 200
     assert _family_share(client, sid) == 1000  # (6,000 - 4,000) x 0.5
 
 
@@ -230,7 +233,7 @@ def test_invalid_rules_are_rejected_and_old_rules_stay(
     data["net_method"]["brackets"][2]["rate"] = "1.4"  # ...because this one is invalid
     rules_copy.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
 
-    response = client.post("/api/admin/reload-rules")
+    response = client.post("/api/admin/reload-rules", headers=ADMIN)
     assert response.status_code == 422
     detail = response.json()["detail"]
     assert "net_method.brackets[2].rate: must be between 0 and 1 (got 1.4)" in detail
@@ -239,6 +242,6 @@ def test_invalid_rules_are_rejected_and_old_rules_stay(
     assert _family_share(client, sid) == 1150  # still the old budget
 
     rules_copy.write_text("budgets: [unclosed\n", encoding="utf-8")
-    response = client.post("/api/admin/reload-rules")
+    response = client.post("/api/admin/reload-rules", headers=ADMIN)
     assert response.status_code == 422 and "not valid YAML" in response.json()["detail"]
     assert _family_share(client, sid) == 1150

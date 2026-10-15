@@ -19,6 +19,9 @@ class Settings:
     dev_tools: bool = False
     cors_origins: tuple[str, ...] = field(default=DEFAULT_CORS_ORIGINS)
     heartbeat_seconds: float = 15.0
+    # Shared bearer tokens. Unset -> the guarded endpoints answer 503 (never open by default).
+    rep_token: str | None = field(default=None, repr=False)  # /api/tickets*
+    admin_token: str | None = field(default=None, repr=False)  # /api/admin/*
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -28,6 +31,8 @@ class Settings:
             app_db=Path(env.get("COMPASS_APP_DB", APP_DB)),
             rules_path=Path(env.get("COMPASS_RULES", RULES_YAML)),
             dev_tools=env.get("COMPASS_DEV_TOOLS") == "1",
+            rep_token=env.get("COMPASS_REP_TOKEN") or None,
+            admin_token=env.get("COMPASS_ADMIN_TOKEN") or None,
             cors_origins=tuple(o.strip() for o in origins.split(","))
             if origins
             else DEFAULT_CORS_ORIGINS,

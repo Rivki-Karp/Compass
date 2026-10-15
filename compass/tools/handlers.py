@@ -5,6 +5,7 @@ from the data files; no handler calculates money. Expected failures raise ToolEr
 runner turns into {"ok": false, "error": {...}}.
 """
 
+from collections.abc import Mapping
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -26,14 +27,18 @@ from compass.engine.models import (
 from compass.engine.options import list_options as engine_options
 from compass.engine.serialize import plain_json, to_api_dict
 from compass.search import SearchResult
-from compass.state import SlotUpdate
+from compass.state import Slot, SlotUpdate
 from compass.tools.profile import (
+    CURRENT_PARTICIPATION,
     PAYSLIP_FIELDS,
     PROFILE_FIELDS,
     REQUIRED_FIELDS,
     SLOT_OF,
     FieldError,
+    alternative_participation,
+    is_fillable,
     profile_from_slots,
+    slot_name,
     to_slot_value,
     to_tool_value,
     tool_fields,
@@ -410,25 +415,79 @@ class CompareInput(_Input):
     alternative: AlternativeInput
 
 
-def compare(services: Services, session_id: str, data: CompareInput) -> dict[str, Any]:
-    ctx = services.ctx
+def _with_participation(
+    scenario: Scenario, slots: Mapping[str, Slot], field: str, explicit: bool
+) -> tuple[Scenario, dict[str, Any]]:
+    """Apply a representative's participation answer to a car scenario.
+
+    - explicit participation in the call wins (employee input);
+    - a filled slot (the representative answered) -> that amount, source representative;
+    - an open ticket blocking it (pending_rep) -> the catalog default for now, flagged
+      pending_rep, never silently final.
+    """
+    if not isinstance(scenario, CompanyCar | FamilyCar | ExternalCar):
+        return scenario, {"field": None, "pending_rep": False, "effective_from": None}
+    slot = slots.get(field)
+    info: dict[str, Any] = {"field": field, "pending_rep": False, "effective_from": None}
+    if explicit or slot is None:
+        return scenario, info
+    if slot.state == "pending_rep":
+        info["pending_rep"] = True
+    elif slot.state == "filled":
+        scenario = scenario.model_copy(
+            update={
+                "participation": Decimal(slot.value["amount"]),
+                "participation_source": "representative",
+            }
+        )
+        info["effective_from"] = slot.value["effective_from"]
+    info["state"] = slot.state
+    return scenario, info
+
+
+def _today_for_engine(
+    services: Services, session_id: str, slots: Mapping[str, Slot]
+) -> tuple[Scenario, dict[str, Any]]:
     today = _today(services, session_id)
     if today is None:
         raise ToolError(
             "missing_inputs", "set the current situation first", fields=["current_situation"]
         )
-    scenario = _alternative(services, data.alternative)
-    profile = _profile(services, session_id)
+    return _with_participation(today, slots, CURRENT_PARTICIPATION, explicit=False)
+
+
+def compare(services: Services, session_id: str, data: CompareInput) -> dict[str, Any]:
+    ctx = services.ctx
+    slots = services.store.slots(session_id)
+    today, today_info = _today_for_engine(services, session_id, slots)
+    scenario, alt_info = _with_participation(
+        _alternative(services, data.alternative),
+        slots,
+        alternative_participation(data.alternative.car_id or ""),
+        explicit=data.alternative.participation is not None,
+    )
+    profile = profile_from_slots(slots)
     try:
         result = engine_compare(profile, today, scenario, ctx)
     except MissingInputs as error:
         raise _missing(services, session_id, error) from None
     eligibility = to_api_dict(engine_eligibility(profile, scenario, ctx), ctx.rules)
+    today_meta, alt_meta = result.today.metadata, result.alternative.metadata
     payload = {
         "comparison": to_api_dict(result, ctx.rules),
         "eligibility": eligibility,
         "hypothetical": eligibility["status"] != "eligible",
         "missing": tool_fields(result.missing),
+        # The alternative's participation: where the amount came from, and whether a
+        # representative still has to confirm it.
+        "participation_source": alt_meta.participation_source,
+        "pending_rep": alt_info["pending_rep"],
+        "participation_effective_from": alt_info["effective_from"],
+        "today_participation": {
+            "source": today_meta.participation_source,
+            "pending_rep": today_info["pending_rep"],
+            "effective_from": today_info["effective_from"],
+        },
     }
     kind = services.store.record_comparison(session_id, scenario.model_dump(mode="json"), payload)
     return {"alternative_kind": kind, **payload}
@@ -442,13 +501,10 @@ class ListOptionsInput(_Input):
 
 
 def list_options(services: Services, session_id: str, data: ListOptionsInput) -> dict[str, Any]:
-    today = _today(services, session_id)
-    if today is None:
-        raise ToolError(
-            "missing_inputs", "set the current situation first", fields=["current_situation"]
-        )
+    slots = services.store.slots(session_id)
+    today, _ = _today_for_engine(services, session_id, slots)
     try:
-        options = engine_options(_profile(services, session_id), today, services.ctx)
+        options = engine_options(profile_from_slots(slots), today, services.ctx)
     except MissingInputs as error:
         raise _missing(services, session_id, error) from None
     return {"options": to_api_dict(options, services.ctx.rules)}
@@ -515,9 +571,14 @@ def ask_representative(
     services: Services, session_id: str, data: AskRepresentativeInput
 ) -> dict[str, Any]:
     ctx, store = services.ctx, services.store
-    bad = [f for f in data.blocking_fields if f not in PROFILE_FIELDS]
+    bad = [f for f in data.blocking_fields if not is_fillable(f, ctx)]
     if bad:
-        raise ToolError("invalid_input", "blocking_fields must be profile fields", fields=bad)
+        raise ToolError(
+            "invalid_input",
+            "blocking_fields must be profile fields, current_participation or "
+            "alternative_participation:<catalog car id>",
+            fields=bad,
+        )
     ids = [qa.id for qa in data.quick_answers]
     if len(ids) != len(set(ids)):
         raise ToolError("invalid_input", "quick answer ids must be unique")
@@ -558,6 +619,6 @@ def ask_representative(
         context,
         data.blocking_fields,  # tool field names: what the representative sees
         [qa.model_dump() for qa in data.quick_answers],
-        pending_slots=[SLOT_OF[f] for f in data.blocking_fields],
+        pending_slots=[slot_name(f) for f in data.blocking_fields],
     )
     return {"ticket_id": ticket.id, "status": ticket.status, "context": context}
