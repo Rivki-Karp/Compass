@@ -31,7 +31,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sse_starlette import EventSourceResponse, ServerSentEvent
 from starlette.concurrency import run_in_threadpool
 
-from compass.api.agent import AgentRunner, NullAgentRunner
+from compass.api.agent import AgentRunner
 from compass.api.broker import Broker
 from compass.api.settings import Settings
 from compass.config import CATALOG_JSON, OCCUPATIONS_JSON
@@ -112,7 +112,16 @@ def _token_guard(
     return check
 
 
-def create_app(settings: Settings | None = None, agent: AgentRunner | None = None) -> FastAPI:
+AgentFactory = Callable[[Settings, Services, ToolRunner], AgentRunner]
+
+
+def create_app(
+    settings: Settings | None = None,
+    agent: AgentRunner | None = None,
+    agent_factory: AgentFactory | None = None,
+) -> FastAPI:
+    """`agent` replaces the agent outright; `agent_factory` builds it on the app's own services
+    (tests plug a scripted model in this way). Default: Claude if a key is set, else none."""
     settings = Settings.from_env() if settings is None else settings
     store = Store(settings.app_db)
     services = Services(
@@ -124,12 +133,20 @@ def create_app(settings: Settings | None = None, agent: AgentRunner | None = Non
     runner = ToolRunner(services)
     broker = Broker()
     store.subscribers.append(broker.publish)
-    agent = NullAgentRunner() if agent is None else agent
+    if agent is None and agent_factory is not None:
+        agent = agent_factory(settings, services, runner)
+    if agent is None:
+        from compass.agent.factory import build_agent  # the agent layer sits above the API
+
+        agent = build_agent(settings, services, runner)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         broker.bind(asyncio.get_running_loop())
         yield
+        close = getattr(agent, "close", None)
+        if close is not None:
+            await run_in_threadpool(close)  # let in-flight agent runs finish
 
     app = FastAPI(
         title="Compass API",
