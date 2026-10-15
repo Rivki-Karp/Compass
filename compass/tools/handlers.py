@@ -497,17 +497,50 @@ def compare(services: Services, session_id: str, data: CompareInput) -> dict[str
 
 
 class ListOptionsInput(_Input):
-    pass
+    participation: dict[str, Annotated[Decimal, Field(ge=0)]] = Field(
+        default_factory=dict,
+        description="Participation the employee stated per catalog car id (ILS / month)",
+    )
 
 
 def list_options(services: Services, session_id: str, data: ListOptionsInput) -> dict[str, Any]:
+    """Each car's participation is resolved exactly as compare() resolves it."""
+    ctx = services.ctx
+    unknown = sorted(set(data.participation) - set(ctx.catalog))
+    if unknown:
+        raise ToolError("not_found", "unknown catalog car id in participation", car_ids=unknown)
     slots = services.store.slots(session_id)
     today, _ = _today_for_engine(services, session_id, slots)
+    infos: dict[str, dict[str, Any]] = {}
+
+    def adjust(candidate: Scenario) -> Scenario:
+        if not isinstance(candidate, CompanyCar | FamilyCar):
+            return candidate
+        stated = data.participation.get(candidate.car_id)
+        if stated is not None:
+            candidate = candidate.model_copy(update={"participation": stated})
+        resolved, info = _with_participation(
+            candidate,
+            slots,
+            alternative_participation(candidate.car_id),
+            explicit=stated is not None,
+        )
+        infos[candidate.car_id] = info
+        return resolved
+
     try:
-        options = engine_options(profile_from_slots(slots), today, services.ctx)
+        options = engine_options(profile_from_slots(slots), today, ctx, adjust=adjust)
     except MissingInputs as error:
         raise _missing(services, session_id, error) from None
-    return {"options": to_api_dict(options, services.ctx.rules)}
+    listed = to_api_dict(options, ctx.rules)
+    for option, data_out in zip(options, listed, strict=True):
+        info = infos.get(getattr(option.scenario, "car_id", ""), {})
+        data_out["participation_source"] = (
+            option.comparison.alternative.metadata.participation_source
+        )
+        data_out["pending_rep"] = info.get("pending_rep", False)
+        data_out["participation_effective_from"] = info.get("effective_from")
+    return {"options": listed}
 
 
 # --- 8. get_rule ------------------------------------------------------------------------------

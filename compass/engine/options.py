@@ -1,5 +1,7 @@
 """Every alternative an employee could pick, with its eligibility verdict and diff vs today."""
 
+from collections.abc import Callable
+
 from compass.engine.compare import compare
 from compass.engine.context import EngineContext
 from compass.engine.eligibility import check_eligibility
@@ -35,15 +37,24 @@ def _candidates(profile: EmployeeProfile, ctx: EngineContext) -> list[Scenario]:
     return candidates
 
 
-def list_options(profile: EmployeeProfile, today: Scenario, ctx: EngineContext) -> list[Option]:
+def list_options(
+    profile: EmployeeProfile,
+    today: Scenario,
+    ctx: EngineContext,
+    adjust: Callable[[Scenario], Scenario] | None = None,
+) -> list[Option]:
     """Every catalog car (all groups + family) and the waiver if the occupation allows it,
-    except the option that is today's arrangement. New cars use the catalog participation.
+    except the option that is today's arrangement. New cars use the catalog participation
+    unless `adjust` changes a candidate (the caller's way to apply a stated or confirmed
+    participation, so each option is computed exactly as a single compare() of it would be).
 
     Sorted: eligible by diff (best first), then needs_info, then not_eligible, each by diff;
     ties keep catalog order. With unknown contribution rates the comparisons are partial.
     Raises MissingInputs (all fields at once) if any option cannot be compared.
     """
     candidates = [c for c in _candidates(profile, ctx) if not _is_today(c, today)]
+    if adjust is not None:
+        candidates = [adjust(c) for c in candidates]
     missing: list[str] = []
     for candidate in [today, *candidates]:
         missing += missing_inputs(profile, candidate)

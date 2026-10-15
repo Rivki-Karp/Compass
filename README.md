@@ -236,7 +236,7 @@ Tools return numbers **only** from the engine or the data files; none calculates
 | `set_current_situation` | Today: a company car (catalog id, or a Tax Authority key from `lookup_vehicle`, which needs the participation), a maintenance payment, or none. Returns warnings such as `current_car_above_group` / `current_car_not_in_catalog`. |
 | `check_eligibility` | Engine verdict for an alternative; `not_eligible` with the reason, or `missing_inputs`. |
 | `compare` | Engine comparison of today vs an alternative (`to_api_dict`), stored as the session's last comparison (`comparison_ready`). Ineligible alternatives are still calculated and marked `hypothetical`; unknown contribution rates give a partial result. Also returns the alternative's `participation_source` and `pending_rep` (see below). |
-| `list_options` | Every catalog car and the waiver (if allowed) with eligibility and diff vs today. |
+| `list_options` | Every catalog car and the waiver (if allowed) with eligibility and diff vs today. Each car's participation is resolved exactly as in `compare` (optional `participation: {car_id: amount}` for amounts the employee stated), so an option and a single comparison of it always show the same numbers. |
 | `get_rule` | A whitelisted rule (`budgets`, `choose_from`, `unused_budget`, `electric_bonus`, `family_track`, `waiver`, `participation`, `value_of_use`, `tax_tables_year`): value + the official Hebrew note. |
 | `ask_representative` | Opens a ticket with a context snapshot; its blocking fields (profile fields, `current_participation` or `alternative_participation:<car_id>`) become `pending_rep` and the session `waiting_for_rep`. |
 
@@ -258,6 +258,9 @@ representative, who answers (say 350 ₪), and the conversation continues with t
   default (`catalog_default`). While a ticket blocking that car's participation is open, it
   computes with the default but returns `pending_rep: true`, so the agent never presents it
   as final. Today's car gets the same treatment (`today_participation`).
+- `list_options` applies the same resolution to every car and returns the same
+  `participation_source` / `pending_rep` per option; a test checks every option against a
+  single `compare` of it, before, during and after a ticket.
 
 ## API
 
