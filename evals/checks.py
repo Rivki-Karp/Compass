@@ -1,7 +1,7 @@
 """What a scenario run recorded (Trace) and the checks evaluated against it.
 
-Checks read tool calls, tool results and the final session state, never the model's prose
-for numbers: comparison values come from the compare tool result.
+Checks read tool calls, tool results, comparison events and the final session state, never
+the model's prose for numbers.
 
 Check types (one key per check):
     tool_called      {name, input?, result?, ok?, turn?}   some call matches
@@ -9,8 +9,9 @@ Check types (one key per check):
     comparison       {alternative?, turn?, today_net?, alternative_net?, diff?, has_diff?,
                       participation_source?, maintenance_source?, pending_rep?,
                       hypothetical?, partial?}
-                     the last successful compare (whose input alternative matches, made at
-                     or before `turn`) has these values
+                     the last comparison shown (a comparison_ready event: compare's result
+                     or a server recompute of it, whose compare input alternative matches,
+                     at or before `turn`) has these values
     slot             {field, value?, state?, source?, absent?}   the final session profile
     reply            {turn?, matches?, not_matches?}   regexes on the shown replies of `turn`
                      (default: all replies); every `matches` regex must match some reply,
@@ -65,6 +66,15 @@ class Call:
 
 
 @dataclass
+class Comparison:
+    """A comparison_ready event, with the compare input it came from."""
+
+    turn: int
+    input: dict[str, Any]  # the compare call's input (for a server recompute: the original's)
+    result: dict[str, Any]  # the event payload: compare's result (+ origin for a recompute)
+
+
+@dataclass
 class Reply:
     turn: int
     text: str
@@ -74,6 +84,7 @@ class Reply:
 @dataclass
 class Trace:
     calls: list[Call] = field(default_factory=list)
+    comparisons: list[Comparison] = field(default_factory=list)
     replies: list[Reply] = field(default_factory=list)
     guard_actions: list[str] = field(default_factory=list)
     errors: list[dict[str, Any]] = field(default_factory=list)
@@ -188,14 +199,12 @@ def _comparison_values(result: dict[str, Any]) -> dict[str, Any]:
 def _comparison(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
     candidates = [
         c
-        for c in trace.calls
-        if c.name == "compare"
-        and c.ok
-        and ("turn" not in args or c.turn <= args["turn"])
+        for c in trace.comparisons
+        if ("turn" not in args or c.turn <= args["turn"])
         and matches(args.get("alternative", {}), c.input.get("alternative"))
     ]
     if not candidates:
-        return False, "no successful compare matches"
+        return False, "no comparison matches"
     got = _comparison_values(candidates[-1].result)
     expected = {k: v for k, v in args.items() if k not in ("alternative", "turn")}
     wrong = {k: got[k] for k, v in expected.items() if not matches(v, got[k])}

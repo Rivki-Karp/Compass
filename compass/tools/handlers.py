@@ -29,6 +29,7 @@ from compass.engine.serialize import plain_json, to_api_dict
 from compass.search import SearchResult
 from compass.state import Slot, SlotUpdate
 from compass.tools.profile import (
+    ALTERNATIVE_PARTICIPATION,
     CURRENT_PARTICIPATION,
     PAYSLIP_FIELDS,
     PROFILE_FIELDS,
@@ -37,6 +38,7 @@ from compass.tools.profile import (
     FieldError,
     alternative_participation,
     is_fillable,
+    is_participation,
     profile_from_slots,
     slot_name,
     to_slot_value,
@@ -491,14 +493,26 @@ def _today_for_engine(
 
 
 def compare(services: Services, session_id: str, data: CompareInput) -> dict[str, Any]:
+    scenario, payload = _comparison(
+        services,
+        session_id,
+        _alternative(services, session_id, data.alternative),
+        explicit=data.alternative.participation is not None,
+    )
+    kind = services.store.record_comparison(session_id, scenario.model_dump(mode="json"), payload)
+    return {"alternative_kind": kind, **payload}
+
+
+def _comparison(
+    services: Services, session_id: str, alternative: Scenario, explicit: bool
+) -> tuple[Scenario, dict[str, Any]]:
+    """The compare payload for one alternative, with participation resolved from the slots."""
     ctx = services.ctx
     slots = services.store.slots(session_id)
     today, today_info = _today_for_engine(services, session_id, slots)
+    car_id = getattr(alternative, "car_id", None) or ""
     scenario, alt_info = _with_participation(
-        _alternative(services, session_id, data.alternative),
-        slots,
-        alternative_participation(data.alternative.car_id or ""),
-        explicit=data.alternative.participation is not None,
+        alternative, slots, alternative_participation(car_id), explicit=explicit
     )
     profile = profile_from_slots(slots)
     try:
@@ -523,8 +537,7 @@ def compare(services: Services, session_id: str, data: CompareInput) -> dict[str
             "effective_from": today_info["effective_from"],
         },
     }
-    kind = services.store.record_comparison(session_id, scenario.model_dump(mode="json"), payload)
-    return {"alternative_kind": kind, **payload}
+    return scenario, payload
 
 
 # --- 7. list_options --------------------------------------------------------------------------
@@ -693,4 +706,58 @@ def ask_representative(
         [qa.model_dump() for qa in data.quick_answers],
         pending_slots=[slot_name(f) for f in data.blocking_fields],
     )
+    _recompute_as_pending(services, session_id, ticket.id, data.blocking_fields)
     return {"ticket_id": ticket.id, "status": ticket.status, "context": context}
+
+
+def _uses_catalog_default(payload: Mapping[str, Any], field: str) -> bool | None:
+    """Whether this comparison used `field` at the catalog default (None: it didn't use it)."""
+    if field == CURRENT_PARTICIPATION:
+        return payload["today_participation"]["source"] == "catalog_default"
+    if payload["alternative"].get("car_id") != field.removeprefix(ALTERNATIVE_PARTICIPATION):
+        return None
+    return payload["participation_source"] == "catalog_default"
+
+
+def _recompute_as_pending(
+    services: Services, session_id: str, ticket_id: str, fields: list[str]
+) -> None:
+    """A comparison shown at a catalog default must not stay final once a ticket asks for that
+    participation, whatever order the model called the tools in. Recompute the latest
+    comparison that used the field (same alternative, no model call) and append it as a
+    server-emitted comparison_ready with pending_rep. compare's own result is unchanged."""
+    comparisons = [
+        e for e in services.store.events_after(session_id) if e.type == "comparison_ready"
+    ]
+    targets: dict[int, str] = {}  # event seq -> the field it waits for
+    for field in fields:
+        if not is_participation(field):
+            continue
+        for event in reversed(comparisons):  # the latest comparison that used the field
+            used = _uses_catalog_default(event.payload, field)
+            if used is not None:
+                if used:
+                    targets.setdefault(event.seq, field)
+                break
+    for seq, field in sorted(targets.items()):
+        event = next(e for e in comparisons if e.seq == seq)
+        try:
+            scenario, payload = _comparison(
+                services,
+                session_id,
+                SCENARIO.validate_python(event.payload["alternative"]),
+                explicit=False,
+            )
+        except ToolError:  # the profile changed since and no longer computes: nothing to redo
+            continue
+        services.store.record_comparison(
+            session_id,
+            scenario.model_dump(mode="json"),
+            {
+                **payload,
+                "origin": "server",
+                "recomputed_from": seq,
+                "ticket_id": ticket_id,
+                "pending_field": field,
+            },
+        )

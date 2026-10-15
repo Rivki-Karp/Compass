@@ -395,6 +395,13 @@ catalog default 300 is **+661** (shown as pending); the representative answers 3
 agent recomputes to **+611**, source `representative`. Only server code can write that
 notification: employee text that looks like one is escaped and stays employee text.
 
+**Pending does not depend on the model's tool order.** If the model compares first and only
+then opens a ticket for that participation, `ask_representative` recomputes the latest
+comparison that used the field at the catalog default, with no model call, and appends it as
+a second `comparison_ready` with `pending_rep: true` and `origin: "server"` (plus
+`recomputed_from`, `ticket_id`, `pending_field`). The compare tool's own result is
+unchanged. The prompt also tells the model to ask first, then compare.
+
 **System prompt.** [system_he.md](compass/agent/prompts/system_he.md), in Hebrew: tone,
 collecting information, search results, eligibility and exceptions, the representative,
 numbers and results, the security rules, and when to use each tool. The fixed opening

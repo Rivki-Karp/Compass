@@ -9,7 +9,7 @@ from compass.agent.runner import ClaudeAgentRunner, Guard, RunOutcome
 from compass.tools.profile import TOOL_OF, to_tool_value
 from compass.tools.services import Services
 from compass.tools.tickets import TicketAnswerError, answer_ticket
-from evals.checks import Call, CheckResult, Reply, Trace, evaluate
+from evals.checks import Call, CheckResult, Comparison, Reply, Trace, evaluate
 from evals.scenario import FALLBACK_HE, RepAnswer, Scenario
 
 
@@ -128,6 +128,8 @@ class Harness:
                 for r in message.content["results"]:
                     full[r["tool_use_id"]] = r["full"]
         calls: dict[str, Call] = {}
+        compare_input: dict[str, Any] = {}  # of the latest compare call
+        inputs_by_seq: dict[int, dict[str, Any]] = {}
         for event in self.store.events_after(session_id):
             p, turn = event.payload, turn_of(event.seq)
             if event.type == "tool_call":
@@ -135,6 +137,13 @@ class Harness:
                 calls[p["tool_use_id"]] = Call(
                     turn, p["name"], p["input"] or {}, bool(result.get("ok")), result
                 )
+                if p["name"] == "compare":
+                    compare_input = p["input"] or {}
+            elif event.type == "comparison_ready":
+                origin = p.get("recomputed_from")
+                source = compare_input if origin is None else inputs_by_seq.get(origin, {})
+                inputs_by_seq[event.seq] = source
+                trace.comparisons.append(Comparison(turn, source, p))
             elif event.type == "assistant_message":
                 trace.replies.append(Reply(turn, p["text"], p["kind"]))
             elif event.type == "guard_check":

@@ -12,7 +12,7 @@ from compass.agent.llm import ScriptedClient, Usage, text_response, tool_respons
 from compass.api.settings import Settings
 from compass.state import Store
 from compass.tools.services import Services
-from evals.checks import Call, Trace, evaluate, matches, parse_check
+from evals.checks import Comparison, Trace, evaluate, matches, parse_check
 from evals.harness import Harness, RunResult
 from evals.report import Ledger, OverBudget, render
 from evals.scenario import FALLBACK_HE, Scenario, load_all
@@ -149,21 +149,45 @@ def test_until_compare_answers_with_the_fallback(services: Services) -> None:
     assert [m.content["text"] for m in messages if m.role == "user"] == ["שלום", FALLBACK_HE]
 
 
-def test_rep_flow_with_a_scripted_model(services: Services) -> None:
-    scenario = next(s for s in load_all(["e001_rep_flow"])).model_dump(mode="json")
-    ask = {"question": "מה ההשתתפות ב-ATTO 3?", "blocking_fields": [FIELD]}
-    steps = [
+def _rep_flow_steps(*turn_2: Any) -> list[Any]:
+    return [
         tool_response(("save_profile", {"occupation_query": "מנהלת מוצר", "base_salary": 18500})),
         text_response("רשמתי: מנהלת מוצר ← קבוצה ג'. יש לך עמלות?"),
         tool_response(("save_profile", NOA), ("set_current_situation", TODAY)),
         text_response("רשמתי. מה לבדוק?"),
-        tool_response(("ask_representative", ask), ("compare", ATTO)),
+        *turn_2,
         text_response("פניתי לנציג. בינתיים: +661 ₪."),
         tool_response(("compare", ATTO)),
         text_response("הנציג אישר 350 ₪: +611 ₪."),
     ]
+
+
+ASK_ATTO = {"question": "מה ההשתתפות ב-ATTO 3?", "blocking_fields": [FIELD]}
+
+
+def test_rep_flow_with_a_scripted_model(services: Services) -> None:
+    scenario = next(s for s in load_all(["e001_rep_flow"])).model_dump(mode="json")
+    steps = _rep_flow_steps(tool_response(("ask_representative", ASK_ATTO), ("compare", ATTO)))
     run = _run(services, steps, scenario)
     assert run.passed, _failed(run)
+    assert not any(c.result.get("origin") for c in run.trace.comparisons)
+
+
+def test_rep_flow_with_compare_before_ask_representative(services: Services) -> None:
+    # The order the live model once chose: the comparison is shown before the ticket opens.
+    # The server recomputes it as pending, so the scenario passes unchanged.
+    scenario = next(s for s in load_all(["e001_rep_flow"])).model_dump(mode="json")
+    steps = _rep_flow_steps(
+        tool_response(("compare", ATTO)), tool_response(("ask_representative", ASK_ATTO))
+    )
+    run = _run(services, steps, scenario)
+    assert run.passed, _failed(run)
+    compare_result = next(c for c in run.trace.calls if c.name == "compare").result
+    assert compare_result["pending_rep"] is False  # compare itself ran before the ticket
+    origins = [
+        (c.turn, c.result.get("origin"), c.result["pending_rep"]) for c in run.trace.comparisons
+    ]
+    assert origins == [(2, None, False), (2, "server", True), (3, None, False)]
 
 
 def test_a_rep_turn_without_a_ticket_is_a_failure(services: Services) -> None:
@@ -181,7 +205,7 @@ def test_a_number_that_slipped_past_the_guard_is_caught() -> None:
 
 
 def test_comparison_check_picks_the_last_matching_compare() -> None:
-    def compare(turn: int, diff: int, kind: str) -> Call:
+    def compare(turn: int, diff: int, kind: str) -> Comparison:
         comparison = {
             "today": {"display": {"net": 1}},
             "alternative": {"display": {"net": 2}, "metadata": {"maintenance_source": None}},
@@ -194,9 +218,11 @@ def test_comparison_check_picks_the_last_matching_compare() -> None:
             "pending_rep": False,
             "hypothetical": False,
         }
-        return Call(turn, "compare", {"alternative": {"kind": kind}}, True, result)
+        return Comparison(turn, {"alternative": {"kind": kind}}, result)
 
-    trace = Trace(calls=[compare(0, 10, "waiver"), compare(1, 20, "waiver"), compare(2, 30, "car")])
+    trace = Trace(
+        comparisons=[compare(0, 10, "waiver"), compare(1, 20, "waiver"), compare(2, 30, "car")]
+    )
     check = {"comparison": {"alternative": {"kind": "waiver"}, "diff": 20}}
     assert evaluate(trace, [check])[0].passed
     early = {"comparison": {"alternative": {"kind": "waiver"}, "turn": 0, "diff": 10}}
