@@ -408,20 +408,33 @@ class Store:
             self._set_status(conn, events, session_id, "waiting_for_rep")
         return ticket
 
-    def answer_ticket(self, ticket_id: str, answer: Any, values: Mapping[str, Any]) -> Ticket:
-        """Fill the given slots (source representative), close the ticket, resume the session."""
+    def answer_ticket(
+        self,
+        ticket_id: str,
+        answer: Any,
+        values: Mapping[str, Any],
+        unknown: Sequence[str] = (),
+    ) -> Ticket:
+        """Fill the given slots (source representative), mark `unknown` slots unknown (the
+        representative answered without a value), close the ticket, resume the session."""
         with self._write() as (conn, events):
             ticket = self._ticket(conn, ticket_id)
             if ticket.status != "open":
                 raise StateError(f"ticket {ticket_id} is already {ticket.status}")
             filled = {f: SlotUpdate(value=v, source="representative") for f, v in values.items()}
+            filled |= {f: SlotUpdate(state="unknown", source="representative") for f in unknown}
             self._upsert_slots(conn, ticket.session_id, filled)
             conn.execute(
                 "UPDATE tickets SET status = 'answered', answer_json = ?, answered_at = ? "
                 "WHERE id = ?",
                 (_dump(answer), _now(), ticket_id),
             )
-            payload = {"ticket_id": ticket_id, "answer": answer, "fields": dict(values)}
+            payload = {
+                "ticket_id": ticket_id,
+                "answer": answer,
+                "fields": dict(values),
+                "unknown": list(unknown),
+            }
             self._event(conn, events, ticket.session_id, "ticket_answered", payload)
             self._set_status(conn, events, ticket.session_id, "active")
             return self._ticket(conn, ticket_id)

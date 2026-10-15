@@ -139,7 +139,7 @@ class ToolRunner:
         try:
             self.services.store.session_status(session_id)
             data = tool.input_model.model_validate(raw_input if raw_input is not None else {})
-            return {"ok": True, **tool.handler(self.services, session_id, data)}
+            return {"ok": True, **tool.handler(self.services.pinned(), session_id, data)}
         except ValidationError as error:
             details = [
                 {"field": ".".join(str(p) for p in e["loc"]), "message": e["msg"]}
