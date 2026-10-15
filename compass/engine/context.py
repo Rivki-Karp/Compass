@@ -38,6 +38,10 @@ def build_context(
     occupations = load_occupations() if occupations is None else occupations
 
     problems: list[str] = []
+    if rules.waiver.maintenance_is_pensionable:
+        # The contributions base is "gross" (base + commissions + bonus); the engine has no
+        # definition of pensionable maintenance, so refuse rather than ignore the flag.
+        problems.append("waiver.maintenance_is_pensionable: true is not supported by the engine")
     by_id = {car.id: car for car in catalog}
     if len(by_id) != len(catalog):
         problems.append("catalog: duplicate car ids")
