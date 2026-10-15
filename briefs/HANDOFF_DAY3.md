@@ -85,3 +85,5 @@ All on `claude-sonnet-5-5`:
 
 Review the final Day 3 report, then merge `day3/agent` into `main` (`--no-ff`). Day 4 starts
 from `main` with its own brief, handed over after the merge.
+
+Merged at f083dc3, tag day3-complete.
