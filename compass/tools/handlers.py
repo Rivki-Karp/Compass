@@ -364,7 +364,12 @@ class AlternativeInput(_Input):
     kind: Literal["car", "waiver"]
     car_id: str | None = Field(None, description="Catalog id, for kind = car")
     participation: Decimal | None = Field(
-        None, ge=0, description="Only if the employee or a representative stated it"
+        None,
+        ge=0,
+        description=(
+            "Only if the employee stated it. Omit it after a representative's answer: the "
+            "answer is applied automatically"
+        ),
     )
     maintenance: Decimal | None = Field(
         None,
@@ -372,17 +377,27 @@ class AlternativeInput(_Input):
         description=(
             "Only when a representative quoted a waiver maintenance amount. Omit it otherwise: "
             "the occupation's maintenance is used automatically (do not copy it from "
-            "lookup_occupation)"
+            "lookup_occupation; an amount equal to the occupation's counts as the occupation's)"
         ),
     )
 
 
-def _alternative(services: Services, data: AlternativeInput) -> Scenario:
+def _occupation_maintenance(services: Services, session_id: str) -> Decimal | None:
+    title = _profile(services, session_id).occupation
+    occupation = None if title is None else services.ctx.occupations.get(title)
+    return None if occupation is None else occupation.waiver_maintenance
+
+
+def _alternative(services: Services, session_id: str, data: AlternativeInput) -> Scenario:
     ctx = services.ctx
     if data.kind == "waiver":
         if data.car_id is not None or data.participation is not None:
             raise ToolError("invalid_input", "a waiver has no car_id or participation")
-        if data.maintenance is None:
+        # An amount equal to the occupation's is the occupation's: only a different amount
+        # was quoted by a representative. The source must not depend on how the model calls.
+        if data.maintenance is None or data.maintenance == _occupation_maintenance(
+            services, session_id
+        ):
             return Waiver()
         return Waiver(maintenance=data.maintenance, maintenance_source="representative")
     if data.car_id is None or data.car_id not in ctx.catalog:
@@ -407,7 +422,7 @@ class CheckEligibilityInput(_Input):
 def check_eligibility(
     services: Services, session_id: str, data: CheckEligibilityInput
 ) -> dict[str, Any]:
-    scenario = _alternative(services, data.scenario)
+    scenario = _alternative(services, session_id, data.scenario)
     verdict = to_api_dict(
         engine_eligibility(_profile(services, session_id), scenario, services.ctx),
         services.ctx.rules,
@@ -433,7 +448,9 @@ def _with_participation(
 ) -> tuple[Scenario, dict[str, Any]]:
     """Apply a representative's participation answer to a car scenario.
 
-    - explicit participation in the call wins (employee input);
+    - explicit participation in the call wins (employee input), unless it equals the
+      representative's answer: then it is that answer (the source must not depend on whether
+      the model repeats the amount);
     - a filled slot (the representative answered) -> that amount, source representative;
     - an open ticket blocking it (pending_rep) -> the catalog default for now, flagged
       pending_rep, never silently final.
@@ -442,7 +459,11 @@ def _with_participation(
         return scenario, {"field": None, "pending_rep": False, "effective_from": None}
     slot = slots.get(field)
     info: dict[str, Any] = {"field": field, "pending_rep": False, "effective_from": None}
-    if explicit or slot is None:
+    if slot is None:
+        return scenario, info
+    if explicit and not (
+        slot.state == "filled" and Decimal(slot.value["amount"]) == scenario.participation
+    ):
         return scenario, info
     if slot.state == "pending_rep":
         info["pending_rep"] = True
@@ -474,7 +495,7 @@ def compare(services: Services, session_id: str, data: CompareInput) -> dict[str
     slots = services.store.slots(session_id)
     today, today_info = _today_for_engine(services, session_id, slots)
     scenario, alt_info = _with_participation(
-        _alternative(services, data.alternative),
+        _alternative(services, session_id, data.alternative),
         slots,
         alternative_participation(data.alternative.car_id or ""),
         explicit=data.alternative.participation is not None,

@@ -66,7 +66,18 @@ def calc() -> None:
 
 
 def serve() -> None:
-    run(sys.executable, "-m", "uvicorn", "compass.api.main:app", "--reload", "--port", "8000")
+    # One process: the agent's per-session workers and locks live in memory.
+    run(
+        sys.executable,
+        "-m",
+        "uvicorn",
+        "compass.api.main:app",
+        "--reload",
+        "--workers",
+        "1",
+        "--port",
+        "8000",
+    )
 
 
 def chat() -> None:

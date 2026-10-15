@@ -155,6 +155,41 @@ def test_explicit_participation_wins(client: TestClient) -> None:
     assert other["participation_source"] == "catalog_default" and not other["pending_rep"]
 
 
+def test_repeating_the_representatives_amount_keeps_it_the_representatives(
+    client: TestClient,
+) -> None:
+    # The live E-001 run: after the answer the model passed participation 350 explicitly.
+    sid = _noa(client)
+    ticket = tool(client, sid, "ask_representative", {"question": "?", "blocking_fields": [ATTO]})[
+        "ticket_id"
+    ]
+    client.post(
+        f"/api/tickets/{ticket}/answer",
+        json={"values": {ATTO: 350}, "effective_from": "2026-11-01"},
+        headers=REP,
+    )
+    implicit = tool(client, sid, "compare", ATTO_3)
+    explicit = tool(
+        client,
+        sid,
+        "compare",
+        {"alternative": {"kind": "car", "car_id": "CAR-10", "participation": 350}},
+    )
+    for result in (implicit, explicit):
+        assert result["participation_source"] == "representative" and not result["pending_rep"]
+        assert result["participation_effective_from"] == "2026-11-01"
+        assert result["comparison"]["display_diff"] == 611
+    # A different amount is the employee's correction, and it still wins.
+    corrected = tool(
+        client,
+        sid,
+        "compare",
+        {"alternative": {"kind": "car", "car_id": "CAR-10", "participation": 400}},
+    )
+    assert corrected["participation_source"] == "employee_input"
+    assert corrected["participation_effective_from"] is None
+
+
 def test_participation_field_validation(client: TestClient) -> None:
     sid = _noa(client)
     bad_car = tool(

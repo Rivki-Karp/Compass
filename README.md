@@ -287,6 +287,10 @@ which wins over the file: `COMPASS_DEV_TOOLS=1`, `COMPASS_REP_TOKEN`, `COMPASS_A
 `COMPASS_CORS_ORIGINS` (default: the Vite dev server). Relative paths are relative to the
 repo root. The session store is created on startup.
 
+Run the API as a **single process** (`tasks.py serve` passes `--workers 1`). The agent keeps
+one worker thread and lock per session in memory, so several uvicorn worker processes could
+run the same session twice at once. Scaling out needs a shared queue first.
+
 To override one setting for a single run without editing `.env`:
 
 ```sh

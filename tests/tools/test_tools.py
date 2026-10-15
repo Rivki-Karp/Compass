@@ -327,6 +327,41 @@ def test_alternative_validation(runner: ToolRunner, sid: str) -> None:
     )
 
 
+def test_waiver_maintenance_equal_to_the_occupation_is_the_occupation(
+    runner: ToolRunner, sid: str
+) -> None:
+    # The live walkthrough: the model copied the developer's 1,500 into compare.
+    _ready(runner, sid)
+    implicit = ok(runner.run(sid, "compare", {"alternative": {"kind": "waiver"}}))
+    explicit = ok(
+        runner.run(sid, "compare", {"alternative": {"kind": "waiver", "maintenance": 1500}})
+    )
+    for result in (implicit, explicit):
+        alternative = result["comparison"]["alternative"]
+        assert alternative["metadata"]["maintenance_source"] == "occupation"
+        assert alternative["display"]["net"] == 13914
+    assert explicit["comparison"]["display_diff"] == implicit["comparison"]["display_diff"]
+    eligibility = ok(
+        runner.run(sid, "check_eligibility", {"scenario": {"kind": "waiver", "maintenance": 1500}})
+    )
+    assert eligibility["eligibility"]["status"] == "eligible"
+
+
+def test_waiver_maintenance_without_an_occupation_is_the_representatives(
+    runner: ToolRunner, sid: str
+) -> None:
+    # No occupation to match: an explicit amount can only be a representative's quote.
+    profile = {k: v for k, v in DEVELOPER.items() if k != "occupation_query"}
+    ok(runner.run(sid, "save_profile", {**profile, "group": "ב"}))
+    ok(runner.run(sid, "set_current_situation", COROLLA_CROSS_TODAY))
+    result = ok(
+        runner.run(sid, "compare", {"alternative": {"kind": "waiver", "maintenance": 1500}})
+    )
+    assert result["comparison"]["alternative"]["metadata"]["maintenance_source"] == (
+        "representative"
+    )
+
+
 def test_list_options(runner: ToolRunner, sid: str) -> None:
     err(runner.run(sid, "list_options", {}), "missing_inputs")
     _ready(runner, sid)
