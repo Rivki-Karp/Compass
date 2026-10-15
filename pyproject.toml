@@ -5,13 +5,18 @@ description = "Hebrew assistant that explains how a company-car change affects a
 readme = "README.md"
 requires-python = "==3.12.*"
 dependencies = [
+    "fastapi>=0.143.1",
     "openpyxl>=3.1",
     "pydantic>=2",
     "pyyaml>=6",
+    "rapidfuzz>=3.14.6",
+    "sse-starlette>=3.5.0",
+    "uvicorn[standard]>=0.54.0",
 ]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=8",
     "ruff>=0.6",
 ]

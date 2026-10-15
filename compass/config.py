@@ -18,3 +18,5 @@ VEHICLES_DB: Path = DATA_DIR / "vehicles.db"
 CATALOG_JSON: Path = DATA_DIR / "catalog.json"
 OCCUPATIONS_JSON: Path = DATA_DIR / "occupations.json"
 RULES_YAML: Path = DATA_DIR / "rules.yaml"
+ALIASES_YAML: Path = DATA_DIR / "aliases.yaml"
+APP_DB: Path = DATA_DIR / "app.db"  # session store (git-ignored)

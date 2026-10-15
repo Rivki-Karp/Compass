@@ -107,3 +107,52 @@ def find_by_codes(
         "tax_year = ? AND registration_year = ? AND manufacturer_code = ? AND model_code = ?",
         (tax_year, registration_year, manufacturer_code, model_code),
     )
+
+
+def commercial_names(
+    tax_year: int,
+    vehicle_type_code: int = 1,
+    registration_year: int | None = None,
+    db_path: Path = VEHICLES_DB,
+) -> list[str]:
+    """Distinct commercial names (for fuzzy search). A name is NOT a key; see find_by_names()."""
+    if not db_path.is_file():
+        raise FileNotFoundError(f"{db_path} is missing; run `uv run python tasks.py data`")
+    where = "tax_year = ? AND vehicle_type_code = ?"
+    params: tuple[object, ...] = (tax_year, vehicle_type_code)
+    if registration_year is not None:
+        where += " AND registration_year = ?"
+        params += (registration_year,)
+    conn = sqlite3.connect(f"{db_path.as_uri()}?mode=ro", uri=True)
+    try:
+        rows = conn.execute(
+            f"SELECT DISTINCT commercial_name FROM vehicles WHERE {where} ORDER BY 1", params
+        ).fetchall()
+    finally:
+        conn.close()
+    return [row[0] for row in rows]
+
+
+def find_by_names(
+    names: list[str],
+    tax_year: int,
+    vehicle_type_code: int = 1,
+    registration_year: int | None = None,
+    db_path: Path = VEHICLES_DB,
+) -> list[VehicleRecord]:
+    """Every full-key record with one of these commercial names (often several per name)."""
+    if not names:
+        return []
+    where = (
+        f"tax_year = ? AND vehicle_type_code = ? AND commercial_name IN "
+        f"({', '.join('?' * len(names))})"
+    )
+    params: tuple[object, ...] = (tax_year, vehicle_type_code, *names)
+    if registration_year is not None:
+        where += " AND registration_year = ?"
+        params += (registration_year,)
+    records = _query(db_path, where, params)
+    return sorted(
+        records,
+        key=lambda r: (r.commercial_name, -r.registration_year, r.manufacturer_code, r.model_code),
+    )
