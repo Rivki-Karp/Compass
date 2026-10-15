@@ -182,3 +182,91 @@ def test_participation_field_validation(client: TestClient) -> None:
     # save_profile does not take participation: that comes from today's car or a representative
     saved = tool(client, sid, "save_profile", {"current_participation": 300})
     assert saved["error"]["code"] == "invalid_input"
+
+
+# --- list_options resolves participation exactly like compare ---------------------------------
+
+
+def _option(options: list[dict[str, Any]], car_id: str) -> dict[str, Any]:
+    return next(o for o in options if o["scenario"].get("car_id") == car_id)
+
+
+def _alternative_input(option: dict[str, Any]) -> dict[str, Any]:
+    scenario = option["scenario"]
+    if scenario["kind"] == "waiver":
+        return {"kind": "waiver"}
+    return {"kind": "car", "car_id": scenario["car_id"]}
+
+
+def _assert_options_match_compare(client: TestClient, sid: str, **list_input: Any) -> None:
+    """Every option shows the same numbers as a single compare() of it."""
+    stated = list_input.get("participation", {})
+    options = tool(client, sid, "list_options", list_input)["options"]
+    for option in options:
+        alternative = _alternative_input(option)
+        if alternative.get("car_id") in stated:
+            alternative["participation"] = stated[alternative["car_id"]]
+        single = tool(client, sid, "compare", {"alternative": alternative})
+        assert option["comparison"]["display_diff"] == single["comparison"]["display_diff"], (
+            alternative
+        )
+        assert option["comparison"]["diff"] == single["comparison"]["diff"]
+        assert option["participation_source"] == single["participation_source"]
+        assert option["pending_rep"] == single["pending_rep"]
+
+
+def test_list_options_uses_the_representatives_answer(client: TestClient) -> None:
+    sid = _noa(client)
+    before = _option(tool(client, sid, "list_options", {})["options"], "CAR-10")
+    assert before["comparison"]["display_diff"] == 661
+    assert before["participation_source"] == "catalog_default" and not before["pending_rep"]
+
+    ticket = tool(client, sid, "ask_representative", {"question": "?", "blocking_fields": [ATTO]})[
+        "ticket_id"
+    ]
+    pending = _option(tool(client, sid, "list_options", {})["options"], "CAR-10")
+    assert pending["comparison"]["display_diff"] == 661
+    assert pending["participation_source"] == "catalog_default" and pending["pending_rep"]
+
+    client.post(
+        f"/api/tickets/{ticket}/answer",
+        json={"values": {ATTO: 350}, "effective_from": "2026-11-01"},
+        headers=REP,
+    )
+    options = tool(client, sid, "list_options", {})["options"]
+    atto = _option(options, "CAR-10")
+    single = tool(client, sid, "compare", ATTO_3)
+    assert atto["comparison"]["display_diff"] == single["comparison"]["display_diff"] == 611
+    assert atto["participation_source"] == "representative" and not atto["pending_rep"]
+    assert atto["participation_effective_from"] == "2026-11-01"
+    # Other cars keep the catalog default.
+    assert _option(options, "CAR-11")["participation_source"] == "catalog_default"
+
+
+def test_list_options_matches_compare_for_every_option(client: TestClient) -> None:
+    sid = _noa(client)
+    _assert_options_match_compare(client, sid)  # no tickets
+    ticket = tool(
+        client,
+        sid,
+        "ask_representative",
+        {"question": "?", "blocking_fields": [ATTO, "alternative_participation:CAR-06"]},
+    )["ticket_id"]
+    _assert_options_match_compare(client, sid)  # pending
+    client.post(
+        f"/api/tickets/{ticket}/answer",
+        json={"values": {ATTO: 350, "alternative_participation:CAR-06": 275}},
+        headers=REP,
+    )
+    _assert_options_match_compare(client, sid)  # answered
+    _assert_options_match_compare(client, sid, participation={"CAR-10": 400, "CAR-14": 0})
+
+
+def test_list_options_stated_participation(client: TestClient) -> None:
+    sid = _noa(client)
+    options = tool(client, sid, "list_options", {"participation": {"CAR-10": 400}})["options"]
+    atto = _option(options, "CAR-10")
+    assert atto["participation_source"] == "employee_input"
+    assert atto["comparison"]["alternative"]["exact"]["participation"] == "400"
+    bad = tool(client, sid, "list_options", {"participation": {"CAR-99": 1}})
+    assert bad["error"]["code"] == "not_found"
