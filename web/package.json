@@ -1,0 +1,46 @@
+{
+  "name": "compass-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0 <23"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans-hebrew": "^5.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.64.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.26",
+    "globals": "^16.5.0",
+    "jsdom": "^26.1.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.71.2",
+    "vite": "^6.4.4",
+    "vitest": "^5.0.5"
+  }
+}

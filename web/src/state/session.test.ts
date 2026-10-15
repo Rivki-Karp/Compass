@@ -1,0 +1,134 @@
+import { describe, expect, it } from "vitest";
+import type { SessionEvent } from "../api/types";
+import { EVENT_TYPES } from "../api/generated";
+import e001Log from "../test/fixtures/e001.json";
+import walkthroughLog from "../test/fixtures/walkthrough.json";
+import { initialSession, reduce, type SessionState } from "./session";
+
+// Real event logs from a demo-mode run (scripts/web_fixtures.py).
+const walkthrough = walkthroughLog as unknown as SessionEvent[];
+const e001 = e001Log as unknown as SessionEvent[];
+
+const replay = (events: SessionEvent[], from: SessionState = initialSession) =>
+  events.reduce(reduce, from);
+
+const upTo = (events: SessionEvent[], predicate: (e: SessionEvent) => boolean) =>
+  events.slice(0, events.findIndex(predicate) + 1);
+
+describe("reduce: the walkthrough", () => {
+  const state = replay(walkthrough);
+
+  it("ends with the waiver comparison as the API computed it", () => {
+    expect(state.comparison?.view.display_diff).toBe(2914);
+    expect(state.comparison?.view.today_net).toBe(11000);
+    expect(state.comparison?.view.alternative_net).toBe(13914);
+    expect(state.comparison?.origin).toBe("tool");
+  });
+
+  it("keeps the conversation in order", () => {
+    expect(state.messages.map((m) => m.role)).toEqual([
+      "employee",
+      "assistant",
+      "employee",
+      "assistant",
+    ]);
+    expect(state.messages[3]?.text).toContain("+2,914");
+    expect(state.messages[3]?.turn).toBe(1);
+  });
+
+  it("groups tool activity per turn", () => {
+    expect(state.turns).toHaveLength(2);
+    expect(state.turns[1]?.tools.map((t) => [t.name, t.ok])).toEqual([
+      ["save_profile", true],
+      ["lookup_vehicle", true],
+      ["set_current_situation", true],
+      ["compare", true],
+    ]);
+    expect(state.turns[1]?.finished?.outcome).toBe("reply");
+  });
+
+  it("stops thinking when the run finishes", () => {
+    expect(state.thinking).toBe(false);
+    const midRun = replay(upTo(walkthrough, (e) => e.type === "agent_started"));
+    expect(midRun.thinking).toBe(true);
+    expect(midRun.thinkingSince).not.toBeNull();
+  });
+
+  it("is idempotent: replaying any prefix again changes nothing", () => {
+    for (const cut of [1, 5, walkthrough.length]) {
+      expect(replay(walkthrough.slice(0, cut), state)).toBe(state);
+    }
+    expect(replay(walkthrough, replay(walkthrough))).toEqual(state);
+  });
+});
+
+describe("reduce: E-001 pending, then final", () => {
+  const answered = e001.findIndex((e) => e.type === "ticket_answered");
+  const beforeAnswer = replay(e001.slice(0, answered));
+  const after = replay(e001);
+
+  it("shows +661 pending while the ticket is open", () => {
+    expect(beforeAnswer.comparison?.view.display_diff).toBe(661);
+    expect(beforeAnswer.comparison?.view.pending).toBe(true);
+    expect(beforeAnswer.comparison?.settled).toBe(false);
+    expect(beforeAnswer.openTickets).toHaveLength(1);
+    expect(beforeAnswer.status).toBe("waiting_for_rep");
+  });
+
+  it("settles to +611 after the representative answers", () => {
+    expect(after.comparison?.view.display_diff).toBe(611);
+    expect(after.comparison?.view.pending).toBe(false);
+    expect(after.comparison?.settled).toBe(true);
+    expect(after.openTickets).toEqual([]);
+    expect(after.status).toBe("active");
+    const participation = after.comparison?.view.inputs.find(
+      (i) => i.id === "alternative_participation",
+    );
+    expect(participation?.source).toBe("representative");
+  });
+
+  it("records the rep resume as its own turn", () => {
+    expect(after.turns.map((t) => t.trigger)).toEqual([
+      "employee_turn",
+      "employee_turn",
+      "employee_turn",
+      "rep_answer",
+    ]);
+  });
+});
+
+describe("reduce: every event kind", () => {
+  const base = { session_id: "s", created_at: "2026-10-15T00:00:00Z" };
+  let seq = 0;
+  const ev = (type: string, payload: unknown) =>
+    ({ ...base, seq: ++seq, type, payload }) as SessionEvent;
+
+  it("handles each type the server can send", () => {
+    const events: SessionEvent[] = [
+      ev("session_created", { status: "active" }),
+      ev("user_message", { message_seq: 1, content: { text: "היי" } }),
+      ev("agent_started", { trigger: "employee_turn" }),
+      ev("tool_call", { tool_use_id: "t1", name: "get_rule" }),
+      ev("tool_result", { tool_use_id: "t1", name: "get_rule", ok: false }),
+      ev("profile_updated", { fields: {} }),
+      ev("current_situation_set", { scenario: {} }),
+      ev("guard_check", { passed: true, action: "accept" }),
+      ev("agent_error", { kind: "timeout" }),
+      ev("assistant_message", { message_seq: 2, text: "שגיאה", kind: "error", comparison_ref: null }),
+      ev("agent_finished", { outcome: "error" }),
+      ev("session_status", { status: "closed" }),
+    ];
+    const kinds = new Set(events.map((e) => e.type));
+    const covered = new Set([...kinds, "comparison_ready", "ticket_opened", "ticket_answered"]);
+    expect([...EVENT_TYPES].every((t) => covered.has(t))).toBe(true); // the rest: fixtures above
+
+    const state = replay(events);
+    expect(state.turns[0]?.tools).toEqual([{ toolUseId: "t1", name: "get_rule", ok: false }]);
+    expect(state.turns[0]?.events.map((e) => e.type)).toContain("guard_check");
+    expect(state.lastError).toBe("timeout");
+    expect(state.messages.at(-1)?.kind).toBe("error");
+    expect(state.thinking).toBe(false);
+    expect(state.status).toBe("closed");
+    expect(state.lastSeq).toBe(seq);
+  });
+});

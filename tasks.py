@@ -13,6 +13,7 @@ Usage:
     uv run python tasks.py eval      # agent evals against the real model -> evals/report.md
     uv run python tasks.py eval --only walkthrough,e001_rep_flow --repeat 3 --effort medium
     uv run python tasks.py openapi   # write openapi.json (commit it with API changes)
+    uv run python tasks.py ts-types  # write web/src/api/generated.ts (commit it with view changes)
 """
 
 import subprocess
@@ -94,6 +95,10 @@ def openapi() -> None:
     run(sys.executable, "-m", "compass.api.openapi")
 
 
+def ts_types() -> None:
+    run(sys.executable, "-m", "compass.api.ts_types")
+
+
 TASKS: dict[str, Callable[..., None]] = {
     "install": install,
     "data": data,
@@ -104,6 +109,7 @@ TASKS: dict[str, Callable[..., None]] = {
     "calc": calc,
     "serve": serve,
     "openapi": openapi,
+    "ts-types": ts_types,
     "chat": chat,
     "eval": evals,
 }
