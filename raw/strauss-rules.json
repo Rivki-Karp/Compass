@@ -1,0 +1,121 @@
+{
+  "version": "mock-2026-10-12",
+  "note": "נתוני דמה של האתגר (קוד פתוח). בפיילוט מחליפים את הקובץ בנתונים האמיתיים - לא את הקוד.",
+  "budgets": {
+    "א": 3500,
+    "ב": 3700,
+    "ג": 4500,
+    "ד": 5200
+  },
+  "groupOrder": [
+    "א",
+    "ב",
+    "ג",
+    "ד"
+  ],
+  "chooseFrom": "own_group_or_lower",
+  "electric": {
+    "netBonus": 250,
+    "method": "gross_up",
+    "note": "העובד רואה +250 ₪ נטו בדיוק; המעסיק מגלם את המס"
+  },
+  "familyTrack": {
+    "minChildren": 4,
+    "childMaxAge": 23,
+    "cars": [
+      "CAR-19",
+      "CAR-20"
+    ],
+    "priceSource": "catalogue",
+    "gapSplitEmployee": 0.5,
+    "note": "זכאים לרכב מקבוצת ׳משפחתי׳ בקטלוג (קרניבל 6,000 ₪, סנטה פה 5,600 ₪ - העלות לפי הקטלוג, לא מספר אחד); על הפער מעל תקציב הקבוצה - העובד 50% (ניכוי נטו), המעסיק 50%"
+  },
+  "waiver": {
+    "allowedBy": "occupation",
+    "maintenanceIsTaxable": true,
+    "maintenanceIsPensionable": false
+  },
+  "unusedBudget": "not_paid",
+  "netMethod": {
+    "basis": "monthly",
+    "taxYear": 2025,
+    "creditPointValue": 242,
+    "brackets": [
+      [
+        7010,
+        0.1
+      ],
+      [
+        10060,
+        0.14
+      ],
+      [
+        16150,
+        0.2
+      ],
+      [
+        22440,
+        0.31
+      ],
+      [
+        46690,
+        0.35
+      ],
+      [
+        60130,
+        0.47
+      ],
+      [
+        null,
+        0.5
+      ]
+    ],
+    "nationalInsurance": {
+      "threshold": 7522,
+      "ceiling": 50695,
+      "lowRate": 0.0104,
+      "highRate": 0.07
+    },
+    "health": {
+      "threshold": 7522,
+      "ceiling": 50695,
+      "lowRate": 0.0323,
+      "highRate": 0.0517
+    },
+    "pensionCredit": {
+      "rate": 0.35,
+      "maxContributionRate": 0.07,
+      "incomeCeiling": 9500,
+      "note": "זיכוי 35% על הפרשת העובד לפנסיה, עד 7% מהכנסה מזכה של 9,500 ₪ (= עד 232.75 ₪ בחודש) - לכן בכל הדוגמאות הזיכוי זהה גם כשהעובד מפריש 6%"
+    },
+    "contributionsBase": "gross",
+    "contributionsNote": "פנסיה וקרן השתלמות של העובד מחושבות על כל הברוטו: בסיס + עמלות + בונוס (פישוט; בפועל לעיתים על הבסיס בלבד)",
+    "participation": {
+      "treatment": "net_deduction",
+      "reducesValueOfUse": false,
+      "note": "השתתפות העובד ברכב יורדת מהנטו בלבד ואינה מקטינה את שווי השימוש החייב (פישוט)"
+    },
+    "rounding": {
+      "during": "none",
+      "display": "shekel",
+      "note": "החישוב כולו ללא עיגול (כולל גילום החזר החשמל); עיגול לשקל שלם רק בתצוגה - לכן העובד מקבל 250 ₪ נטו בדיוק"
+    },
+    "note": "לוחות 2025 להמחשה; קרן השתלמות עובד - ניכוי נטו; שווי שימוש מתווסף לבסיס המס ולביטוח לאומי"
+  },
+  "valueOfUse": {
+    "source": "רשות המסים - הקובץ המורחב 2026",
+    "key": [
+      "שנת מס",
+      "שנת רישום",
+      "קוד סוג רכב",
+      "קוד תוצר",
+      "קוד דגם"
+    ],
+    "driveField": {
+      "0": "בנזין",
+      "1": "היברידי",
+      "2": "פלאג-אין",
+      "3": "חשמלי"
+    }
+  }
+}

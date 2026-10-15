@@ -1,5 +1,7 @@
 # Compass
 
+[![CI](https://github.com/Rivki-Karp/Compass/actions/workflows/ci.yml/badge.svg)](https://github.com/Rivki-Karp/Compass/actions/workflows/ci.yml)
+
 Compass is a Hebrew chat assistant for Strauss Group employees. It answers one question:
 *"If I switch company car, go electric, or give up the car, how will my monthly net
 salary change?"*
@@ -17,7 +19,7 @@ Requires [uv](https://docs.astral.sh/uv/). These commands work on Windows, macOS
 
 ```sh
 uv run python tasks.py install   # create .venv with Python 3.12 and sync uv.lock
-uv run python tasks.py data      # rebuild all generated data from raw/ (needs the raw files)
+uv run python tasks.py data      # rebuild all generated data from raw/
 uv run python tasks.py test      # run the tests
 uv run python tasks.py lint      # ruff check + ruff format --check
 uv run python tasks.py fmt       # apply formatting
@@ -26,8 +28,9 @@ uv run python tasks.py demo E-001  # Hebrew breakdown of a golden employee (E-00
 
 If you have `make`, `make install|data|test|lint|fmt` does the same.
 
-The raw challenge files are not committed. Put them in `raw/` under the names listed in
-[raw/README.md](raw/README.md). `tasks.py data` is idempotent: it rebuilds `data/vehicles.db`
+The raw challenge files (public hackathon material, about 20 MB) are committed in `raw/`
+byte-for-byte; [raw/README.md](raw/README.md) lists them with their SHA-256.
+`tasks.py data` is idempotent: it rebuilds `data/vehicles.db`
 atomically and writes byte-identical JSON on every run.
 
 ## Project layout
@@ -58,7 +61,7 @@ data/
   catalog.json         20 company cars                  (generated from the Excel)
   occupations.json     14 occupations                   (generated from the Excel)
   vehicles.db          Tax Authority dataset in SQLite  (generated, git-ignored)
-raw/                   raw challenge inputs (git-ignored, except raw/README.md)
+raw/                   raw challenge inputs, committed byte-for-byte (see raw/README.md)
 scripts/
   build_vehicles_db.py raw CSV  -> data/vehicles.db
   extract_excel.py     raw xlsx -> data/*.json + tests/fixtures/reference_*.json

@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python 3.12 and dependencies
+        run: |
+          uv python install 3.12
+          uv run python tasks.py install
+
+      - name: Build data from raw/
+        run: uv run python tasks.py data
+
+      - name: Lint
+        run: uv run python tasks.py lint
+
+      - name: Test
+        run: uv run python tasks.py test

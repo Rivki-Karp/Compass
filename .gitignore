@@ -1,9 +1,7 @@
-# Raw challenge files are not redistributed; only their description is committed.
-raw/*
-!raw/README.md
-
-# Generated databases (rebuilt by `python tasks.py data`)
+# Generated databases (rebuilt by `python tasks.py data`) and the app's session store
 *.db
+*.db-wal
+*.db-shm
 *.db-journal
 *.db.tmp
 
