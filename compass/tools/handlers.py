@@ -367,7 +367,13 @@ class AlternativeInput(_Input):
         None, ge=0, description="Only if the employee or a representative stated it"
     )
     maintenance: Decimal | None = Field(
-        None, gt=0, description="Waiver maintenance quoted by a representative"
+        None,
+        gt=0,
+        description=(
+            "Only when a representative quoted a waiver maintenance amount. Omit it otherwise: "
+            "the occupation's maintenance is used automatically (do not copy it from "
+            "lookup_occupation)"
+        ),
     )
 
 

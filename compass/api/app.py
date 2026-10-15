@@ -38,16 +38,11 @@ from compass.config import CATALOG_JSON, OCCUPATIONS_JSON
 from compass.engine.context import ContextError
 from compass.engine.serialize import plain_json
 from compass.rules import RulesError
-from compass.state import NotFound, StateError, Store
+from compass.state import NotFound, Store
 from compass.tools import ToolRunner
-from compass.tools.profile import (
-    FieldError,
-    is_fillable,
-    is_participation,
-    slot_name,
-    to_slot_value,
-)
 from compass.tools.services import Services
+from compass.tools.tickets import TicketAnswerError
+from compass.tools.tickets import answer_ticket as answer_ticket_with_rules
 
 
 class _Body(BaseModel):
@@ -283,51 +278,16 @@ def create_app(
         employee's session and tell the agent. Blocking fields left without a value become
         unknown (the representative answered, but not with a number)."""
         try:
-            ticket = store.ticket(ticket_id)
-        except NotFound:
-            raise HTTPException(404, f"ticket {ticket_id} not found") from None
-        if ticket.status != "open":
-            raise HTTPException(409, f"ticket {ticket_id} is already {ticket.status}")
-        if body.answer_text is None and body.quick_answer_id is None and not body.values:
-            raise HTTPException(422, "give answer_text, quick_answer_id or values")
-
-        values: dict[str, Any] = {}
-        if body.quick_answer_id is not None:
-            quick = {qa["id"]: qa for qa in ticket.quick_answers}
-            if body.quick_answer_id not in quick:
-                raise HTTPException(
-                    422, f"unknown quick_answer_id {body.quick_answer_id!r}; have {list(quick)}"
-                )
-            values.update(quick[body.quick_answer_id].get("values", {}))
-        values.update(body.values)  # explicit values win over the quick answer's
-
-        errors: list[str] = []
-        slot_values: dict[str, Any] = {}
-        for field, raw in values.items():
-            if field not in ticket.blocking_fields or not is_fillable(field, services.ctx):
-                errors.append(f"{field}: not a blocking field of this ticket")
-                continue
-            when = body.effective_from if is_participation(field) else None
-            try:
-                slot_values[slot_name(field)] = to_slot_value(field, raw, services.ctx, when)
-            except FieldError as error:
-                errors.append(str(error))
-        if errors:
-            raise HTTPException(422, errors)
-
-        if body.effective_from is not None and not any(map(is_participation, values)):
-            raise HTTPException(422, "effective_from applies to participation fields only")
-        unknown = [slot_name(f) for f in ticket.blocking_fields if f not in values]
-        answer = {
-            "text": body.answer_text,
-            "quick_answer_id": body.quick_answer_id,
-            "values": plain_json(values),
-            "effective_from": None if body.effective_from is None else str(body.effective_from),
-        }
-        try:
-            answered = store.answer_ticket(ticket_id, answer, slot_values, unknown=unknown)
-        except StateError as error:  # answered concurrently
-            raise HTTPException(409, str(error)) from None
+            answered = answer_ticket_with_rules(
+                services,
+                ticket_id,
+                answer_text=body.answer_text,
+                quick_answer_id=body.quick_answer_id,
+                values=body.values,
+                effective_from=body.effective_from,
+            )
+        except TicketAnswerError as error:
+            raise HTTPException(error.status, error.detail) from None
         agent.on_ticket_answered(answered.session_id, ticket_id)
         return answered.model_dump()
 

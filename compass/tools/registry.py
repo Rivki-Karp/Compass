@@ -46,7 +46,10 @@ TOOLS: tuple[Tool, ...] = (
         "List fields they said they don't know in unknown_fields. An occupation in their words "
         "goes in occupation_query; if recognised it also sets the group (unless they stated "
         "one). Returns what was saved, what is still missing, unknown fields, warnings, and "
-        "payslip_fields_unknown (offer a payslip upload for those). Never ask for an ID number.",
+        "payslip_fields_unknown (offer a payslip upload for those), and group / group_source / "
+        "group_budget (state the derived group and budget to the employee). Save only what the "
+        "employee actually said: never guess or assume a value (a 'no' to commissions or bonus "
+        "is 0; 'I don't know' goes in unknown_fields). Never ask for an ID number.",
         h.SaveProfileInput,
         h.save_profile,
     ),
@@ -71,7 +74,9 @@ TOOLS: tuple[Tool, ...] = (
         "set_current_situation",
         "Record what the employee has today: a company car (catalog id or a Tax Authority key "
         "from lookup_vehicle, with their participation), a maintenance payment, or none. "
-        "Returns warnings such as current_car_above_group.",
+        "A catalog id with a different registration year is a different vehicle (not_found: "
+        "look it up with the year). Returns warnings such as current_car_above_group: raise "
+        "them with the employee as a question, never resolve them by assumption.",
         h.SetCurrentSituationInput,
         h.set_current_situation,
     ),
@@ -85,16 +90,19 @@ TOOLS: tuple[Tool, ...] = (
     Tool(
         "compare",
         "Calculate the monthly net today vs an alternative with the deterministic engine. "
-        "Quote only the numbers it returns (display values). An ineligible alternative is "
-        "still calculated and marked hypothetical. With unknown pension/study-fund rates the "
-        "diff may still be known (partial: nets are null).",
+        "The only source of net-salary numbers: quote its display values exactly, never "
+        "compute, round or estimate. An ineligible alternative is still calculated and marked "
+        "hypothetical (say it is conditional on approval). pending_rep: true means the "
+        "participation is the catalog default until the representative confirms it. With "
+        "unknown pension/study-fund rates the diff may still be known (partial: nets null).",
         h.CompareInput,
         h.compare,
     ),
     Tool(
         "list_options",
-        "Every alternative (all catalog cars and the waiver if allowed) with its eligibility "
-        "and net diff vs today, best eligible first.",
+        "Every alternative (all catalog cars and the waiver if allowed) with its eligibility, "
+        "net diff vs today and the car's name, group and drive, best eligible first. Use it to "
+        "offer eligible alternatives of the same drive type. Quote only its display values.",
         h.ListOptionsInput,
         h.list_options,
     ),
@@ -108,8 +116,11 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         "ask_representative",
-        "Open a ticket for a human representative when only they can answer (e.g. the "
-        "employee's participation or group). blocking_fields wait for the answer; "
+        "Open a ticket for a human representative, only for what only the company knows: the "
+        "participation for a new car, group disputes, exceptions, policy questions. Ask the "
+        "employee first. Write the question as one self-contained sentence. blocking_fields "
+        "wait for the answer: profile fields, current_participation, or "
+        "alternative_participation:<catalog car id> (e.g. alternative_participation:CAR-10); "
         "quick_answers are one-click answers that fill them.",
         h.AskRepresentativeInput,
         h.ask_representative,
