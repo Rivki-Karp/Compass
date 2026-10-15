@@ -1,0 +1,138 @@
+"""Hebrew labels: the one place the terminal demo, the terminal chat and the UI `view` read them.
+
+Labels for formula lines, profile fields, rules and warnings. The UI never keeps its own copy:
+whatever it shows next to a number comes from here, through the API.
+"""
+
+from collections.abc import Callable, Mapping
+from typing import Any
+
+from compass.engine.models import DeltaLineName, WarningCode
+
+# NetBreakdown fields in the order of the demo table.
+BREAKDOWN_ROWS: list[tuple[str, str]] = [
+    ("cash_income", "שכר ברוטו (בסיס + עמלות + בונוס)"),
+    ("value_of_use", "שווי שימוש (לא מזומן)"),
+    ("maintenance", "אחזקת רכב"),
+    ("electric_gross", "החזר חשמל מגולם (ברוטו)"),
+    ("taxable_income", "הכנסה חייבת"),
+    ("income_tax_before_credits", "מס לפני זיכויים"),
+    ("credit_points_value", "זיכוי נקודות זיכוי"),
+    ("pension_credit", "זיכוי פנסיה"),
+    ("income_tax", "מס הכנסה"),
+    ("national_insurance", "ביטוח לאומי"),
+    ("health", "מס בריאות"),
+    ("employee_pension", "פנסיה (עובד)"),
+    ("employee_study", "קרן השתלמות (עובד)"),
+    ("participation", "השתתפות העובד ברכב"),
+    ("family_employee_share", "חלק העובד בפער המסלול המשפחתי"),
+    ("net", "נטו"),
+]
+
+# The lines of the difference (alternative vs today), as the waterfall shows them.
+DELTA_LABELS: dict[DeltaLineName, str] = {
+    "cash_income": "שכר ברוטו",
+    "maintenance": "אחזקת רכב",
+    "electric_gross": "החזר חשמל מגולם",
+    "income_tax": "מס הכנסה",
+    "national_insurance": "ביטוח לאומי",
+    "health": "מס בריאות",
+    "employee_pension": "פנסיה (עובד)",
+    "employee_study": "קרן השתלמות (עובד)",
+    "participation": "השתתפות ברכב",
+    "family_employee_share": "חלק העובד במסלול המשפחתי",
+}
+
+# Profile fields (tool names) and the scenario inputs the view lists.
+FIELD_LABELS: dict[str, str] = {
+    "display_name": "שם",
+    "occupation": "עיסוק",
+    "group": "קבוצת רכב",
+    "base_salary": "שכר בסיס",
+    "commissions": "עמלות",
+    "bonus": "בונוס",
+    "pension_percent": "הפרשת עובד לפנסיה",
+    "study_fund_percent": "הפרשת עובד לקרן השתלמות",
+    "credit_points": "נקודות זיכוי",
+    "children_under_23": "ילדים מתחת לגיל 23",
+    "current_situation": "המצב היום",
+    "today_car": "הרכב היום",
+    "today_participation": "השתתפות היום",
+    "today_maintenance": "אחזקה היום",
+    "alternative_car": "הרכב בחלופה",
+    "alternative_participation": "השתתפות בחלופה",
+    "alternative_maintenance": "אחזקה בוויתור",
+    "current_participation": "השתתפות היום",  # ticket field names
+}
+
+
+def field_label(field: str) -> str:
+    """A tool field, slot-style participation field or view input id -> its Hebrew label."""
+    if field.startswith("alternative_participation:"):  # + catalog car id
+        return FIELD_LABELS["alternative_participation"]
+    return FIELD_LABELS[field]
+
+
+# Rules and official data a line can depend on (the provenance strip's "rule" chips).
+RULE_LABELS: dict[str, str] = {
+    "income_tax_brackets": "מדרגות מס הכנסה",
+    "credit_point_value": "שווי נקודת זיכוי",
+    "pension_credit": "זיכוי על הפרשה לפנסיה",
+    "national_insurance_brackets": "מדרגות ביטוח לאומי",
+    "health_brackets": "מדרגות מס בריאות",
+    "value_of_use": "שווי שימוש (טבלת רשות המסים)",
+    "electric_reimbursement": "החזר חשמל לרכב חשמלי",
+    "waiver_maintenance": "אחזקה בוויתור לפי העיסוק",
+    "family_track": "מסלול משפחתי",
+}
+
+
+def group_label(group: str) -> str:
+    return f"קבוצה {group}'"
+
+
+def alternative_title(scenario: Mapping[str, Any], car_name: str | None) -> str:
+    """The alternative's name for "{title} לעומת היום"."""
+    kind = scenario.get("kind")
+    if kind == "waiver":
+        return "ויתור על הרכב"
+    if kind == "current_maintenance":
+        return "ללא רכב, אחזקה קיימת"
+    if kind == "external_car":
+        return str(scenario.get("label") or scenario.get("vehicle_key"))
+    title = car_name or str(scenario.get("car_id"))
+    return f"{title} (מסלול משפחתי)" if kind == "family_car" else title
+
+
+Facts = Mapping[str, Any]
+CarName = Callable[[str], str]
+
+
+def _group_mismatch(facts: Facts, car_name: CarName) -> str:
+    return (
+        f"הקבוצה שנמסרה ({facts['employee_group']}) שונה מהקבוצה של העיסוק "
+        f"{facts['occupation']} ({facts['occupation_group']}). כדאי לוודא מול נציג."
+    )
+
+
+def _car_above_group(facts: Facts, car_name: CarName) -> str:
+    return (
+        f"הרכב של היום ({car_name(facts['car_id'])}) בקבוצה {facts['car_group']}, "
+        f"מעל קבוצה {facts['employee_group']}. כדאי לבדוק את זה מול נציג."
+    )
+
+
+def _car_not_in_catalog(facts: Facts, car_name: CarName) -> str:
+    label = facts.get("label") or facts.get("vehicle_key")
+    return f"הרכב של היום ({label}) אינו בקטלוג החברה; החישוב משתמש בשווי השימוש הרשמי שלו."
+
+
+WARNING_MESSAGES: dict[WarningCode, Callable[[Facts, CarName], str]] = {
+    "group_mismatch_with_occupation": _group_mismatch,
+    "current_car_above_group": _car_above_group,
+    "current_car_not_in_catalog": _car_not_in_catalog,
+}
+
+
+def warning_message(code: WarningCode, facts: Facts, car_name: CarName = str) -> str:
+    return WARNING_MESSAGES[code](facts, car_name)

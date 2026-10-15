@@ -19,46 +19,14 @@ from compass.engine.models import (
     CompanyCar,
     Comparison,
     CurrentMaintenance,
-    DeltaLineName,
     ExternalCar,
     FamilyCar,
     Scenario,
     Waiver,
 )
+from compass.labels import BREAKDOWN_ROWS, DELTA_LABELS
 from compass.reference import load_reference_cases
 from compass.rules import Rules
-
-BREAKDOWN_ROWS: list[tuple[str, str]] = [
-    ("cash_income", "שכר ברוטו (בסיס + עמלות + בונוס)"),
-    ("value_of_use", "שווי שימוש (לא מזומן)"),
-    ("maintenance", "אחזקת רכב"),
-    ("electric_gross", "החזר חשמל מגולם (ברוטו)"),
-    ("taxable_income", "הכנסה חייבת"),
-    ("income_tax_before_credits", "מס לפני זיכויים"),
-    ("credit_points_value", "זיכוי נקודות זיכוי"),
-    ("pension_credit", "זיכוי פנסיה"),
-    ("income_tax", "מס הכנסה"),
-    ("national_insurance", "ביטוח לאומי"),
-    ("health", "מס בריאות"),
-    ("employee_pension", "פנסיה (עובד)"),
-    ("employee_study", "קרן השתלמות (עובד)"),
-    ("participation", "השתתפות העובד ברכב"),
-    ("family_employee_share", "חלק העובד בפער המסלול המשפחתי"),
-    ("net", "נטו"),
-]
-
-DELTA_LABELS: dict[DeltaLineName, str] = {
-    "cash_income": "שכר ברוטו",
-    "maintenance": "אחזקת רכב",
-    "electric_gross": "החזר חשמל מגולם",
-    "income_tax": "מס הכנסה",
-    "national_insurance": "ביטוח לאומי",
-    "health": "מס בריאות",
-    "employee_pension": "פנסיה (עובד)",
-    "employee_study": "קרן השתלמות (עובד)",
-    "participation": "השתתפות ברכב",
-    "family_employee_share": "חלק העובד במסלול המשפחתי",
-}
 
 WIDTH = 10
 

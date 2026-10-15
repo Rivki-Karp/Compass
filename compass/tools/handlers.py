@@ -46,6 +46,7 @@ from compass.tools.profile import (
     tool_fields,
 )
 from compass.tools.services import Services
+from compass.tools.view import build_view
 
 SCENARIO = TypeAdapter(Scenario)
 
@@ -499,8 +500,18 @@ def compare(services: Services, session_id: str, data: CompareInput) -> dict[str
         _alternative(services, session_id, data.alternative),
         explicit=data.alternative.participation is not None,
     )
-    kind = services.store.record_comparison(session_id, scenario.model_dump(mode="json"), payload)
+    kind = _record_comparison(services, session_id, scenario, payload)
     return {"alternative_kind": kind, **payload}
+
+
+def _record_comparison(
+    services: Services, session_id: str, scenario: Scenario, payload: dict[str, Any]
+) -> str:
+    """Store the comparison and emit comparison_ready with its display-ready `view` (the event
+    only: the tool result stays as it was, so the model never sees the UI's labels)."""
+    alternative = scenario.model_dump(mode="json")
+    view = build_view(services, session_id, alternative, payload)
+    return services.store.record_comparison(session_id, alternative, {**payload, "view": view})
 
 
 def _comparison(
@@ -565,7 +576,9 @@ def list_options(services: Services, session_id: str, data: ListOptionsInput) ->
             return candidate
         stated = data.participation.get(candidate.car_id)
         if stated is not None:
-            candidate = candidate.model_copy(update={"participation": stated})
+            candidate = candidate.model_copy(
+                update={"participation": stated, "participation_source": "employee_input"}
+            )
         resolved, info = _with_participation(
             candidate,
             slots,
@@ -750,9 +763,10 @@ def _recompute_as_pending(
             )
         except ToolError:  # the profile changed since and no longer computes: nothing to redo
             continue
-        services.store.record_comparison(
+        _record_comparison(
+            services,
             session_id,
-            scenario.model_dump(mode="json"),
+            scenario,
             {
                 **payload,
                 "origin": "server",
