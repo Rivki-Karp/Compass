@@ -401,3 +401,42 @@ def test_ask_representative_validation(runner: ToolRunner, sid: str) -> None:
         "quick_answers": [{"id": "a", "label": "x", "values": {"pension_percent": 50}}],
     }
     err(runner.run(sid, "ask_representative", bad_quick), "invalid_input")
+
+
+# --- additive fields for the agent ------------------------------------------------------------
+
+
+def test_save_profile_reports_group_and_budget(runner: ToolRunner, sid: str) -> None:
+    result = ok(runner.run(sid, "save_profile", DEVELOPER))
+    assert (result["group"], result["group_source"], result["group_budget"]) == (
+        "ב",
+        "derived",
+        "3700",
+    )
+    stated = ok(runner.run(sid, "save_profile", {"group": "ג"}))
+    assert (stated["group"], stated["group_source"], stated["group_budget"]) == (
+        "ג",
+        "employee",
+        "4500",
+    )
+
+
+def test_save_profile_without_group(runner: ToolRunner, sid: str) -> None:
+    result = ok(runner.run(sid, "save_profile", {"base_salary": 9000}))
+    assert result["group"] is None and result["group_budget"] is None
+    assert result["group_source"] is None
+
+
+def test_list_options_carries_catalog_facts(runner: ToolRunner, sid: str) -> None:
+    _ready(runner, sid)
+    options = ok(runner.run(sid, "list_options", {}))["options"]
+    by_car = {o["scenario"].get("car_id"): o for o in options}
+    atto = by_car["CAR-10"]
+    assert (atto["commercial_name"], atto["group"], atto["drive"]) == ("ATTO 3", "ג", "electric")
+    assert by_car["CAR-19"]["group"] == "משפחתי"
+    waiver = by_car[None]
+    assert (waiver["commercial_name"], waiver["group"], waiver["drive"]) == (None, None, None)
+    # Existing fields are unchanged.
+    assert {"scenario", "eligibility", "comparison", "participation_source", "pending_rep"} <= set(
+        atto
+    )

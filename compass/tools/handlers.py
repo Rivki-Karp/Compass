@@ -194,6 +194,13 @@ def save_profile(services: Services, session_id: str, data: SaveProfileInput) ->
         "warnings": _warnings(services, session_id),
     }
     summary["payslip_fields_unknown"] = [f for f in PAYSLIP_FIELDS if f in summary["unknown"]]
+    # The group in effect and its budget (from the rules), so the agent can state what was
+    # derived ("קבוצה ב', תקציב 3,700 ₪") without another tool call.
+    group = slots.get("group")
+    filled = group is not None and group.state == "filled"
+    summary["group"] = group.value if filled else None
+    summary["group_source"] = group.source if filled else None
+    summary["group_budget"] = plain_json(ctx.rules.budgets[group.value]) if filled else None
     if occupation_error is not None:  # partial success: the rest was saved
         occupation_error.details["partial_result"] = summary
         raise occupation_error
@@ -540,6 +547,11 @@ def list_options(services: Services, session_id: str, data: ListOptionsInput) ->
         )
         data_out["pending_rep"] = info.get("pending_rep", False)
         data_out["participation_effective_from"] = info.get("effective_from")
+        # Catalog facts, so the agent can offer same-drive alternatives without lookups.
+        car = ctx.catalog.get(getattr(option.scenario, "car_id", ""))
+        data_out["commercial_name"] = None if car is None else car.commercial_name
+        data_out["group"] = None if car is None else car.group
+        data_out["drive"] = None if car is None else car.drive
     return {"options": listed}
 
 
