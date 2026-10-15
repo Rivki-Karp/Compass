@@ -25,16 +25,19 @@ BREAKDOWN_LINES: tuple[str, ...] = tuple(
 ApiResult = Comparison | NetBreakdown | Eligibility | Option | Sequence[Option]
 
 
-def _plain(value: Any) -> Any:
-    """Exact JSON-safe copy: Decimal -> fixed-point string; mappings/sequences recursively."""
+def plain_json(value: Any) -> Any:
+    """Exact JSON-safe copy of any engine value.
+
+    Decimal -> fixed-point string; models, mappings and sequences recursively.
+    """
     if isinstance(value, Decimal):
         return format(value, "f")  # never exponent notation, never rounded
     if isinstance(value, BaseModel):
-        return _plain(value.model_dump())
+        return plain_json(value.model_dump())
     if isinstance(value, Mapping):
-        return {str(key): _plain(item) for key, item in value.items()}
+        return {str(key): plain_json(item) for key, item in value.items()}
     if isinstance(value, list | tuple):
-        return [_plain(item) for item in value]
+        return [plain_json(item) for item in value]
     if value is None or isinstance(value, str | int | bool):  # no floats, ever
         return value
     raise TypeError(f"cannot serialize {type(value).__name__}")
@@ -47,34 +50,34 @@ def _shown(value: Decimal | None, rules: Rules) -> int | None:
 def _breakdown(breakdown: NetBreakdown, rules: Rules) -> dict[str, Any]:
     lines = {name: getattr(breakdown, name) for name in BREAKDOWN_LINES}
     return {
-        "scenario": _plain(breakdown.scenario),
+        "scenario": plain_json(breakdown.scenario),
         "car_id": breakdown.car_id,
         "vehicle_key": breakdown.vehicle_key,
-        "exact": {name: _plain(value) for name, value in lines.items()},
+        "exact": {name: plain_json(value) for name, value in lines.items()},
         "display": {name: _shown(value, rules) for name, value in lines.items()},
-        "metadata": _plain(breakdown.metadata),
+        "metadata": plain_json(breakdown.metadata),
     }
 
 
 def _warnings(warnings: tuple[EngineWarning, ...]) -> list[dict[str, Any]]:
-    return [{"code": w.code, "facts": _plain(w.facts)} for w in warnings]
+    return [{"code": w.code, "facts": plain_json(w.facts)} for w in warnings]
 
 
 def _comparison(result: Comparison, rules: Rules) -> dict[str, Any]:
     return {
         "today": _breakdown(result.today, rules),
         "alternative": _breakdown(result.alternative, rules),
-        "diff": _plain(result.diff),
+        "diff": plain_json(result.diff),
         "display_diff": result.display_diff,
         "delta_lines": [
-            {"line": line.line, "net_effect": _plain(line.net_effect)}
+            {"line": line.line, "net_effect": plain_json(line.net_effect)}
             for line in result.delta_lines
         ],
         "display_delta_lines": [
             {"line": line.line, "net_effect": line.net_effect}
             for line in result.display_delta_lines
         ],
-        "explanation_facts": _plain(result.explanation_facts),
+        "explanation_facts": plain_json(result.explanation_facts),
         "warnings": _warnings(result.warnings),
         "missing": list(result.missing),
         "partial": result.partial,
@@ -85,7 +88,7 @@ def _eligibility(result: Eligibility) -> dict[str, Any]:
     return {
         "status": result.status,
         "reason": result.reason,
-        "facts": _plain(result.facts),
+        "facts": plain_json(result.facts),
         "warnings": _warnings(result.warnings),
     }
 
@@ -100,7 +103,7 @@ def to_api_dict(result: ApiResult, rules: Rules) -> Any:
         return _eligibility(result)
     if isinstance(result, Option):
         return {
-            "scenario": _plain(result.scenario),
+            "scenario": plain_json(result.scenario),
             "eligibility": _eligibility(result.eligibility),
             "comparison": _comparison(result.comparison, rules),
         }

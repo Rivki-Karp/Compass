@@ -345,9 +345,11 @@ class Store:
         ).fetchall()
         return {r["kind"]: json.loads(r["payload_json"]) for r in rows}
 
-    def record_comparison(self, session_id: str, alternative: Any, comparison: Any) -> str:
+    def record_comparison(
+        self, session_id: str, alternative: Any, result: Mapping[str, Any]
+    ) -> str:
         """Store the alternative (reusing its kind if it was compared before) and append
-        comparison_ready with the full comparison: the session's last comparison."""
+        comparison_ready = {alternative_kind, alternative, **result}: the last comparison."""
         with self._write() as (conn, events):
             self._require_session(conn, session_id)
             rows = conn.execute(
@@ -360,7 +362,7 @@ class Store:
             if kind is None:
                 kind = f"alternative:{len(rows) + 1}"
             self._put_scenario(conn, session_id, kind, alternative)
-            payload = {"alternative_kind": kind, "comparison": comparison}
+            payload = {"alternative_kind": kind, "alternative": alternative, **result}
             self._event(conn, events, session_id, "comparison_ready", payload)
         return kind
 
@@ -373,8 +375,13 @@ class Store:
         context: Any,
         blocking_fields: Sequence[str],
         quick_answers: Sequence[Any],
+        pending_slots: Sequence[str] | None = None,
     ) -> Ticket:
-        """Create a ticket, mark its blocking slots pending_rep, and wait for the representative."""
+        """Create a ticket, mark its slots pending_rep, and wait for the representative.
+
+        `pending_slots` are the slot names to mark (default: `blocking_fields`), for callers
+        whose ticket names fields differently from the slots (tool vs engine units).
+        """
         ticket_id = uuid.uuid4().hex
         now = _now()
         with self._write() as (conn, events):
@@ -393,9 +400,8 @@ class Store:
                     now,
                 ),
             )
-            pending = {
-                f: SlotUpdate(state="pending_rep", source="representative") for f in blocking_fields
-            }
+            marked = blocking_fields if pending_slots is None else pending_slots
+            pending = {f: SlotUpdate(state="pending_rep", source="representative") for f in marked}
             self._upsert_slots(conn, session_id, pending)
             ticket = self._ticket(conn, ticket_id)
             self._event(conn, events, session_id, "ticket_opened", {"ticket": ticket.model_dump()})

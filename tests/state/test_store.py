@@ -86,9 +86,9 @@ def test_unknown_slot_never_keeps_a_value(store: Store) -> None:
 def test_today_and_comparisons(store: Store) -> None:
     sid = store.create_session()
     store.set_today(sid, {"kind": "company_car", "car_id": "CAR-09"})
-    first = store.record_comparison(sid, {"kind": "waiver"}, {"display_diff": 2914})
-    second = store.record_comparison(sid, {"kind": "company_car", "car_id": "CAR-06"}, {"n": 2})
-    again = store.record_comparison(sid, {"kind": "waiver"}, {"display_diff": 2914})
+    first = store.record_comparison(sid, {"kind": "waiver"}, {"comparison": {"n": 1}})
+    second = store.record_comparison(sid, {"kind": "company_car", "car_id": "CAR-06"}, {})
+    again = store.record_comparison(sid, {"kind": "waiver"}, {"comparison": {"n": 1}})
     assert (first, second, again) == ("alternative:1", "alternative:2", "alternative:1")
     assert set(store.scenarios(sid)) == {"today", "alternative:1", "alternative:2"}
     assert _types(store, sid)[1:] == ["current_situation_set"] + ["comparison_ready"] * 3
@@ -163,8 +163,9 @@ def test_snapshot(store: Store) -> None:
     store.add_message(sid, "user", {"text": "שלום"})
     store.update_slots(sid, {"group": SlotUpdate(value="ב", source="derived")})
     store.set_today(sid, {"kind": "maintenance", "amount": "1500"})
-    store.record_comparison(sid, {"kind": "waiver"}, {"display_diff": 1})
-    store.record_comparison(sid, {"kind": "company_car", "car_id": "CAR-06"}, {"display_diff": 2})
+    store.record_comparison(sid, {"kind": "waiver"}, {"comparison": {"display_diff": 1}})
+    car = {"kind": "company_car", "car_id": "CAR-06"}
+    store.record_comparison(sid, car, {"comparison": {"display_diff": 2}})
     ticket = store.open_ticket(sid, "q", {}, ["bonus"], [])
     snap = store.snapshot(sid)
     assert snap["status"] == "waiting_for_rep"
@@ -173,5 +174,9 @@ def test_snapshot(store: Store) -> None:
     assert snap["slots"]["bonus"]["state"] == "pending_rep"
     assert set(snap["scenarios"]) == {"today", "alternative:1", "alternative:2"}
     assert [t["id"] for t in snap["open_tickets"]] == [ticket.id]
-    assert snap["last_comparison"]["comparison"] == {"display_diff": 2}
+    assert snap["last_comparison"] == {
+        "alternative_kind": "alternative:2",
+        "alternative": car,
+        "comparison": {"display_diff": 2},
+    }
     assert snap["last_event_seq"] == store.events_after(sid)[-1].seq
