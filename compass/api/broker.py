@@ -2,12 +2,18 @@
 
 The events table is the source of truth; this only says "look again". The store calls
 `publish` after commit from whatever thread wrote, so wake-ups hop onto the event loop.
+
+Besides one channel per session, TICKETS wakes the representative's inbox stream on any event
+that changes a ticket or the comparison a ticket shows.
 """
 
 import asyncio
 from collections import defaultdict
 
 from compass.state import Event
+
+TICKETS = "*tickets"  # not a session id (those are hex)
+TICKET_EVENTS = frozenset({"ticket_opened", "ticket_answered", "comparison_ready"})
 
 
 class Broker:
@@ -23,6 +29,8 @@ class Broker:
         if loop is None or loop.is_closed():
             return
         loop.call_soon_threadsafe(self._wake, event.session_id)
+        if event.type in TICKET_EVENTS:
+            loop.call_soon_threadsafe(self._wake, TICKETS)
 
     def _wake(self, session_id: str) -> None:
         for waiter in self._waiters.get(session_id, ()):

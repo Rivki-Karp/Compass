@@ -23,9 +23,10 @@ from compass.labels import (
     alternative_title,
     field_label,
     group_label,
+    ticket_field_title,
     warning_message,
 )
-from compass.state import Slot
+from compass.state import Slot, Ticket
 from compass.tools.profile import ALTERNATIVE_PARTICIPATION, CURRENT_PARTICIPATION, SLOT_OF
 from compass.tools.services import Services
 
@@ -353,3 +354,71 @@ def build_view(
         rules_version=comparison["alternative"]["metadata"]["rules_version"],
     )
     return view.model_dump(mode="json")
+
+
+# --- the representative's inbox ---------------------------------------------------------------
+
+
+class TicketFieldView(_View):
+    field: str  # the ticket's field, e.g. "alternative_participation:CAR-10"
+    label: str
+    unit: Unit
+    car_id: str | None
+    car_name: str | None
+    catalog_default: int | None  # the participation the comparison uses until answered
+
+
+class TicketComparisonView(_View):
+    alternative_title: str
+    display_diff: int
+    pending: bool
+
+
+class TicketView(_View):
+    version: int = VIEW_VERSION
+    title: str
+    fields: list[TicketFieldView]
+    comparison: TicketComparisonView | None  # the employee's latest comparison
+
+
+_PROFILE_UNITS: dict[str, Unit] = dict(_PROFILE_INPUTS)
+
+
+def _ticket_field(services: Services, field: str) -> TicketFieldView:
+    car_id: str | None = None
+    if field.startswith(ALTERNATIVE_PARTICIPATION):
+        car_id = field.removeprefix(ALTERNATIVE_PARTICIPATION)
+    car = None if car_id is None else services.ctx.catalog.get(car_id)
+    default = None
+    if car is not None:
+        default = to_display(car.default_employee_participation, services.ctx.rules)
+    participation = field == CURRENT_PARTICIPATION or car_id is not None
+    return TicketFieldView(
+        field=field,
+        label=field_label(field),
+        unit="ils" if participation else _PROFILE_UNITS.get(field, "text"),
+        car_id=car_id,
+        car_name=None if car is None else car.commercial_name,
+        catalog_default=default,
+    )
+
+
+def build_ticket_view(services: Services, ticket: Ticket) -> dict[str, Any]:
+    """Display-ready facts for one ticket in the representative's inbox, JSON-ready."""
+    fields = [_ticket_field(services, f) for f in ticket.blocking_fields]
+    first = ticket.blocking_fields[0] if ticket.blocking_fields else None
+    title = "שאלה מהעובד/ת" if first is None else ticket_field_title(first)
+    if fields and fields[0].car_name:
+        title = f"{title} · {fields[0].car_name}"
+    last = services.store.last_comparison(ticket.session_id)
+    view = (last or {}).get("view")
+    comparison = (
+        None
+        if view is None
+        else TicketComparisonView(
+            alternative_title=view["alternative_title"],
+            display_diff=view["display_diff"],
+            pending=view["pending"],
+        )
+    )
+    return TicketView(title=title, fields=fields, comparison=comparison).model_dump(mode="json")

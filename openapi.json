@@ -565,7 +565,7 @@
     },
     "/api/tickets": {
       "get": {
-        "description": "The representative inbox.",
+        "description": "The representative inbox. Each ticket has a display-ready `view` (title, the fields\nwith their catalog default, the employee's latest comparison).",
         "operationId": "list_tickets_api_tickets_get",
         "parameters": [
           {
@@ -622,6 +622,29 @@
           }
         ],
         "summary": "List Tickets",
+        "tags": [
+          "representative"
+        ]
+      }
+    },
+    "/api/tickets/events": {
+      "get": {
+        "description": "Server-sent events for the inbox: a `tickets` event with every open ticket (as in\nGET /tickets?status=open) on connect and whenever the list or a ticket's comparison\nchanges. Each event is the whole list, so a reconnect needs no replay.",
+        "operationId": "stream_tickets_api_tickets_events_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {}
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "RepToken": []
+          }
+        ],
+        "summary": "Stream Tickets",
         "tags": [
           "representative"
         ]

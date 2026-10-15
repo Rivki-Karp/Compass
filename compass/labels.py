@@ -73,6 +73,15 @@ def field_label(field: str) -> str:
     return FIELD_LABELS[field]
 
 
+def ticket_field_title(field: str) -> str:
+    """What a ticket asks about, for the representative's inbox ("השתתפות עצמית · ATTO 3")."""
+    if field.startswith("alternative_participation:"):
+        return "השתתפות עצמית"
+    if field == "current_participation":
+        return "השתתפות עצמית ברכב של היום"
+    return field_label(field)
+
+
 # Rules and official data a line can depend on (the provenance strip's "rule" chips).
 RULE_LABELS: dict[str, str] = {
     "income_tax_brackets": "מדרגות מס הכנסה",

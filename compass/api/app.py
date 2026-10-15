@@ -32,7 +32,7 @@ from sse_starlette import EventSourceResponse, ServerSentEvent
 from starlette.concurrency import run_in_threadpool
 
 from compass.api.agent import AgentRunner
-from compass.api.broker import Broker
+from compass.api.broker import TICKETS, Broker
 from compass.api.redact import public_message, public_payload
 from compass.api.settings import Settings
 from compass.config import CATALOG_JSON, OCCUPATIONS_JSON
@@ -44,6 +44,7 @@ from compass.tools import ToolRunner
 from compass.tools.services import Services
 from compass.tools.tickets import TicketAnswerError
 from compass.tools.tickets import answer_ticket as answer_ticket_with_rules
+from compass.tools.view import build_ticket_view
 
 
 class _Body(BaseModel):
@@ -310,8 +311,48 @@ def create_app(
     def list_tickets(
         status: Literal["open", "answered"] | None = None,
     ) -> list[dict[str, Any]]:
-        """The representative inbox."""
-        return [t.model_dump() for t in store.tickets(status=status)]
+        """The representative inbox. Each ticket has a display-ready `view` (title, the fields
+        with their catalog default, the employee's latest comparison)."""
+        return inbox(status)
+
+    def inbox(status: Literal["open", "answered"] | None) -> list[dict[str, Any]]:
+        return [
+            {**t.model_dump(), "view": build_ticket_view(services, t)}
+            for t in store.tickets(status=status)
+        ]
+
+    @api.get(
+        "/tickets/events",
+        tags=["representative"],
+        dependencies=[rep_only],
+        response_class=EventSourceResponse,
+        responses={200: {"content": {"text/event-stream": {}}}},
+    )
+    async def stream_tickets(request: Request) -> EventSourceResponse:
+        """Server-sent events for the inbox: a `tickets` event with every open ticket (as in
+        GET /tickets?status=open) on connect and whenever the list or a ticket's comparison
+        changes. Each event is the whole list, so a reconnect needs no replay."""
+
+        async def events() -> AsyncIterator[ServerSentEvent]:
+            waiter = broker.subscribe(TICKETS)
+            last: str | None = None
+            try:
+                while True:
+                    waiter.clear()
+                    tickets = await run_in_threadpool(inbox, "open")
+                    data = json.dumps({"tickets": tickets}, ensure_ascii=False)
+                    if data != last:
+                        last = data
+                        yield ServerSentEvent(event="tickets", data=data)
+                    if await request.is_disconnected():
+                        return
+                    with suppress(TimeoutError):
+                        await asyncio.wait_for(waiter.wait(), timeout=settings.heartbeat_seconds)
+            finally:
+                broker.unsubscribe(TICKETS, waiter)
+
+        ping = max(1, round(settings.heartbeat_seconds))
+        return EventSourceResponse(events(), ping=ping)
 
     @api.post("/tickets/{ticket_id}/answer", tags=["representative"], dependencies=[rep_only])
     def answer_ticket(ticket_id: str, body: TicketAnswer) -> dict[str, Any]:
