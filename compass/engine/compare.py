@@ -12,6 +12,7 @@ from compass.engine.context import EngineContext
 from compass.engine.decimal_math import ZERO, apportion, exact, to_agora, to_display
 from compass.engine.eligibility import profile_warnings
 from compass.engine.models import (
+    TODAY_ONLY,
     Comparison,
     DeltaLine,
     DeltaLineName,
@@ -46,12 +47,16 @@ def delta_lines(today: NetBreakdown, alternative: NetBreakdown) -> tuple[DeltaLi
     return tuple(lines)
 
 
+def _has_car(breakdown: NetBreakdown) -> bool:
+    return breakdown.car_id is not None or breakdown.vehicle_key is not None
+
+
 def _facts(today: NetBreakdown, alt: NetBreakdown, ctx: EngineContext) -> list[dict[str, Any]]:
     def show(value: Decimal) -> int:
         return to_display(value, ctx.rules)
 
     facts: list[dict[str, Any]] = []
-    if today.car_id and alt.car_id:
+    if _has_car(today) and _has_car(alt):
         facts.append(
             {
                 "kind": "value_of_use_change",
@@ -59,9 +64,9 @@ def _facts(today: NetBreakdown, alt: NetBreakdown, ctx: EngineContext) -> list[d
                 "to": show(alt.value_of_use),
             }
         )
-    elif alt.car_id:
+    elif _has_car(alt):
         facts.append({"kind": "value_of_use_added", "amount": show(alt.value_of_use)})
-    elif today.car_id:
+    elif _has_car(today):
         facts.append({"kind": "value_of_use_removed", "amount": show(today.value_of_use)})
 
     if alt.maintenance and not today.maintenance:
@@ -98,7 +103,7 @@ def _facts(today: NetBreakdown, alt: NetBreakdown, ctx: EngineContext) -> list[d
     elif today.electric_gross:
         facts.append({"kind": "electric_bonus_removed", "gross": show(today.electric_gross)})
 
-    if today.car_id or alt.car_id:
+    if _has_car(today) or _has_car(alt):
         facts.append(
             {
                 "kind": "participation_change",
@@ -178,6 +183,8 @@ def compare(
     on them (checked at PROBE_RATES, to the agora): nets are then None and `missing` lists the
     unknown rates. Otherwise raises MissingInputs listing every unknown input.
     """
+    if isinstance(alternative, TODAY_ONLY):
+        raise ValueError(f"{alternative.kind} describes today only, not an alternative")
     missing = list(
         dict.fromkeys(missing_inputs(profile, today) + missing_inputs(profile, alternative))
     )

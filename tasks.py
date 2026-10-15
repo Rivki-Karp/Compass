@@ -7,6 +7,9 @@ Usage:
     uv run python tasks.py lint      # ruff check + ruff format --check
     uv run python tasks.py fmt       # apply ruff formatting and safe fixes
     uv run python tasks.py demo E-001  # Hebrew net breakdown of a golden reference employee
+    uv run python tasks.py calc      # interactive calculator: your own profile and scenarios
+    uv run python tasks.py serve     # API on http://127.0.0.1:8000 (docs at /docs), auto-reload
+    uv run python tasks.py openapi   # write openapi.json (commit it with API changes)
 """
 
 import subprocess
@@ -57,6 +60,18 @@ def demo(*args: str) -> None:
     run(sys.executable, "-m", "compass.demo", *args)
 
 
+def calc() -> None:
+    run(sys.executable, "-m", "compass.calc")
+
+
+def serve() -> None:
+    run(sys.executable, "-m", "uvicorn", "compass.api.main:app", "--reload", "--port", "8000")
+
+
+def openapi() -> None:
+    run(sys.executable, "-m", "compass.api.openapi")
+
+
 TASKS: dict[str, Callable[..., None]] = {
     "install": install,
     "data": data,
@@ -64,6 +79,9 @@ TASKS: dict[str, Callable[..., None]] = {
     "lint": lint,
     "fmt": fmt,
     "demo": demo,
+    "calc": calc,
+    "serve": serve,
+    "openapi": openapi,
 }
 TAKES_ARGS: set[str] = {"demo"}
 

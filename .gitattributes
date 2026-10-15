@@ -3,3 +3,7 @@
 *.xlsx binary
 *.pdf binary
 *.db binary
+# Raw challenge files are stored byte-for-byte (several use CRLF); raw/README.md lists their
+# SHA-256 and tests/test_raw_files.py checks them.
+raw/** -text
+raw/README.md text eol=lf

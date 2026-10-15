@@ -1,0 +1,29 @@
+# Vehicle aliases: how employees actually name the catalog cars -> catalog commercial_name.
+#
+# Curated by hand. Every catalog car needs at least one Hebrew alias, and every key must be an
+# existing catalog commercial_name (tests/search/test_aliases.py). Matching is fuzzy and runs on
+# normalized text (compass/search/normalize.py), so case, final letters, punctuation such as the
+# geresh in ג'י, and glued digits (אטו3 / atto3) don't need their own entries.
+#
+# Don't add an alias that names only a brand (e.g. "קיה", "BYD"): it would match several cars.
+
+PICANTO: [פיקנטו, קיה פיקנטו, picanto]
+YARIS CROSS HSD: [יאריס קרוס, יאריס קרוס היברידית, טויוטה יאריס קרוס, yaris cross]
+BYD DOLPHIN: [דולפין, בי ווי די דולפין, dolphin]
+LEON: [לאון, סיאט לאון, seat leon]
+NIRO: [נירו, קיה נירו, kia niro]
+MG4: [אם ג'י 4, אם גי 4, אמ גי 4, mg 4]
+COROLLA: [קורולה, טויוטה קורולה, toyota corolla]
+KONA EV: [קונה, קונה חשמלית, יונדאי קונה, kona]
+COROLLA CROSS: [קורולה קרוס, טויוטה קורולה קרוס, toyota corolla cross]
+ATTO 3: [אטו 3, אטו, בי ווי די אטו 3, atto]
+EV3: [אי וי 3, קיה EV3, kia ev3]
+TUCSON: [טוסון, יונדאי טוסון, hyundai tucson]
+MAZDA 3: [מאזדה 3, מזדה 3, mazda3]
+MODEL 3: [טסלה, מודל 3, טסלה מודל 3, tesla, tesla model 3]
+OCTAVIA: [אוקטביה, סקודה אוקטביה, skoda octavia]
+SPORTAGE HEV: [ספורטז', ספורטאז', קיה ספורטז', sportage]
+SEAL: [סיל, בי ווי די סיל, byd seal]
+RAV4: [ראב 4, ראב4, טויוטה ראב 4, rav 4]
+CARNIVAL: [קרניבל, קיה קרניבל, kia carnival]
+SANTA FE: [סנטה פה, יונדאי סנטה פה, santa fe]

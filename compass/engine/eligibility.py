@@ -8,7 +8,8 @@ Reason codes:
 
 The group is never inferred (not from the current car, not from the occupation). When those
 disagree with the profile's group, a non-blocking warning says so:
-    group_mismatch_with_occupation, current_car_above_group
+    group_mismatch_with_occupation, current_car_above_group, current_car_not_in_catalog
+(today's car is not in the catalog, so its group cannot be checked)
 """
 
 from compass.engine.context import EngineContext
@@ -18,6 +19,7 @@ from compass.engine.models import (
     Eligibility,
     EmployeeProfile,
     EngineWarning,
+    ExternalCar,
     FamilyCar,
     Scenario,
     Waiver,
@@ -112,6 +114,13 @@ def profile_warnings(
                 facts={"employee_group": profile.group, "car_id": car.id, "car_group": car.group},
             )
         )
+    if isinstance(today, ExternalCar):
+        warnings.append(
+            EngineWarning(
+                code="current_car_not_in_catalog",
+                facts={"vehicle_key": today.vehicle_key, "label": today.label},
+            )
+        )
     return tuple(warnings)
 
 
@@ -130,9 +139,15 @@ def _verdict(profile: EmployeeProfile, scenario: Scenario, ctx: EngineContext) -
         return _family_car(profile, scenario, ctx)
     if isinstance(scenario, Waiver):
         return _waiver(profile, ctx)
+    # What the employee already has today; nothing to qualify for.
     if isinstance(scenario, CurrentMaintenance):
-        # What the employee already has today; nothing to qualify for.
         return Eligibility(
             status="eligible", reason="current_arrangement", facts={"amount": scenario.amount}
+        )
+    if isinstance(scenario, ExternalCar):
+        return Eligibility(
+            status="eligible",
+            reason="current_arrangement",
+            facts={"vehicle_key": scenario.vehicle_key, "label": scenario.label},
         )
     raise TypeError(f"unknown scenario {scenario!r}")  # pragma: no cover

@@ -2,7 +2,7 @@
 
 Inputs look like real ones: amounts with up to 2 decimals, rates with up to 2 decimals as a
 percentage (6.25% = 0.0625), credit points in 0.25 steps, every catalog car and the waiver
-(from the occupation or quoted). Some inputs are randomly unknown.
+(from the occupation or quoted), and non-catalog current cars. Some inputs are randomly unknown.
 """
 
 import json
@@ -16,6 +16,7 @@ from compass.engine.models import (
     CompanyCar,
     CurrentMaintenance,
     EmployeeProfile,
+    ExternalCar,
     FamilyCar,
     MissingInputs,
     Scenario,
@@ -68,8 +69,15 @@ def test_engine_only_raises_missing_inputs(ctx: EngineContext) -> None:
             children_under_23=_maybe(rng, rng.randrange(0, 8)),
         )
         roll = rng.random()
-        if roll < 0.75:
+        if roll < 0.65:
             today: Scenario = _car(rng, ctx, rng.choice(car_ids))
+        elif roll < 0.75:
+            today = ExternalCar(
+                vehicle_key="fuzz",
+                value_of_use=_amount(rng, 12_000),
+                drive=rng.choice(["petrol", "hybrid", "plugin", "electric"]),
+                participation=_amount(rng, 800),
+            )
         elif roll < 0.9:
             today = CurrentMaintenance(amount=_amount(rng, 4000))
         else:

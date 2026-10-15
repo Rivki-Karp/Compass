@@ -1,8 +1,12 @@
 # raw/ — challenge input files
 
-The files in this directory are **not committed** (see `.gitignore`). To rebuild
-the generated data, put them here under the names below and run
+The files in this directory are public challenge material published for the hackathon. They
+are **committed** (about 20 MB) so a fresh clone, and CI, can rebuild the generated data with
 `uv run python tasks.py data`.
+
+They are stored **byte-for-byte**: `.gitattributes` marks `raw/**` as `-text`, because several
+files use CRLF line endings and line-ending normalisation would change their SHA-256.
+`tests/test_raw_files.py` checks every file against the table below.
 
 They were renamed from the names they were distributed under (on 2026-10-14) so
 the scripts can use short ASCII paths. The SHA-256 lets you check you have the

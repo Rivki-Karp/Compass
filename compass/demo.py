@@ -20,6 +20,7 @@ from compass.engine.models import (
     Comparison,
     CurrentMaintenance,
     DeltaLineName,
+    ExternalCar,
     FamilyCar,
     Scenario,
     Waiver,
@@ -74,6 +75,8 @@ def _describe(scenario: Scenario, catalog: Mapping[str, CatalogCar]) -> str:
         car = catalog[scenario.car_id]
         track = " (מסלול משפחתי)" if isinstance(scenario, FamilyCar) else ""
         return f"{car.commercial_name} {car.registration_year}, קבוצה {car.group}{track}"
+    if isinstance(scenario, ExternalCar):
+        return f"{scenario.label or scenario.vehicle_key} (לא בקטלוג)"
     if isinstance(scenario, Waiver):
         return "ויתור על הרכב (אחזקה לפי העיסוק)"
     assert isinstance(scenario, CurrentMaintenance)

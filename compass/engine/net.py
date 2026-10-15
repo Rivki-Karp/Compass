@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from compass.data.catalog import CatalogCar
+from compass.data.drive import Drive
 from compass.engine import tax
 from compass.engine.context import EngineContext
 from compass.engine.decimal_math import ZERO, exact
@@ -23,6 +24,7 @@ from compass.engine.models import (
     CompanyCar,
     CurrentMaintenance,
     EmployeeProfile,
+    ExternalCar,
     FamilyCar,
     MaintenanceSource,
     Metadata,
@@ -68,7 +70,9 @@ class _Fixed:
     """Everything in a scenario except the electric gross-up and the contribution rates."""
 
     scenario: Scenario
-    car: CatalogCar | None
+    car_id: str | None
+    vehicle_key: str | None
+    drive: Drive | None  # None: no car
     cash_income: Decimal
     value_of_use: Decimal
     maintenance: Decimal
@@ -97,13 +101,15 @@ def _fix(profile: EmployeeProfile, scenario: Scenario, ctx: EngineContext) -> _F
     with exact():
         # contributions_base "gross": the schema allows no other value.
         cash_income = profile.base_salary + profile.commissions + profile.bonus
-        car: CatalogCar | None = None
+        car_id = vehicle_key = None
+        drive: Drive | None = None
         value_of_use = maintenance = participation = family_share = ZERO
         source: ParticipationSource | None = None
         maintenance_source: MaintenanceSource | None = None
 
         if isinstance(scenario, CompanyCar | FamilyCar):
             car = _car(scenario, ctx)
+            car_id, drive = car.id, car.drive
             if scenario.participation is None:
                 participation, source = car.default_employee_participation, "catalog_default"
             else:
@@ -130,10 +136,16 @@ def _fix(profile: EmployeeProfile, scenario: Scenario, ctx: EngineContext) -> _F
             maintenance_source = scenario.maintenance_source
         elif isinstance(scenario, CurrentMaintenance):
             maintenance, maintenance_source = scenario.amount, "employee_input"
+        elif isinstance(scenario, ExternalCar):
+            vehicle_key, drive = scenario.vehicle_key, scenario.drive
+            value_of_use = scenario.value_of_use
+            participation, source = scenario.participation, scenario.participation_source
 
     return _Fixed(
         scenario=scenario,
-        car=car,
+        car_id=car_id,
+        vehicle_key=vehicle_key,
+        drive=drive,
         cash_income=cash_income,
         value_of_use=value_of_use,
         maintenance=maintenance,
@@ -205,10 +217,11 @@ def _breakdown(
 ) -> NetBreakdown:
     rules = ctx.rules
     lines = _lines(fixed, electric_gross, pension_pct, study_fund_pct, rules)
-    electric = fixed.car is not None and fixed.car.drive == "electric"
+    electric = fixed.drive == "electric"
     return NetBreakdown(
         scenario=fixed.scenario,
-        car_id=None if fixed.car is None else fixed.car.id,
+        car_id=fixed.car_id,
+        vehicle_key=fixed.vehicle_key,
         cash_income=fixed.cash_income,
         value_of_use=fixed.value_of_use,
         maintenance=fixed.maintenance,
@@ -279,7 +292,7 @@ def solve_gross_up(fixed: _Fixed, ctx: EngineContext) -> Decimal:
 
 
 def _electric_gross(fixed: _Fixed, ctx: EngineContext) -> Decimal:
-    if fixed.car is None or fixed.car.drive != "electric":  # not plug-in, not hybrid
+    if fixed.drive != "electric":  # not plug-in, not hybrid
         return ZERO
     electric = ctx.rules.electric
     if electric.method == "gross":

@@ -19,6 +19,7 @@ from pydantic import (
     BaseModel,
     BeforeValidator,
     ConfigDict,
+    PlainSerializer,
     ValidationError,
     model_validator,
 )
@@ -53,6 +54,10 @@ def _unit_interval(value: Decimal) -> Decimal:
     if not value.is_finite() or not Decimal(0) <= value <= Decimal(1):
         raise ValueError(f"must be between 0 and 1 (got {value})")
     return value
+
+
+# Frozen after validation; dumped back as a plain dict (pydantic can't serialize mappingproxy).
+_AS_DICT = PlainSerializer(lambda value: dict(value))
 
 
 def _freeze_mapping(value: dict[Any, Any]) -> Mapping[Any, Any]:
@@ -186,7 +191,7 @@ class ValueOfUseRules(_Frozen):
     source: str
     tax_year: int  # our addition: the dataset's tax year (net_method.tax_year is the tables' year)
     key: tuple[str, ...]
-    drive_field: Annotated[dict[int, str], AfterValidator(_freeze_mapping)]
+    drive_field: Annotated[dict[int, str], AfterValidator(_freeze_mapping), _AS_DICT]
 
     @model_validator(mode="after")
     def _drive_codes_known(self) -> "ValueOfUseRules":
@@ -201,7 +206,7 @@ class ValueOfUseRules(_Frozen):
 class Rules(_Frozen):
     version: str
     note: str = ""
-    budgets: Annotated[dict[str, Money], AfterValidator(_freeze_mapping)]
+    budgets: Annotated[dict[str, Money], AfterValidator(_freeze_mapping), _AS_DICT]
     group_order: tuple[str, ...]
     choose_from: Literal["own_group_or_lower"]
     electric: ElectricRules
