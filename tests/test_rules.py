@@ -58,14 +58,21 @@ def test_money_and_rates_are_decimal(rules: Rules) -> None:
     assert nm.brackets[0].rate == Decimal("0.1")
 
 
-def test_derived_rules_present(rules: Rules) -> None:
+def test_official_and_added_rules_present(rules: Rules) -> None:
     nm = rules.net_method
-    assert nm.contribution_base == ("base_salary", "commissions", "bonus")
+    assert nm.contributions_base == "gross"
     assert nm.pension_credit.max_contribution_rate == Decimal("0.07")
-    assert rules.electric.rounding == "ceil"
-    assert rules.electric.gross_amount == Decimal(250)
-    assert rules.waiver.maintenance_is_pensionable is False
+    assert nm.participation.treatment == "net_deduction"
+    assert nm.participation.reduces_value_of_use is False
+    assert (nm.rounding.during, nm.rounding.display) == ("none", "shekel")
+    assert not hasattr(rules.electric, "rounding")  # superseded by net_method.rounding
+    assert rules.family_track.cars == ("CAR-19", "CAR-20")
+    assert rules.family_track.price_source == "catalogue"
     assert not hasattr(rules.family_track, "car_price")  # cost is per car, from the catalog
+    assert rules.waiver.maintenance_is_pensionable is False
+    # Our additions (not in the official file):
+    assert rules.electric.gross_amount == Decimal(250)
+    assert rules.value_of_use.tax_year == 2026
 
 
 def test_rules_are_immutable(rules: Rules) -> None:
@@ -75,12 +82,6 @@ def test_rules_are_immutable(rules: Rules) -> None:
         rules.net_method.brackets[0].rate = Decimal("0.2")  # type: ignore[misc]
     with pytest.raises(TypeError):
         rules.budgets["א"] = Decimal(1)  # type: ignore[index]
-
-
-# Free-text notes intentionally reworded in rules.yaml (originals stay in raw/strauss-rules.json).
-REWORDED_NOTES: dict[str, str] = {
-    "family_track.note": "car cost is per car from the catalog, not a single 6,000 ILS price",
-}
 
 
 @pytest.mark.skipif(not RAW_RULES_JSON.is_file(), reason="raw/ files not present")
@@ -101,11 +102,10 @@ def test_every_original_value_is_kept(rules: Rules) -> None:
     ft = src["familyTrack"]
     assert rules.family_track.min_children == ft["minChildren"]
     assert rules.family_track.child_max_age == ft["childMaxAge"]
+    assert list(rules.family_track.cars) == ft["cars"]
+    assert rules.family_track.price_source == ft["priceSource"]
     assert rules.family_track.gap_split_employee == Decimal(str(ft["gapSplitEmployee"]))
-    assert "family_track.note" in REWORDED_NOTES  # exempt: reworded on purpose
-    assert rules.family_track.note != ft["note"]
-    assert "6,000" in rules.family_track.note and "5,600" in rules.family_track.note
-    # carPrice (6000) is intentionally replaced by per-car catalog cost (organizer decision).
+    assert rules.family_track.note == ft["note"]
 
     assert rules.waiver.allowed_by == src["waiver"]["allowedBy"]
     assert rules.waiver.maintenance_is_taxable == src["waiver"]["maintenanceIsTaxable"]
@@ -127,8 +127,21 @@ def test_every_original_value_is_kept(rules: Rules) -> None:
         assert ours.ceiling == theirs["ceiling"]
         assert ours.low_rate == Decimal(str(theirs["lowRate"]))
         assert ours.high_rate == Decimal(str(theirs["highRate"]))
-    assert nm.pension_credit.rate == Decimal(str(src_nm["pensionCredit"]["rate"]))
-    assert nm.pension_credit.income_ceiling == src_nm["pensionCredit"]["incomeCeiling"]
+    pc = src_nm["pensionCredit"]
+    assert nm.pension_credit.rate == Decimal(str(pc["rate"]))
+    assert nm.pension_credit.max_contribution_rate == Decimal(str(pc["maxContributionRate"]))
+    assert nm.pension_credit.income_ceiling == pc["incomeCeiling"]
+    assert nm.pension_credit.note == pc["note"]
+    assert nm.contributions_base == src_nm["contributionsBase"]
+    assert nm.contributions_note == src_nm["contributionsNote"]
+    part = src_nm["participation"]
+    assert nm.participation.treatment == part["treatment"]
+    assert nm.participation.reduces_value_of_use == part["reducesValueOfUse"]
+    assert nm.participation.note == part["note"]
+    rnd = src_nm["rounding"]
+    assert nm.rounding.during == rnd["during"]
+    assert nm.rounding.display == rnd["display"]
+    assert nm.rounding.note == rnd["note"]
     assert nm.note == src_nm["note"]
 
     vou = src["valueOfUse"]
@@ -249,9 +262,49 @@ BROKEN_CASES: list[tuple[str, Callable[[dict[str, Any]], None], str]] = [
         r"net_method\.credit_point_valu: Extra inputs are not permitted",
     ),
     (
-        "unknown contribution component",
-        _set("net_method.contribution_base", ["base_salary", "value_of_use"]),
-        r"net_method\.contribution_base\[1\]: .*'value_of_use'",
+        "unsupported contributions base",
+        _set("net_method.contributions_base", "base_only"),
+        r"net_method\.contributions_base: Input should be 'gross' \(got 'base_only'\)",
+    ),
+    (
+        "unsupported participation treatment",
+        _set("net_method.participation.treatment", "gross_deduction"),
+        r"net_method\.participation\.treatment: Input should be 'net_deduction'",
+    ),
+    (
+        "participation reducing value of use",
+        _set("net_method.participation.reduces_value_of_use", True),
+        r"net_method\.participation\.reduces_value_of_use: Input should be False",
+    ),
+    (
+        "rounding during calculation",
+        _set("net_method.rounding.during", "shekel"),
+        r"net_method\.rounding\.during: Input should be 'none' \(got 'shekel'\)",
+    ),
+    (
+        "unsupported display rounding",
+        _set("net_method.rounding.display", "agora"),
+        r"net_method\.rounding\.display: Input should be 'shekel'",
+    ),
+    (
+        "old electric rounding key",
+        _set("electric.rounding", "ceil"),
+        r"electric\.rounding: Extra inputs are not permitted",
+    ),
+    (
+        "unsupported family price source",
+        _set("family_track.price_source", "fixed"),
+        r"family_track\.price_source: Input should be 'catalogue'",
+    ),
+    (
+        "duplicate family car",
+        _set("family_track.cars", ["CAR-19", "CAR-19"]),
+        r"family_track: cars: duplicate entries",
+    ),
+    (
+        "no family cars",
+        _set("family_track.cars", []),
+        r"family_track: cars: must list at least one",
     ),
 ]
 

@@ -62,8 +62,6 @@ def _freeze_mapping(value: dict[Any, Any]) -> Mapping[Any, Any]:
 Money = Annotated[Decimal, BeforeValidator(_to_decimal), AfterValidator(_non_negative)]
 Rate = Annotated[Decimal, BeforeValidator(_to_decimal), AfterValidator(_unit_interval)]
 
-ContributionComponent = Literal["base_salary", "commissions", "bonus"]
-
 
 class _Frozen(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -73,17 +71,30 @@ class ElectricRules(_Frozen):
     method: Literal["gross_up", "gross"] = "gross_up"
     net_bonus: Money  # method = gross_up
     gross_amount: Money  # method = gross
-    rounding: Literal["ceil"]
     note: str = ""
 
 
 class FamilyTrackRules(_Frozen):
-    """Car cost is per car: catalog.monthly_company_cost of cars in group "משפחתי"."""
+    """Car cost is per car: catalog.monthly_company_cost of the listed cars.
+
+    That every id in `cars` exists in the catalog with group "משפחתי" is checked when the engine
+    context is built (the rules file is validated on its own, without the catalog).
+    """
 
     min_children: int
     child_max_age: int
+    cars: tuple[str, ...]
+    price_source: Literal["catalogue"]
     gap_split_employee: Rate
     note: str = ""
+
+    @model_validator(mode="after")
+    def _cars_listed_once(self) -> "FamilyTrackRules":
+        if not self.cars:
+            raise ValueError("cars: must list at least one family-track car")
+        if len(set(self.cars)) != len(self.cars):
+            raise ValueError(f"cars: duplicate entries {list(self.cars)}")
+        return self
 
 
 class WaiverRules(_Frozen):
@@ -114,8 +125,23 @@ class SocialInsuranceRules(_Frozen):
 
 class PensionCreditRules(_Frozen):
     rate: Rate
-    income_ceiling: Money
     max_contribution_rate: Rate
+    income_ceiling: Money
+    note: str = ""
+
+
+class ParticipationRules(_Frozen):
+    """Only the values in the official file are supported; anything else is a schema error."""
+
+    treatment: Literal["net_deduction"]
+    reduces_value_of_use: Literal[False]
+    note: str = ""
+
+
+class RoundingRules(_Frozen):
+    during: Literal["none"]  # no rounding inside the calculation (including the gross-up)
+    display: Literal["shekel"]  # round to whole ILS (half-up) for display only
+    note: str = ""
 
 
 class NetMethodRules(_Frozen):
@@ -125,8 +151,12 @@ class NetMethodRules(_Frozen):
     brackets: tuple[TaxBracket, ...]
     national_insurance: SocialInsuranceRules
     health: SocialInsuranceRules
-    contribution_base: tuple[ContributionComponent, ...]
     pension_credit: PensionCreditRules
+    # "gross" = base_salary + commissions + bonus (not value of use, gross-up or maintenance).
+    contributions_base: Literal["gross"]
+    contributions_note: str = ""
+    participation: ParticipationRules
+    rounding: RoundingRules
     note: str = ""
 
     @model_validator(mode="after")
@@ -151,17 +181,10 @@ class NetMethodRules(_Frozen):
             previous = bracket.up_to
         return self
 
-    @model_validator(mode="after")
-    def _contribution_base_unique(self) -> "NetMethodRules":
-        if not self.contribution_base:
-            raise ValueError("contribution_base: must list at least one salary component")
-        if len(set(self.contribution_base)) != len(self.contribution_base):
-            raise ValueError(f"contribution_base: duplicate entries {list(self.contribution_base)}")
-        return self
-
 
 class ValueOfUseRules(_Frozen):
     source: str
+    tax_year: int  # our addition: the dataset's tax year (net_method.tax_year is the tables' year)
     key: tuple[str, ...]
     drive_field: Annotated[dict[int, str], AfterValidator(_freeze_mapping)]
 

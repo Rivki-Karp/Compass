@@ -89,18 +89,22 @@ issues.
   never pick one automatically.
 - Codes are zero-padded **strings** (`"00413"` ≠ `413`). Money is `Decimal`, never `float`.
 
-## Rules: derived values pending organizer confirmation
+## Rules: our additions to the official file
 
-[data/rules.yaml](data/rules.yaml) keeps every value from the source rules file. The rules
-below are **not** in that file. Each one is marked `# derived:` in the YAML.
+[data/rules.yaml](data/rules.yaml) keeps every value from the official rules file. The
+updated edition of that file (see [raw/README.md](raw/README.md) for its SHA-256) officially
+confirmed most of the rules we had previously reverse-engineered: the family-track cars and
+per-car catalogue price, the pension-credit `maxContributionRate` (0.07), the contributions
+base (`gross` = base + commissions + bonus), the participation treatment (net deduction, does
+not reduce value of use) and the rounding policy (none during the calculation, whole shekel
+for display only, which also overrides our earlier `electric.rounding: ceil`).
+
+Only these values are still **our own additions**, marked `# added:` in the YAML:
 
 | Rule | Value | Basis |
 |---|---|---|
-| `net_method.contribution_base` | `[base_salary, commissions, bonus]` | Verified against all 12 reference results. Pension and study fund are not calculated on value of use, the electric gross-up or waiver maintenance. |
-| `net_method.pension_credit.max_contribution_rate` | `0.07` | Verified against the reference results. Credit = 0.35 × 0.07 × min(income, 9,500), whatever the employee's actual pension %. |
-| `electric.rounding` | `ceil` | Verified against the reference results. The gross-up is rounded up to a whole ILS (440 / 473). |
-| `electric.method: gross` + `gross_amount: 250` | option | The Excel mentions a "250 ₪ gross" alternative that the source rules file does not contain. The default stays `gross_up`. |
-| Family-track car cost **per car** | `catalog.monthly_company_cost` | Per the Excel and PDF: CARNIVAL 6,000, SANTA FE 5,600. It replaces the single `familyTrack.carPrice: 6000` in the source. |
+| `electric.method: gross` + `gross_amount: 250` | option | The Excel mentions a "250 ₪ gross" alternative that the official file does not contain. The default stays `gross_up`. |
+| `value_of_use.tax_year` | `2026` | The dataset's tax year. It has to be explicit because it differs from the net-method tables' year (`net_method.tax_year: 2025`); both appear in every engine result. |
 
 The loader rejects invalid edits and names the bad field, for example:
 
