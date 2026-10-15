@@ -1,0 +1,23 @@
+name: unknown_pension
+description: '"לא יודעת" for pension: unknown_fields, payslip offer, partial diff'
+turns:
+- employee: אני מפתחת תוכנה. שכר בסיס 18,500, אין לי עמלות או בונוסים. קרן השתלמות 2.5%, 3 נקודות זיכוי.
+    את אחוז הפנסיה אני לא יודעת. היום יש לי MG4 2025 ואני משתתפת ב-300 ₪. מה יקרה לנטו אם אוותר על הרכב?
+until_compare: true
+checks:
+- tool_called:
+    name: save_profile
+    input:
+      unknown_fields:
+      - pension_percent
+- slot:
+    field: pension_percent
+    state: unknown
+- comparison:
+    alternative:
+      kind: waiver
+    partial: true
+    has_diff: true
+- reply:
+    matches:
+    - תלוש

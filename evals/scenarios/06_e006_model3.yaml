@@ -1,0 +1,15 @@
+name: e006_model3
+description: 'Golden E-006: OCTAVIA -> MODEL 3 (+721)'
+turns:
+- employee: אני אלי, מנהל מחלקה. שכר בסיס 32,000, אין עמלות, בונוס 2,000 בחודש. פנסיה 6%, קרן השתלמות
+    2.5%, 2.25 נקודות זיכוי, 4 ילדים מתחת לגיל 23. היום יש לי סקודה אוקטביה 2025 ואני משתתף ב-500 ₪. אם
+    אעבור מהאוקטביה לטסלה מודל 3 - מה יקרה לנטו?
+until_compare: true
+checks:
+- comparison:
+    alternative:
+      kind: car
+      car_id: CAR-14
+    today_net: 17073
+    alternative_net: 17794
+    diff: 721

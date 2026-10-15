@@ -1,0 +1,16 @@
+name: e001_atto3
+description: 'Golden E-001: COROLLA CROSS -> ATTO 3 (+661)'
+turns:
+- employee: אני נועה, מנהלת מוצר. שכר בסיס 18,500, אין לי עמלות ואין בונוסים. פנסיה 6%, קרן השתלמות 2.5%,
+    2.75 נקודות זיכוי, 2 ילדים מתחת לגיל 23. היום יש לי קורולה קרוס 2025 ואני משתתפת ב-300 ₪. אם אעבור
+    מהקורולה קרוס ל-BYD Atto 3 החשמלי - כמה זה ישנה לי בנטו?
+until_compare: true
+checks:
+- comparison:
+    alternative:
+      kind: car
+      car_id: CAR-10
+    today_net: 11032
+    alternative_net: 11693
+    diff: 661
+    hypothetical: false

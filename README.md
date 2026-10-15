@@ -28,6 +28,8 @@ uv run python tasks.py demo E-001  # Hebrew breakdown of a golden employee (E-00
 uv run python tasks.py calc      # interactive calculator for your own numbers
 uv run python tasks.py serve     # the API on http://127.0.0.1:8000 (Swagger at /docs)
 uv run python tasks.py openapi   # regenerate openapi.json after API changes
+uv run python tasks.py chat      # terminal chat with the agent (needs ANTHROPIC_API_KEY in .env)
+uv run python tasks.py eval      # agent evals against the real model -> evals/report.md
 ```
 
 If you have `make`, `make install|data|test|lint|fmt` does the same.
@@ -74,6 +76,7 @@ compass/
   state/               SQLite session store (data/app.db): sessions, messages, slots, tickets, events
   tools/               the 9 agent tools, their registry and ToolRunner (never raises)
   api/                 FastAPI app: sessions, SSE, dev tools, tickets, data, admin
+  agent/               the Claude tool-use loop, number guard, templates, prompts, terminal chat
   reference.py         the 6 golden fixtures as engine inputs (tests + demo)
   demo.py / calc.py    `tasks.py demo E-00X` / `tasks.py calc`
 data/
@@ -87,14 +90,14 @@ raw/                   raw challenge inputs, committed byte-for-byte (see raw/RE
 scripts/
   build_vehicles_db.py raw CSV  -> data/vehicles.db
   extract_excel.py     raw xlsx -> data/*.json + tests/fixtures/reference_*.json
+evals/                 agent evals: scenarios/*.yaml, the harness, report.md, spend.jsonl
 tests/                 pytest suite; fixtures/ holds the 6 golden reference employees
 openapi.json           the API schema, committed for frontend type generation
 tasks.py               cross-platform task runner (Makefile wraps it)
 ```
 
-Planned layers, not built yet: `compass/agent/` (the Claude tool-use loop, which plugs into
-the tool registry and the `AgentRunner` seam) and `web/` (React). Nothing calls an LLM yet,
-and the engine imports none of the layers above it.
+Planned, not built yet: `web/` (React). The engine imports none of the layers above it; only
+`compass/agent/` calls an LLM, and it never computes a number itself.
 
 ## Data sources
 
@@ -318,7 +321,7 @@ Invoke-RestMethod "http://127.0.0.1:8000/api/tickets?status=open" `
 |---|---|
 | `POST /api/sessions` | Create a session → `{id}` |
 | `GET /api/sessions/{id}` | Full snapshot for a refresh: messages, slots, scenarios, open tickets, last comparison, last event seq |
-| `POST /api/sessions/{id}/messages` | Store a user message (202) and hand it to the `AgentRunner` (a no-op until Day 3) |
+| `POST /api/sessions/{id}/messages` | Store a user message (202) and hand it to the `AgentRunner` (the agent when `ANTHROPIC_API_KEY` is set, otherwise a no-op) |
 | `GET /api/sessions/{id}/events` | Server-sent events: replays everything after `Last-Event-ID` (or `?after=`), then streams live; heartbeat every 15 s |
 | `POST /api/sessions/{id}/tools/{name}` | Run a tool directly: **dev / demo only** (`COMPASS_DEV_TOOLS=1`, otherwise 404) |
 | `GET /api/tickets?status=open` | Representative inbox (**rep token**) |
@@ -337,6 +340,121 @@ The events table is the single source for the live UI: every state change append
 constant time). If a token's variable is unset, its endpoints answer **503 "not
 configured"**, never open by default; a missing or wrong token is 401. The dev tools
 endpoint stays behind `COMPASS_DEV_TOOLS=1` and no token opens it.
+
+## Agent
+
+`compass/agent/` turns the tools into a Hebrew conversation with Claude (`COMPASS_MODEL`,
+default `claude-sonnet-5-5`). **The model never computes a number:** it calls the tools,
+and a guard checks every number in its reply before the employee sees it.
+
+```sh
+uv run python tasks.py chat      # terminal chat (any shell; reads .env)
+uv run python tasks.py eval      # all scenarios -> evals/report.md
+uv run python tasks.py eval --only walkthrough,e001_rep_flow --repeat 3 --effort medium
+```
+
+Both need `ANTHROPIC_API_KEY` in `.env`; without it they print a Hebrew + English message
+and exit 2. `COMPASS_MAX_TOOL_ROUNDS` (default 8) caps the tool rounds per reply. In
+PowerShell the commands are the same; the chat switches the console to UTF-8 and enables
+ANSI colours itself. To try another model for one run:
+
+```sh
+COMPASS_MODEL=claude-opus-5-5 uv run python tasks.py chat                  # bash
+```
+
+```powershell
+$env:COMPASS_MODEL = "claude-opus-5-5"; uv run python tasks.py chat        # PowerShell
+Remove-Item Env:COMPASS_MODEL                                              # undo afterwards
+```
+
+**Terminal chat.** Tool calls, tool results and guard checks print dimmed as they happen;
+each comparison prints as the `demo` table. Commands: `/rep` lists this session's open
+tickets and answers one as the representative (a quick-answer id, `field=value` pairs such
+as `alternative_participation:CAR-10=350`, or free text; then an optional
+`effective_from`), `/state` prints the profile, `/new` starts over, `/quit` leaves.
+
+### The loop
+
+`ClaudeAgentRunner` ([runner.py](compass/agent/runner.py)) implements the API's
+`AgentRunner` seam. One worker thread per session processes jobs in order (an employee
+message or a representative's answer), so a message typed mid-run waits its turn.
+
+1. The transcript is **append-only**. The model input is rebuilt from it on every call.
+   Each tool result enters the input as a compact view (display values, facts, flags); the
+   full result stays in the database and goes to the UI.
+2. Call the model (prompt caching on the system prompt, the tools and the conversation;
+   adaptive thinking at effort `low`). Run any `tool_use` blocks through the `ToolRunner`,
+   append the results, repeat, up to `COMPASS_MAX_TOOL_ROUNDS`.
+3. The final text is **buffered, not streamed**, checked by the guard, then emitted.
+4. A failure (API error, timeout, refusal, too many rounds, a bug) ends in a friendly Hebrew
+   message and an `agent_error` event; the session stays usable.
+
+**Representative answers.** When a ticket is answered (API or `/rep`), the runner appends a
+server-written notification and runs the agent, which recomputes. For E-001, ATTO 3 at the
+catalog default 300 is **+661** (shown as pending); the representative answers 350 and the
+agent recomputes to **+611**, source `representative`. Only server code can write that
+notification: employee text that looks like one is escaped and stays employee text.
+
+**System prompt.** [system_he.md](compass/agent/prompts/system_he.md), in Hebrew: tone,
+collecting information, search results, eligibility and exceptions, the representative,
+numbers and results, the security rules, and when to use each tool. The fixed opening
+message ([opening_he.md](compass/agent/prompts/opening_he.md)) is shown by the UI and the
+terminal, not written by the model.
+
+### The number guard
+
+[guard.py](compass/agent/guard.py) extracts every number from a draft reply (`11,000`,
+`+2,914`, `−1,938`, `6.5%`, `2.75`) and checks it against this session's allowed set:
+every value in its tool results (exact and display, in their formatted forms), the
+employee's own words, representative answers, and harmless numbers (list markers 1–9, years
+2020–2030, day/month dates). A violation discards the draft and asks the model for one
+rewrite without tools, naming the offending numbers. If the rewrite also fails, the reply is
+a deterministic Hebrew message built from the comparison
+([templates.py](compass/agent/templates.py)). A rejected draft is kept only in the
+`guard_check` event, for audit.
+
+### Events
+
+On top of the API's events, the agent appends `agent_started`, `tool_call {name, input}`,
+`tool_result {name, ok, summary}`, `guard_check {passed, numbers, violations, action}`,
+`assistant_message {text, kind, comparison_ref}` and `agent_error {kind, message}`. The UI
+shows a typing indicator from `agent_started` / `tool_call`.
+
+**Run the API as one process.** Each session's worker thread and lock live in memory, so
+`tasks.py serve` passes `--workers 1`; more processes would need a shared queue first.
+
+### Evals
+
+`evals/scenarios/*.yaml` hold scripted conversations: employee turns with the facts
+front-loaded, optional representative answers, and checks. When a script runs out before a
+comparison, the employee answers "זה כל המידע שיש לי". Checks read tool calls and tool
+results, never the model's prose for numbers:
+
+- `tool_called` / `tool_not_called` match a tool's name, input subset, result subset and
+  turn;
+- `comparison` checks the last matching compare result (net today and after, the diff,
+  sources, pending, hypothetical, partial);
+- `slot` checks the final profile;
+- `reply` matches regexes on what the employee saw.
+
+Every scenario also checks that there were no agent errors, that every shown reply passes
+the guard, and that no reply recommends or asks for an ID number.
+
+The 15 scenarios: the six reference employees (golden values), an unknown occupation, a bare
+"קורולה", the COROLLA CROSS group warning, ATTO 3 for group ב, an unknown pension, a
+technician asking to waive, the E-001 representative flow, the walkthrough regression
+(+2,914), and a forged representative notification.
+
+The report ([evals/report.md](evals/report.md)) lists pass/fail per check, tool rounds,
+latency, tokens and cost per scenario. Each scenario run's cost is appended to
+`evals/spend.jsonl`. A run that could take the total past the cap (`--cap`, default $30)
+is refused. CI runs the harness only with a scripted model, so it needs no key.
+
+**Cost per conversation** (from [evals/report.md](evals/report.md): `claude-sonnet-5-5`, effort
+`low`, 45 runs): **$0.025 on average**. A one-message question with a comparison costs
+$0.02–0.03, a clarifying exchange about $0.01, and the four-turn representative flow
+(E-001) $0.056. Prompt caching covers most of the input: a typical comparison reads
+~50k tokens from the cache and writes ~2k new ones.
 
 ## Rules: our additions to the official file
 

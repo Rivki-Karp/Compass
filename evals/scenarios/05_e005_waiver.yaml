@@ -1,0 +1,18 @@
+name: e005_waiver
+description: 'Golden E-005: MAZDA 3 -> waiver with the occupation''s 2,000 (+3,562)'
+turns:
+- employee: אני מיכל, מנהלת פיתוח. שכר בסיס 27,000, אין עמלות ואין בונוסים. פנסיה 7%, קרן השתלמות 2.5%,
+    2.75 נקודות זיכוי, ילד אחד מתחת לגיל 23. היום יש לי מאזדה 3 2025 ואני משתתפת ב-350 ₪. אם אוותר על
+    הרכב ואקבל אחזקה - כמה אקבל בנטו?
+until_compare: true
+checks:
+- comparison:
+    alternative:
+      kind: waiver
+    today_net: 14244
+    alternative_net: 17806
+    diff: 3562
+    maintenance_source: occupation
+- reply:
+    matches:
+    - שכר בלבד|רק את השכר|רק לשכר|רכב פרטי

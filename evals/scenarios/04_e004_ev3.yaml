@@ -1,0 +1,15 @@
+name: e004_ev3
+description: 'Golden E-004: TUCSON -> EV3 (+1,207)'
+turns:
+- employee: אני יוסי, מנהל אזור מכירות. שכר בסיס 16,000, עמלות 3,000 בחודש, אין בונוסים. פנסיה 6%, קרן
+    השתלמות 2.5%, 2.25 נקודות זיכוי, 3 ילדים מתחת לגיל 23. היום יש לי טוסון 2025 ואני משתתף ב-400 ₪. אם
+    אחליף את הטוסון ב-EV3 - מה ההפרש בנטו?
+until_compare: true
+checks:
+- comparison:
+    alternative:
+      kind: car
+      car_id: CAR-11
+    today_net: 10693
+    alternative_net: 11900
+    diff: 1207

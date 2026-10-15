@@ -1,0 +1,47 @@
+name: e001_rep_flow
+description: 'The brief''s flow: ATTO 3 participation from the representative (+661 pending) -> 350 ->
+  +611'
+turns:
+- employee: אני מנהלת מוצר, שכר בסיס 18,500
+- employee: אין לי עמלות או בונוסים. פנסיה 6%, קרן השתלמות 2.5%, 2.75 נקודות זיכוי, 2 ילדים מתחת לגיל
+    23. היום יש לי קורולה קרוס 2025 ואני משתתפת ב-300 ₪.
+- employee: מה יקרה לנטו אם אעבור ל-ATTO 3? אני לא יודעת מה תהיה ההשתתפות שלי בו, אפשר לשאול את הנציג?
+- rep:
+    field: alternative_participation:CAR-10
+    values:
+      alternative_participation:CAR-10: 350
+checks:
+- tool_called:
+    name: ask_representative
+    ok: true
+    input:
+      blocking_fields:
+      - alternative_participation:CAR-10
+- comparison:
+    alternative:
+      kind: car
+      car_id: CAR-10
+    turn: 2
+    diff: 661
+    pending_rep: true
+    participation_source: catalog_default
+- comparison:
+    alternative:
+      kind: car
+      car_id: CAR-10
+    today_net: 11032
+    alternative_net: 11643
+    diff: 611
+    pending_rep: false
+    participation_source: representative
+- tool_called:
+    name: compare
+    turn: 3
+    ok: true
+- reply:
+    turn: 2
+    matches:
+    - נציג
+- slot:
+    field: alternative_participation:CAR-10
+    source: representative

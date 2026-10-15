@@ -1,0 +1,23 @@
+name: walkthrough
+description: 'The Day 2 walkthrough as a regression: developer in ב, COROLLA CROSS -> waiver (+2,914)'
+turns:
+- employee: אני מפתחת תוכנה, שכר בסיס 18,500
+- employee: אין לי עמלות או בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%, 3 נקודות זיכוי. היום יש לי קורולה קרוס
+    2025 ואני משתתפת ב-300 ₪. מה יקרה לנטו אם אוותר על הרכב?
+until_compare: true
+checks:
+- comparison:
+    alternative:
+      kind: waiver
+    today_net: 11000
+    alternative_net: 13914
+    diff: 2914
+    maintenance_source: occupation
+- reply:
+    turn: 0
+    matches:
+    - ב'|ב׳|קבוצה ב
+    - 3,700
+- reply:
+    matches:
+    - שכר בלבד|רק את השכר|רק לשכר|רכב פרטי

@@ -1,0 +1,17 @@
+name: unknown_occupation
+description: '"גננות" is not a listed occupation: no group stored, asks to clarify'
+turns:
+- employee: אני עובדת בגננות, שכר בסיס 9,000
+checks:
+- slot:
+    field: occupation
+    absent: true
+- slot:
+    field: group
+    absent: true
+- tool_not_called:
+    name: ask_representative
+- reply:
+    turn: 0
+    matches:
+    - תפקיד|עיסוק|נציג

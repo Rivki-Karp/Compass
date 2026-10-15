@@ -1,0 +1,22 @@
+name: e003_mg4
+description: 'Golden E-003: maintenance 1,500 today -> MG4 (-1,938)'
+turns:
+- employee: אני רחל, מפתחת תוכנה. שכר בסיס 21,000, אין עמלות ואין בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%,
+    2.75 נקודות זיכוי, אין לי ילדים מתחת לגיל 23. היום אין לי רכב, אני מקבלת אחזקת רכב של 1,500 ₪ בחודש.
+    אם אקח MG4 חשמלי - כמה אפסיד או ארוויח בנטו?
+until_compare: true
+checks:
+- comparison:
+    alternative:
+      kind: car
+      car_id: CAR-06
+    today_net: 15047
+    alternative_net: 13109
+    diff: -1938
+- tool_called:
+    name: set_current_situation
+    ok: true
+    input:
+      today:
+        kind: maintenance
+        amount: 1500
