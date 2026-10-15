@@ -8,7 +8,7 @@ and both save_profile and the representative's ticket answer validate through it
 from collections.abc import Mapping
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, Literal
 
 from compass.engine.context import EngineContext
 from compass.engine.models import EmployeeProfile
@@ -87,23 +87,43 @@ def slot_name(field: str) -> str:
     return SLOT_OF.get(field, field)  # participation fields are their own slot names
 
 
+FieldErrorCode = Literal[
+    "not_a_number",
+    "too_many_decimals",
+    "unknown_car",
+    "out_of_range",
+    "effective_from_not_participation",
+    "unknown_field",
+    "name_length",
+    "name_is_a_number",
+    "unknown_occupation",
+    "unknown_group",
+    "credit_points_step",
+]
+
+
 class FieldError(ValueError):
-    def __init__(self, field: str, message: str) -> None:
+    """`message` is English (the model reads it); `code` and `params` let the UI show Hebrew
+    (compass.labels.ERROR_MESSAGES)."""
+
+    def __init__(self, field: str, message: str, code: FieldErrorCode, **params: Any) -> None:
         self.field = field
+        self.code = code
+        self.params = params
         super().__init__(f"{field}: {message}")
 
 
 def _decimal(field: str, raw: Any) -> Decimal:
     if isinstance(raw, bool) or raw is None:
-        raise FieldError(field, f"expected a number, got {raw!r}")
+        raise FieldError(field, f"expected a number, got {raw!r}", "not_a_number")
     try:
         value = Decimal(str(raw).replace(",", "").strip())
     except InvalidOperation:
-        raise FieldError(field, f"expected a number, got {raw!r}") from None
+        raise FieldError(field, f"expected a number, got {raw!r}", "not_a_number") from None
     if not value.is_finite():
-        raise FieldError(field, f"expected a number, got {raw!r}")
+        raise FieldError(field, f"expected a number, got {raw!r}", "not_a_number")
     if value != value.quantize(Decimal("0.01")):
-        raise FieldError(field, f"at most 2 decimal places (got {raw})")
+        raise FieldError(field, f"at most 2 decimal places (got {raw})", "too_many_decimals")
     return value
 
 
@@ -117,50 +137,98 @@ def to_slot_value(
     if is_participation(field):
         if not is_fillable(field, ctx):
             car_id = field.removeprefix(ALTERNATIVE_PARTICIPATION)
-            raise FieldError(field, f"unknown catalog car {car_id!r}")
+            raise FieldError(field, f"unknown catalog car {car_id!r}", "unknown_car")
         amount = _decimal(field, raw)
         if not 0 <= amount <= MAX_PARTICIPATION:
-            raise FieldError(field, f"must be 0-{MAX_PARTICIPATION:,} (got {amount})")
+            raise FieldError(
+                field,
+                f"must be 0-{MAX_PARTICIPATION:,} (got {amount})",
+                "out_of_range",
+                min=0,
+                max=int(MAX_PARTICIPATION),
+            )
         return {
             "amount": str(amount),
             "effective_from": None if effective_from is None else effective_from.isoformat(),
         }
     if effective_from is not None:
-        raise FieldError(field, "effective_from applies to participation fields only")
+        raise FieldError(
+            field,
+            "effective_from applies to participation fields only",
+            "effective_from_not_participation",
+        )
     if field not in SLOT_OF:
-        raise FieldError(field, "unknown profile field")
+        raise FieldError(field, "unknown profile field", "unknown_field")
     if field == "display_name":
         name = str(raw).strip()
         if not name or len(name) > MAX_NAME_LENGTH:
-            raise FieldError(field, f"must be 1-{MAX_NAME_LENGTH} characters")
+            raise FieldError(
+                field, f"must be 1-{MAX_NAME_LENGTH} characters", "name_length", max=MAX_NAME_LENGTH
+            )
         if sum(ch.isdigit() for ch in name) >= 5:
-            raise FieldError(field, "a name, not a number (never store an ID number)")
+            raise FieldError(
+                field, "a name, not a number (never store an ID number)", "name_is_a_number"
+            )
         return name
     if field == "occupation":
         if raw not in ctx.occupations:
-            raise FieldError(field, f"unknown occupation title {raw!r}")
+            raise FieldError(field, f"unknown occupation title {raw!r}", "unknown_occupation")
         return raw
     if field == "group":
         if raw not in ctx.rules.group_order:
-            raise FieldError(field, f"must be one of {list(ctx.rules.group_order)} (got {raw!r})")
+            raise FieldError(
+                field,
+                f"must be one of {list(ctx.rules.group_order)} (got {raw!r})",
+                "unknown_group",
+                groups=list(ctx.rules.group_order),
+            )
         return raw
     if field == "children_under_23":
         if isinstance(raw, bool) or not isinstance(raw, int) or not 0 <= raw <= MAX_CHILDREN:
-            raise FieldError(field, f"must be a whole number 0-{MAX_CHILDREN} (got {raw!r})")
+            raise FieldError(
+                field,
+                f"must be a whole number 0-{MAX_CHILDREN} (got {raw!r})",
+                "out_of_range",
+                min=0,
+                max=MAX_CHILDREN,
+            )
         return raw
     value = _decimal(field, raw)
     if field == "base_salary" and not 0 < value <= MAX_SALARY:
-        raise FieldError(field, f"must be above 0 and at most {MAX_SALARY:,} (got {value})")
+        raise FieldError(
+            field,
+            f"must be above 0 and at most {MAX_SALARY:,} (got {value})",
+            "out_of_range",
+            min=1,
+            max=int(MAX_SALARY),
+        )
     if field in ("commissions", "bonus") and not 0 <= value <= MAX_SALARY:
-        raise FieldError(field, f"must be 0-{MAX_SALARY:,} (got {value})")
+        raise FieldError(
+            field,
+            f"must be 0-{MAX_SALARY:,} (got {value})",
+            "out_of_range",
+            min=0,
+            max=int(MAX_SALARY),
+        )
     if field in ("pension_percent", "study_fund_percent"):
         if not 0 <= value <= MAX_PERCENT:
-            raise FieldError(field, f"a percentage 0-{MAX_PERCENT} (got {value})")
+            raise FieldError(
+                field,
+                f"a percentage 0-{MAX_PERCENT} (got {value})",
+                "out_of_range",
+                min=0,
+                max=int(MAX_PERCENT),
+            )
         return format(value.scaleb(-2), "f")  # 6.5 -> "0.065", exact
     if field == "credit_points" and (
         not 0 <= value <= MAX_CREDIT_POINTS or value % CREDIT_POINT_STEP != 0
     ):
-        raise FieldError(field, f"0-{MAX_CREDIT_POINTS} in steps of 0.25 (got {value})")
+        raise FieldError(
+            field,
+            f"0-{MAX_CREDIT_POINTS} in steps of 0.25 (got {value})",
+            "credit_points_step",
+            max=int(MAX_CREDIT_POINTS),
+        )
     return str(value)
 
 

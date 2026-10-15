@@ -38,6 +38,7 @@ from compass.api.settings import Settings
 from compass.config import CATALOG_JSON, OCCUPATIONS_JSON
 from compass.engine.context import ContextError
 from compass.engine.serialize import plain_json
+from compass.labels import error_message
 from compass.rules import RulesError
 from compass.state import NotFound, Store
 from compass.tools import ToolRunner
@@ -369,7 +370,21 @@ def create_app(
                 effective_from=body.effective_from,
             )
         except TicketAnswerError as error:
-            raise HTTPException(error.status, error.detail) from None
+            # `detail` as before (English); `errors` adds a code and a Hebrew message per reason.
+            return JSONResponse(
+                status_code=error.status,
+                content={
+                    "detail": error.detail,
+                    "errors": [
+                        {
+                            "code": e.code,
+                            "field": e.field,
+                            "message": error_message(e.code, e.params),
+                        }
+                        for e in error.errors
+                    ],
+                },
+            )
         agent.on_ticket_answered(answered.session_id, ticket_id)
         return answered.model_dump()
 

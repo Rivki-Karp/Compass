@@ -4,8 +4,10 @@ Values use the save_profile rules; a quick answer's values apply first and expli
 blocking fields left without a value become unknown (answered, but not with a number).
 """
 
+from dataclasses import dataclass
+from dataclasses import field as dc_field
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 
 from compass.engine.serialize import plain_json
 from compass.state import NotFound, StateError, Ticket
@@ -18,13 +20,33 @@ from compass.tools.profile import (
 )
 from compass.tools.services import Services
 
+TicketErrorCode = Literal[
+    "ticket_not_found",
+    "ticket_already_answered",
+    "empty_answer",
+    "unknown_quick_answer",
+    "not_a_blocking_field",
+]
+
+
+@dataclass(frozen=True)
+class AnswerError:
+    """One reason an answer was refused: a TicketErrorCode or a FieldErrorCode, with the field
+    it concerns and the parameters its Hebrew message needs (compass.labels.error_message)."""
+
+    code: str
+    field: str | None = None
+    params: dict[str, Any] = dc_field(default_factory=dict)
+
 
 class TicketAnswerError(Exception):
-    """`status` is the HTTP status the API answers with (404, 409, 422)."""
+    """`status` is the HTTP status the API answers with (404, 409, 422). `detail` is English
+    (as before); `errors` carry codes for the UI's Hebrew messages."""
 
-    def __init__(self, status: int, detail: Any) -> None:
+    def __init__(self, status: int, detail: Any, errors: list[AnswerError]) -> None:
         self.status = status
         self.detail = detail
+        self.errors = errors
         super().__init__(str(detail))
 
 
@@ -41,38 +63,55 @@ def answer_ticket(
     try:
         ticket = store.ticket(ticket_id)
     except NotFound:
-        raise TicketAnswerError(404, f"ticket {ticket_id} not found") from None
+        raise TicketAnswerError(
+            404, f"ticket {ticket_id} not found", [AnswerError("ticket_not_found")]
+        ) from None
     if ticket.status != "open":
-        raise TicketAnswerError(409, f"ticket {ticket_id} is already {ticket.status}")
+        raise TicketAnswerError(
+            409,
+            f"ticket {ticket_id} is already {ticket.status}",
+            [AnswerError("ticket_already_answered")],
+        )
     explicit = values or {}
     if answer_text is None and quick_answer_id is None and not explicit:
-        raise TicketAnswerError(422, "give answer_text, quick_answer_id or values")
+        raise TicketAnswerError(
+            422, "give answer_text, quick_answer_id or values", [AnswerError("empty_answer")]
+        )
 
     merged: dict[str, Any] = {}
     if quick_answer_id is not None:
         quick = {qa["id"]: qa for qa in ticket.quick_answers}
         if quick_answer_id not in quick:
             raise TicketAnswerError(
-                422, f"unknown quick_answer_id {quick_answer_id!r}; have {list(quick)}"
+                422,
+                f"unknown quick_answer_id {quick_answer_id!r}; have {list(quick)}",
+                [AnswerError("unknown_quick_answer")],
             )
         merged.update(quick[quick_answer_id].get("values", {}))
     merged.update(explicit)  # explicit values win over the quick answer's
 
     errors: list[str] = []
+    coded: list[AnswerError] = []
     slot_values: dict[str, Any] = {}
     for field, raw in merged.items():
         if field not in ticket.blocking_fields or not is_fillable(field, services.ctx):
             errors.append(f"{field}: not a blocking field of this ticket")
+            coded.append(AnswerError("not_a_blocking_field", field))
             continue
         when = effective_from if is_participation(field) else None
         try:
             slot_values[slot_name(field)] = to_slot_value(field, raw, services.ctx, when)
         except FieldError as error:
             errors.append(str(error))
+            coded.append(AnswerError(error.code, error.field, error.params))
     if errors:
-        raise TicketAnswerError(422, errors)
+        raise TicketAnswerError(422, errors, coded)
     if effective_from is not None and not any(map(is_participation, merged)):
-        raise TicketAnswerError(422, "effective_from applies to participation fields only")
+        raise TicketAnswerError(
+            422,
+            "effective_from applies to participation fields only",
+            [AnswerError("effective_from_not_participation")],
+        )
 
     unknown = [slot_name(f) for f in ticket.blocking_fields if f not in merged]
     answer = {
@@ -84,4 +123,4 @@ def answer_ticket(
     try:
         return store.answer_ticket(ticket_id, answer, slot_values, unknown=unknown)
     except StateError as error:  # answered concurrently
-        raise TicketAnswerError(409, str(error)) from None
+        raise TicketAnswerError(409, str(error), [AnswerError("ticket_already_answered")]) from None

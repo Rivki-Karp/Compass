@@ -119,15 +119,15 @@ CarName = Callable[[str], str]
 
 def _group_mismatch(facts: Facts, car_name: CarName) -> str:
     return (
-        f"הקבוצה שנמסרה ({facts['employee_group']}) שונה מהקבוצה של העיסוק "
-        f"{facts['occupation']} ({facts['occupation_group']}). כדאי לוודא מול נציג."
+        f"הקבוצה שנמסרה ({group_label(facts['employee_group'])}) שונה מהקבוצה של העיסוק "
+        f"{facts['occupation']} ({group_label(facts['occupation_group'])}). כדאי לוודא מול נציג."
     )
 
 
 def _car_above_group(facts: Facts, car_name: CarName) -> str:
     return (
-        f"הרכב של היום ({car_name(facts['car_id'])}) בקבוצה {facts['car_group']}, "
-        f"מעל קבוצה {facts['employee_group']}. כדאי לבדוק את זה מול נציג."
+        f"הרכב של היום ({car_name(facts['car_id'])}) ב{group_label(facts['car_group'])}, "
+        f"מעל {group_label(facts['employee_group'])}. כדאי לבדוק את זה מול נציג."
     )
 
 
@@ -145,3 +145,40 @@ WARNING_MESSAGES: dict[WarningCode, Callable[[Facts, CarName], str]] = {
 
 def warning_message(code: WarningCode, facts: Facts, car_name: CarName = str) -> str:
     return WARNING_MESSAGES[code](facts, car_name)
+
+
+# Why a representative's answer was refused (compass/tools/tickets.py, compass/tools/profile.py):
+# Hebrew for the rep screen, keyed by error code. The English detail stays for the model and logs.
+Params = Mapping[str, Any]
+
+
+def _range(params: Params) -> str:
+    return f"הערך צריך להיות בין {params['min']:,} ל-{params['max']:,}."
+
+
+ERROR_MESSAGES: dict[str, Callable[[Params], str]] = {
+    # ticket
+    "ticket_not_found": lambda p: "הטיקט לא נמצא.",
+    "ticket_already_answered": lambda p: "כבר נענה על הטיקט הזה.",
+    "empty_answer": lambda p: "צריך להזין סכום או תשובה.",
+    "unknown_quick_answer": lambda p: "התשובה המהירה לא מוכרת.",
+    "not_a_blocking_field": lambda p: "השדה הזה לא שייך לטיקט.",
+    # field values
+    "not_a_number": lambda p: "צריך להזין מספר.",
+    "too_many_decimals": lambda p: "עד שתי ספרות אחרי הנקודה.",
+    "unknown_car": lambda p: "הרכב לא נמצא בקטלוג.",
+    "out_of_range": _range,
+    "effective_from_not_participation": lambda p: "תאריך תחילה רלוונטי רק לסכום השתתפות.",
+    "unknown_field": lambda p: "השדה לא מוכר.",
+    "name_length": lambda p: f"שם באורך 1 עד {p['max']} תווים.",
+    "name_is_a_number": lambda p: "צריך שם, לא מספר (לעולם לא מספר תעודת זהות).",
+    "unknown_occupation": lambda p: "העיסוק לא נמצא ברשימת העיסוקים.",
+    "unknown_group": lambda p: (
+        "קבוצה לא מוכרת. אפשר: " + ", ".join(group_label(g) for g in p["groups"]) + "."
+    ),
+    "credit_points_step": lambda p: f"בין 0 ל-{p['max']} נקודות, בקפיצות של 0.25.",
+}
+
+
+def error_message(code: str, params: Params) -> str:
+    return ERROR_MESSAGES[code](params)

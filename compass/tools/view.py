@@ -117,7 +117,7 @@ class ComparisonView(_View):
     today_net: int | None
     alternative_net: int | None
     display_diff: int
-    direction: Literal["up", "down", "zero"]
+    direction: Literal["up", "down", "flat"]  # flat: display_diff == 0
     breakdown: list[ViewLine]  # non-zero lines only, in API order
     inputs: list[ViewInput]
     pending: bool
@@ -267,6 +267,18 @@ def _scenario_inputs(
     return inputs
 
 
+def _today_title(stored: Mapping[str, Any]) -> str | None:
+    """Today's car as stored ("COROLLA CROSS"), with the registration year the employee gave
+    for a catalog car ("COROLLA CROSS 2025"). An external car's label already has its year.
+    No brand: the catalog has none."""
+    label = stored.get("label")
+    year = (stored.get("input") or {}).get("registration_year")
+    kind = (stored.get("scenario") or {}).get("kind")
+    if label and year and kind in ("company_car", "family_car"):
+        return f"{label} {year}"
+    return label
+
+
 def build_view(
     services: Services, session_id: str, alternative: Mapping[str, Any], payload: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -279,7 +291,7 @@ def build_view(
     comparison = payload["comparison"]
     slots = services.store.slots(session_id)
     today_stored = services.store.scenarios(session_id).get("today") or {}
-    today_label = today_stored.get("label")
+    today_label = _today_title(today_stored)
 
     inputs = [
         _profile_input(services, tool, unit, slots[SLOT_OF[tool]])
@@ -336,7 +348,7 @@ def build_view(
         today_net=today_net,
         alternative_net=alt_net,
         display_diff=display_diff,
-        direction="up" if display_diff > 0 else "down" if display_diff < 0 else "zero",
+        direction="up" if display_diff > 0 else "down" if display_diff < 0 else "flat",
         breakdown=breakdown,
         inputs=inputs,
         pending=bool(pending_fields),

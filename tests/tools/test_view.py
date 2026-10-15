@@ -98,7 +98,7 @@ def test_walkthrough_view(services: Services, runner: ToolRunner) -> None:
         ("health", "מס בריאות", 132),
         ("participation", "השתתפות ברכב", 300),
     ]
-    assert view["today_title"] == "COROLLA CROSS"
+    assert view["today_title"] == "COROLLA CROSS 2025"
     assert view["alternative_title"] == "ויתור על הרכב"
     assert (view["group"], view["group_label"], view["group_budget"]) == ("ב", "קבוצה ב'", 3700)
     assert not view["pending"] and not view["partial"] and not view["hypothetical"]
@@ -113,7 +113,7 @@ def test_walkthrough_view(services: Services, runner: ToolRunner) -> None:
         "pension_percent": ("6.5", "employee_input"),
         "study_fund_percent": ("2.5", "employee_input"),
         "credit_points": ("3", "employee_input"),
-        "today_car": ("COROLLA CROSS", "employee_input"),
+        "today_car": ("COROLLA CROSS 2025", "employee_input"),
         "today_participation": (300, "employee_input"),
         "alternative_maintenance": (1500, "occupation"),
     }
@@ -245,3 +245,81 @@ def test_stored_alternative_has_no_source_without_an_amount(
     assert payload["alternative"]["participation"] is None
     assert payload["alternative"]["participation_source"] is None
     assert payload["participation_source"] == "catalog_default"
+
+
+# --- 1e: honest sources, consistent labels, titles, direction ----------------------------------
+
+
+def test_unstated_commissions_are_never_assumed_zero(
+    services: Services, runner: ToolRunner
+) -> None:
+    """Zero commissions/bonus reach the view only when saved (the employee said "no"): an
+    unstated one stays missing, so compare refuses and no view with a made-up 0 exists."""
+    sid = services.store.create_session()
+    unstated = {k: v for k, v in DEVELOPER.items() if k not in ("commissions", "bonus")}
+    ok(runner.run(sid, "save_profile", unstated))
+    ok(runner.run(sid, "set_current_situation", COROLLA_CROSS))
+    result = runner.run(sid, "compare", {"alternative": {"kind": "waiver"}})
+    assert not result["ok"] and result["error"]["code"] == "missing_inputs"
+    assert {"commissions", "bonus"} <= set(result["error"]["fields"])
+    assert not [e for e in services.store.events_after(sid) if e.type == "comparison_ready"]
+
+
+def test_demo_scripts_save_zero_only_when_the_employee_says_so() -> None:
+    from compass.agent.demo_llm import SCRIPTS
+
+    for script in SCRIPTS:
+        for turn in script.turns:
+            for kind, step in turn.steps:
+                if kind != "tools":
+                    continue
+                for name, tool_input in step:
+                    zeros = [k for k in ("commissions", "bonus") if tool_input.get(k) == 0]
+                    if name == "save_profile" and zeros:
+                        assert turn.employee and "אין לי עמלות או בונוסים" in turn.employee
+
+
+def test_warning_messages_use_the_pill_group_label() -> None:
+    import re
+
+    from compass.labels import group_label, warning_message
+
+    facts = {
+        "group_mismatch_with_occupation": {
+            "employee_group": "ב",
+            "occupation": "מפתח/ת תוכנה",
+            "occupation_group": "ג",
+        },
+        "current_car_above_group": {"employee_group": "ב", "car_id": "CAR-09", "car_group": "ג"},
+        "current_car_not_in_catalog": {"vehicle_key": "k", "label": "COROLLA CROSS 2023"},
+    }
+    assert set(facts) == set(get_args(WarningCode))
+    for code, code_facts in facts.items():
+        message = warning_message(code, code_facts)  # type: ignore[arg-type]
+        for key in ("employee_group", "occupation_group", "car_group"):
+            if key in code_facts:
+                assert group_label(code_facts[key]) in message, (code, message)
+        # never a bare group letter ("קבוצה ג"), only the pill's label ("קבוצה ג'")
+        assert not re.search(r"קבוצה [א-ת](?![א-ת'])", message), message
+
+
+def test_today_title_has_the_year_only_when_given(services: Services, runner: ToolRunner) -> None:
+    sid = services.store.create_session()
+    ok(runner.run(sid, "save_profile", DEVELOPER))
+    no_year = {"today": {"kind": "company_car", "car_id": "CAR-09", "participation": 300}}
+    ok(runner.run(sid, "set_current_situation", no_year))
+    ok(runner.run(sid, "compare", {"alternative": {"kind": "waiver"}}))
+    assert _last(services, sid)["view"]["today_title"] == "COROLLA CROSS"
+
+
+def test_direction_is_flat_for_a_zero_diff(services: Services, runner: ToolRunner) -> None:
+    sid, payload = _walkthrough(services, runner)
+    flat = copy.deepcopy(payload)
+    comparison = flat["comparison"]
+    comparison["alternative"]["display"]["net"] = comparison["today"]["display"]["net"]
+    comparison["display_diff"] = 0
+    comparison["display_delta_lines"] = [
+        {**line, "net_effect": 0} for line in comparison["display_delta_lines"]
+    ]
+    view = build_view(services, sid, flat["alternative"], flat)
+    assert view["direction"] == "flat" and view["breakdown"] == []
