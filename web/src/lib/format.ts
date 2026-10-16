@@ -48,14 +48,15 @@ export function spokenSigned(value: number): string {
 }
 
 /**
- * An input value from the view, by unit. Non-money values arrive as exact decimal strings
- * ("6.5", "2.75"); they are parsed for display only.
+ * An input value from the view, by unit, for a <bdi>. Non-money values arrive as exact decimal
+ * strings ("6.5", "2.75"); they are parsed for display only. Money is the number alone: the
+ * shekel sign goes outside the <bdi> (see <Amount>), or it would read "₪ 18,500" in RTL.
  */
 export function formatInput(value: number | string | null, unit: Unit): string {
   if (value === null) return "—";
   switch (unit) {
     case "ils":
-      return `${formatAmount(Number(value))} ${SHEKEL}`;
+      return formatAmount(Number(value));
     case "percent":
       return `${decimal.format(Number(value))}%`;
     case "points":

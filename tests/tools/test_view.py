@@ -106,7 +106,7 @@ def test_walkthrough_view(services: Services, runner: ToolRunner) -> None:
     inputs = _inputs(view)
     assert {k: (v["value"], v["source"]) for k, v in inputs.items()} == {
         "occupation": ("מפתח/ת תוכנה", "employee_input"),
-        "group": ("ב", "occupation"),
+        "group": ("ב׳", "occupation"),  # with a geresh, like the pill
         "base_salary": (18500, "employee_input"),
         "commissions": (0, "employee_input"),
         "bonus": (0, "employee_input"),

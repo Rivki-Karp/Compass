@@ -49,7 +49,14 @@ export class SSEParser {
   }
 }
 
-export type StreamStatus = "connecting" | "open" | "reconnecting" | "unauthorized" | "closed";
+/** "gone": 404, the resource doesn't exist (any more); "closed": closed by the caller. */
+export type StreamStatus =
+  | "connecting"
+  | "open"
+  | "reconnecting"
+  | "unauthorized"
+  | "gone"
+  | "closed";
 
 export interface StreamOptions {
   url: string;
@@ -86,7 +93,7 @@ export function openStream(options: StreamOptions): () => void {
       const response = await fetchImpl(options.url, { headers, signal: controller.signal });
       if ([401, 403, 404].includes(response.status)) {
         closed = true;
-        status(response.status === 404 ? "closed" : "unauthorized");
+        status(response.status === 404 ? "gone" : "unauthorized");
         return;
       }
       if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);

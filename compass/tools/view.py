@@ -23,6 +23,7 @@ from compass.labels import (
     alternative_title,
     field_label,
     group_label,
+    group_letter,
     ticket_field_title,
     warning_message,
 )
@@ -163,6 +164,8 @@ def _profile_input(services: Services, tool: str, unit: Unit, slot: Slot) -> Vie
             value = str((Decimal(raw) * 100).normalize())
         elif unit in ("points", "count"):
             value = str(Decimal(str(raw)).normalize())
+        elif tool == "group":
+            value = group_letter(raw)  # "ב׳", like the pill
         else:
             value = str(raw)
     return ViewInput(id=tool, label=field_label(tool), value=value, unit=unit, source=source)

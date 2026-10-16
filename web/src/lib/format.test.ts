@@ -44,7 +44,7 @@ describe("spokenSigned", () => {
 
 describe("formatInput", () => {
   it("formats by unit", () => {
-    expect(formatInput(18500, "ils")).toBe("18,500 ₪");
+    expect(formatInput(18500, "ils")).toBe("18,500"); // the ₪ goes outside the <bdi>
     expect(formatInput("6.5", "percent")).toBe("6.5%");
     expect(formatInput("2.75", "points")).toBe("2.75");
     expect(formatInput("2", "count")).toBe("2");
