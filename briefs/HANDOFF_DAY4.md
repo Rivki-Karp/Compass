@@ -31,6 +31,7 @@ Written 2026-10-16 from the real repo state (git log, a full test run). The brie
 | docs | `e113f80` | handoff, checkpoint after Stage 5 |
 | 5b | `079b8a0` | server settle on answer, demo database + `demo-reset`, sticky chat, empty state, car details |
 | 6 | `4e2200f` | judges mode: summary column, engine room, `GET /api/admin/stats`, `test-counts` |
+| 6b | (this commit) | the settle in the rep notification + guard source "server", eval re-run, judges follows new runs |
 
 Remaining: 7
 (serving, demo mode end to end, CI frontend job), 8 (Playwright e2e + README screenshots),
@@ -38,9 +39,9 @@ Remaining: 7
 
 ## Tests and CI
 
-- `pytest`: **567 passed** (545 after Stage 5). `ruff check` and `ruff format --check` clean.
-- `web/`: `npm run lint`, `npm run typecheck` clean; `npm test` (vitest) **122 passed** (107
-  after Stage 5); `npm run build` ok; `npm audit` 0 vulnerabilities.
+- `pytest`: **571 passed** (567 after Stage 6). `ruff check` and `ruff format --check` clean.
+- `web/`: `npm run lint`, `npm run typecheck` clean; `npm test` (vitest) **127 passed** (122
+  after Stage 6); `npm run build` ok; `npm audit` 0 vulnerabilities.
 - CI (GitHub Actions) is Python only until Stage 7, so it does not run the frontend tests yet.
 - `tests/counts.json` holds the counts judges mode shows. After adding tests run
   `uv run python tasks.py test-counts`; a full `pytest` run fails while its pytest number is
@@ -208,8 +209,9 @@ Regenerating committed artifacts:
   `comparison_ready`, so after an answer it would now use the settled result. The eval harness
   already maps `recomputed_from` to the compare input; two harness tests that pinned the exact
   sequence now include the settle.
-- An answer with no value (text only, the field becomes unknown) settles nothing; the card stays
-  pending. Possible follow-up: show "הנציג ענה בלי סכום" on the card.
+- **By design:** a text-only rep answer (no amount; the field becomes unknown) settles nothing,
+  so the comparison stays pending. Without an amount there is nothing to recompute, and the
+  catalog default must not become final. Possible polish: show "הנציג ענה בלי סכום" on the card.
 - **UI.** "Final" persists across later comparisons of the same alternative: `settledSeq` marks
   the comparison that settled it. The 2 s border and the announcement happen once, so the
   agent's repeat neither flashes nor re-announces.
@@ -276,6 +278,27 @@ Regenerating committed artifacts:
   card open; the guard at 3 of 3); and on a guard rejection, run through a scratchpad launcher
   with `guard_retry_steps()`. In that one the real guard rejected "+2,915" (2 of 3 verified, the
   draft struck through) and accepted the rewrite ("נשלח אחרי ניסוח מחדש"). Not committed.
+
+## Stage 6b — what was built
+
+- **The settle is in front of the model.** When the rep's answer starts a run, the
+  server-written `<rep_notification>` includes `server_comparisons`: each comparison the server
+  settled with this answer, as `compare`'s compact `model_view` (the exact shape `compare` returns
+  to the model; a test checks it equals a later `compare` call's view). The guard allows those
+  numbers, and only those, as source `"server"`. A new prompt line says the model may state them
+  and that `compare` returns the same numbers. The lines that tell it to call `compare` after a rep
+  notification stay.
+- Tests (`tests/agent/test_rep_settle.py`, real guard): a scripted rep turn that states +611 /
+  11,643 with no tool call passes ("+611" → server, "350" → representative); "+612" is rejected
+  (retry, then template); the notification's view equals `compare`'s; no settle → no
+  `server_comparisons`, and +611 stays disallowed.
+- **Eval re-run** (`e001_rep_flow` ×3, effort low, `evals/report-rep-flow.md`): 3/3 pass, 0 guard
+  retries, $0.1983 for the run ($0.0661 per run; total spend $2.8976 of $30). **The model still
+  called `compare` in the rep turn in all 3 runs.** The prompt still tells it to, and the scenario
+  requires it (`tool_called compare turn 3`), so the scenario would fail if the model stopped.
+  If stating the settle alone should be enough, that check has to change (your call).
+- **Judges mode** follows new runs: when a run starts, the engine room selects it, unless an older
+  run was picked in the last 10 s (`judges/useTurnSelection.ts`, `PICK_HOLD_MS`).
 
 ## Open questions and notes
 

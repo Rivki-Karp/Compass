@@ -7,6 +7,7 @@ import { HeroAnnouncement, HeroCard } from "../employee/HeroCard";
 import { InputsCard } from "../employee/InputsCard";
 import { EngineRoom } from "../judges/EngineRoom";
 import { HowItWorks, StatsGrid } from "../judges/Summary";
+import { useTurnSelection } from "../judges/useTurnSelection";
 import { demoSuggestions, GENERAL_SUGGESTIONS } from "../employee/suggestions";
 import { clearToken, getToken, setToken } from "../lib/tokens";
 import { useHealth } from "../lib/useHealth";
@@ -44,7 +45,7 @@ export function EmployeePage() {
   const session = useSession(judges ? adminToken : null);
   const { state } = session;
   const stats = useJudgesStats(judges ? adminToken : null);
-  const [turn, setTurn] = useState<number | null>(null); // null: follow the latest run
+  const [turn, setTurn] = useTurnSelection(state.turns.length);
 
   // A stored admin token the server no longer accepts: forget it, leave judges mode.
   useEffect(() => {

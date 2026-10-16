@@ -762,6 +762,35 @@ def settle_answered(services: Services, session_id: str, ticket_id: str, fields:
     _recompute_latest(services, session_id, ticket_id, fields, _uses_pending, "answered_field")
 
 
+# Keys a server-emitted comparison_ready adds to compare's own result.
+_EVENT_ONLY = frozenset(
+    {
+        "alternative",
+        "view",
+        "origin",
+        "recomputed_from",
+        "ticket_id",
+        "pending_field",
+        "answered_field",
+    }
+)
+
+
+def settled_compare_results(
+    services: Services, session_id: str, ticket_id: str
+) -> list[dict[str, Any]]:
+    """The comparisons the server settled when `ticket_id` was answered, each in the exact
+    shape compare returns (what the model would have got by calling compare itself)."""
+    return [
+        {"ok": True, **{k: v for k, v in e.payload.items() if k not in _EVENT_ONLY}}
+        for e in services.store.events_after(session_id)
+        if e.type == "comparison_ready"
+        and e.payload.get("origin") == "server"
+        and e.payload.get("ticket_id") == ticket_id
+        and "answered_field" in e.payload
+    ]
+
+
 def _recompute_latest(
     services: Services,
     session_id: str,

@@ -58,6 +58,9 @@ def rep_block(event: dict[str, Any]) -> str:
         "effective_from": event.get("effective_from"),
         "unknown_fields": event.get("unknown_fields", []),
     }
+    if event.get("server_comparisons"):
+        # compare's own (compact) result, recomputed by the server with the answer
+        payload["server_comparisons"] = event["server_comparisons"]
     body = json.dumps(payload, ensure_ascii=False, sort_keys=True)
     return f'<{REP_TAG} label="{REP_LABEL_HE}">\n{body}\n</{REP_TAG}>'
 

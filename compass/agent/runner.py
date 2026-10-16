@@ -14,6 +14,7 @@ A run:
 The transcript is append-only (see transcript.py), so the model input only ever grows.
 """
 
+import json
 import logging
 import queue
 import threading
@@ -29,6 +30,7 @@ from compass.agent.transcript import (
     model_view,
 )
 from compass.tools import ToolRunner, tool_definitions
+from compass.tools.handlers import settled_compare_results
 from compass.tools.services import Services
 
 log = logging.getLogger(__name__)
@@ -228,6 +230,14 @@ class ClaudeAgentRunner:
                 "effective_from": answer.get("effective_from"),
                 "unknown_fields": [f for f in ticket.blocking_fields if f not in values],
             }
+            # The comparisons the server settled with this answer, as compare would have
+            # returned them to the model: it may state them without calling compare, and the
+            # guard allows their numbers (source "server").
+            settled = settled_compare_results(self.services, session_id, ticket.id)
+            if settled:
+                content["server_comparisons"] = [
+                    json.loads(model_view("compare", result)) for result in settled
+                ]
         self.store.add_message(session_id, "system_event", content, emit_event=False)
 
     def _last_event_seq(self, session_id: str) -> int:
