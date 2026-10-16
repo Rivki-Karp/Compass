@@ -1,4 +1,4 @@
-# Handoff — Day 4 (the UI), checkpoint after Stage 6
+# Handoff — Day 4 (the UI), checkpoint after Stage 7
 
 Written 2026-10-16 from the real repo state (git log, a full test run). The brief is
 `briefs/day4-ui.md`; the decisions approved during review are listed below.
@@ -8,7 +8,7 @@ Written 2026-10-16 from the real repo state (git log, a full test run). The brie
 | Ref | Commit | Notes |
 |---|---|---|
 | `main` | `e319ec7` | identical to `origin/main`; nothing from Day 4 is merged |
-| `day4/ui` | `4e2200f` + this handoff | pushed to `origin/day4/ui`; rebased on `main` before Stage 1 |
+| `day4/ui` | `f92c111` + this handoff | pushed to `origin/day4/ui`; rebased on `main` before Stage 1 |
 
 ## Stages
 
@@ -31,18 +31,21 @@ Written 2026-10-16 from the real repo state (git log, a full test run). The brie
 | docs | `e113f80` | handoff, checkpoint after Stage 5 |
 | 5b | `079b8a0` | server settle on answer, demo database + `demo-reset`, sticky chat, empty state, car details |
 | 6 | `4e2200f` | judges mode: summary column, engine room, `GET /api/admin/stats`, `test-counts` |
-| 6b | (this commit) | the settle in the rep notification + guard source "server", eval re-run, judges follows new runs |
+| docs | `d37597d` | handoff, checkpoint after Stage 6 |
+| 6b | `b484310` | the settle in the rep notification + guard source "server", eval re-run, judges follows new runs |
+| 7 | `f92c111` | FastAPI serves `web/dist` with SPA fallback, `tasks.py build-web` / `web`, CI frontend job |
 
-Remaining: 7
-(serving, demo mode end to end, CI frontend job), 8 (Playwright e2e + README screenshots),
+Remaining: 8 (Playwright e2e + README screenshots),
 9 (docs, final report).
 
 ## Tests and CI
 
-- `pytest`: **571 passed** (567 after Stage 6). `ruff check` and `ruff format --check` clean.
+- `pytest`: **581 passed** (571 after 6b). `ruff check` and `ruff format --check` clean.
 - `web/`: `npm run lint`, `npm run typecheck` clean; `npm test` (vitest) **127 passed** (122
   after Stage 6); `npm run build` ok; `npm audit` 0 vulnerabilities.
-- CI (GitHub Actions) is Python only until Stage 7, so it does not run the frontend tests yet.
+- CI (GitHub Actions) has two jobs: `test` (Python: data build, lint, pytest) and `web` (npm ci,
+  lint, typecheck, vitest, a check that the vitest count equals `tests/counts.json`, build). No
+  API calls in either.
 - `tests/counts.json` holds the counts judges mode shows. After adding tests run
   `uv run python tasks.py test-counts`; a full `pytest` run fails while its pytest number is
   stale (a partial run skips that check). It counts vitest from a real `vitest run`
@@ -78,15 +81,24 @@ Remaining: 7
 
 ## How to run the demo (PowerShell)
 
-Two terminals, from the repo root. No API key needed.
+One terminal, from the repo root, one URL. No API key needed.
 
 ```powershell
 $env:COMPASS_LLM="scripted"
 $env:COMPASS_ADMIN_TOKEN="admin-demo"
 $env:COMPASS_REP_TOKEN="rep-demo"
 uv run python tasks.py demo-reset   # optional: start from an empty demo database
-uv run python -m uvicorn compass.api.main:app --workers 1 --port 8000
+uv run python tasks.py build-web    # web/dist (npm ci first if web/node_modules is missing)
+uv run python tasks.py serve        # http://127.0.0.1:8000: the UI, /rep, the API, /docs
 ```
+
+Open http://127.0.0.1:8000 and click the suggestion chips; the representative is
+http://127.0.0.1:8000/rep in a second tab (token `rep-demo`); judges mode takes `admin-demo`.
+`tasks.py serve` serves the last build: run `build-web` again after UI changes.
+
+For UI development, `uv run python tasks.py web` runs the API (auto-reload, :8000) and Vite (hot
+reload, http://localhost:5173, proxying `/api`) together; Ctrl+C stops both, including the node
+child (it uses `taskkill /T` on Windows, so 5173 isn't left listening).
 
 Demo mode has its own database, `data/demo.db` (git-ignored). It never reads or writes
 `data/app.db`: with `COMPASS_LLM=scripted`, `COMPASS_APP_DB` is ignored, and settings refuse to
@@ -94,16 +106,8 @@ start if the demo database would be `app.db`. Move it with `$env:COMPASS_DEMO_DB
 `tasks.py demo-reset` deletes the demo database and its `-wal`/`-shm` files. Stop the demo API
 first: on Windows an open database can't be deleted, and the task says so.
 
-```powershell
-cd web
-npm install
-npm run dev
-```
-
-Open http://localhost:5173 and click the suggestion chips. If port 8000 is taken, run the API on
-another port and point Vite at it before `npm run dev`: `$env:COMPASS_API_URL="http://127.0.0.1:8010"`.
-`tasks.py web` / `build-web` come in Stage 7. For the representative, open
-http://localhost:5173/rep in a second tab (token `rep-demo`).
+If port 8000 is taken in development, run the API on another port and point Vite at it before
+`npm run dev` (in `web/`): `$env:COMPASS_API_URL="http://127.0.0.1:8010"`.
 
 Regenerating committed artifacts:
 - `uv run python tasks.py ts-types` → `web/src/api/generated.ts` (pytest fails when stale)
@@ -300,6 +304,45 @@ Regenerating committed artifacts:
 - **Judges mode** follows new runs: when a run starts, the engine room selects it, unless an older
   run was picked in the last 10 s (`judges/useTurnSelection.ts`, `PICK_HOLD_MS`).
 
+## Stage 7 — what was built
+
+- **Serving** (`compass/api/spa.py`). After the API router, `create_app` registers one catch-all
+  GET route that serves `web/dist` (`Settings.web_dist`, `COMPASS_WEB_DIST`, default `web/dist`;
+  only when `index.html` exists, otherwise the API runs alone):
+  - an existing build file is served as is (`/assets/*` with a one-year immutable cache, names
+    are hashed);
+  - anything else gets `index.html` with `no-cache` (the UI's routes: `/`, `/rep`, `/rep?ticket=…`);
+  - `/api` and every unknown `/api/*` path stay the API's JSON 404, never the UI;
+  - `/docs` and `/openapi.json` match first; the catch-all is not in the OpenAPI schema;
+  - paths can't escape the build directory.
+- **Docs location.** The API docs are at `/docs` (and `/openapi.json`), not `/api/docs`. The
+  tests check that `/docs` is served and that `/api/docs` is a JSON 404, not the UI. Moving the
+  docs under `/api` would keep everything the server owns under one prefix; it's a one-line
+  change (`docs_url`), but the README documents `/docs`. Your call.
+- **`/__styleguide`** returns `index.html` like any UI path. The style guide is a dev-only route,
+  so the production build renders an empty page there; it exists only under `npm run dev`.
+- **Tasks:** `tasks.py build-web` and `tasks.py web` (see "How to run the demo").
+- **Demo mode end to end** on the single URL (a local Playwright script against
+  http://127.0.0.1:8000, demo mode, a fresh `demo.db`):
+  - the "מצב דמו" badge;
+  - walkthrough +2,914 with the waterfall;
+  - E-001 +661 pending, then `/rep` opened directly (200, `text/html`), the answer 350, and the
+    employee tab final at +611 with the representative chip;
+  - judges mode with the admin token on the rep run (the rep's answer, then the server's settle);
+  - both fonts loaded from the build, and **no request left 127.0.0.1:8000** (invariant 7).
+
+  Screenshots were shared in the review, not committed (Stage 8 commits README screenshots).
+- **CI:** the new `web` job (see "Tests and CI"). Node comes from `web/.nvmrc` (22.19.0) with the
+  npm cache.
+- Tests: `tests/api/test_spa.py`, with a temporary build:
+  - UI routes get `index.html` (`/`, `/rep`, `/__styleguide`, a query string, a deep path);
+  - build files and their cache headers;
+  - `/api/health`, `/docs` and `/openapi.json` work; unknown `/api` paths, `/api/docs` and `/api`
+    are JSON 404s; POST still reaches the API;
+  - no path escapes the build;
+  - no build means API only;
+  - the catch-all isn't in the schema.
+
 ## Open questions and notes
 
 - **System prompt apostrophes.** Decided: `system_he.md` keeps "ב'" (ASCII); the UI's own labels
@@ -320,6 +363,11 @@ Regenerating committed artifacts:
   no tooltip, because every bar's value is always shown.
 - **Polish day: a compact sticky diff bar on phones.** Below 1160px the hero scrolls away; a
   thin bar with the signed diff (and זמני/סופי) pinned under the header would keep it in view.
+- **Polish day: replays re-run the settle effects.** Turning judges mode on (or any reconnect)
+  reopens the stream and replays every event. The hero remounts, so its crossfade and, after a
+  settle, the 2 s `up` border play again, and the live region announces the latest result again.
+  A "replaying" flag in the session state (set until the snapshot's last seq is reached) would
+  silence both.
 - **Polish day: provenance wording for server comparisons.** The provenance strip says "חושב בכלי
   compare" for every comparison. A server-origin one is computed by the same `compare` code
   without a model call; the strip could say "חושב מחדש בשרת".
@@ -328,7 +376,7 @@ Regenerating committed artifacts:
 
 ## Next
 
-Stage 7: serving (`npm run build` served by FastAPI with SPA fallback, without shadowing
-`/api`), `tasks.py web` / `build-web`, demo mode end to end, and the CI frontend job (npm ci,
-lint, typecheck, vitest, build). Today `tasks.py test-counts` only writes the file and pytest
-checks only the pytest number; the CI job could also verify the vitest number.
+Stage 8: one Playwright test in demo mode (walkthrough; E-001 with `/rep` in a second page; judges
+mode with and without the admin token), runnable on Windows and in CI if under ~2 minutes, plus
+the three README screenshots from that run. `@playwright/test` is already a dev dependency; the
+scratchpad scripts used for Stages 5–7 are a starting point.
