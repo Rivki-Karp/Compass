@@ -1,4 +1,4 @@
-# Handoff — Day 4 (the UI), checkpoint after Stage 5
+# Handoff — Day 4 (the UI), checkpoint after Stage 6
 
 Written 2026-10-16 from the real repo state (git log, a full test run). The brief is
 `briefs/day4-ui.md`; the decisions approved during review are listed below.
@@ -8,7 +8,7 @@ Written 2026-10-16 from the real repo state (git log, a full test run). The brie
 | Ref | Commit | Notes |
 |---|---|---|
 | `main` | `e319ec7` | identical to `origin/main`; nothing from Day 4 is merged |
-| `day4/ui` | `037bef4` + this handoff | pushed to `origin/day4/ui`; rebased on `main` before Stage 1 |
+| `day4/ui` | `4e2200f` + this handoff | pushed to `origin/day4/ui`; rebased on `main` before Stage 1 |
 
 ## Stages
 
@@ -28,18 +28,24 @@ Written 2026-10-16 from the real repo state (git log, a full test run). The brie
 | 4 | `9ab4b57` | `buildWaterfall`, custom SVG waterfall with button bars, provenance strip, list fallback |
 | docs | `80cd359` | handoff, checkpoint after Stage 4 |
 | 5 | `037bef4` | rep screen (live inbox, ticket detail, answer form with the server's errors), pending → final |
+| docs | `e113f80` | handoff, checkpoint after Stage 5 |
+| 5b | `079b8a0` | server settle on answer, demo database + `demo-reset`, sticky chat, empty state, car details |
+| 6 | `4e2200f` | judges mode: summary column, engine room, `GET /api/admin/stats`, `test-counts` |
 
-Remaining: 6 (judges mode), 7
+Remaining: 7
 (serving, demo mode end to end, CI frontend job), 8 (Playwright e2e + README screenshots),
 9 (docs, final report).
 
 ## Tests and CI
 
-- `pytest`: **545 passed** (503 at the start of Day 4; Stage 5 changed no Python except the
-  fixture script). `ruff check` and `ruff format --check` clean.
-- `web/`: `npm run lint`, `npm run typecheck` clean; `npm test` (vitest) **107 passed** (70
-  after Stage 4); `npm run build` ok; `npm audit` 0 vulnerabilities.
+- `pytest`: **567 passed** (545 after Stage 5). `ruff check` and `ruff format --check` clean.
+- `web/`: `npm run lint`, `npm run typecheck` clean; `npm test` (vitest) **122 passed** (107
+  after Stage 5); `npm run build` ok; `npm audit` 0 vulnerabilities.
 - CI (GitHub Actions) is Python only until Stage 7, so it does not run the frontend tests yet.
+- `tests/counts.json` holds the counts judges mode shows. After adding tests run
+  `uv run python tasks.py test-counts`; a full `pytest` run fails while its pytest number is
+  stale (a partial run skips that check). It counts vitest from a real `vitest run`
+  (`vitest list` undercounts).
 
 ## Decisions approved in review
 
@@ -61,6 +67,7 @@ Remaining: 6 (judges mode), 7
   outline, motion that never interpolates numbers).
 - Stage 4 approved as built: custom SVG, rule chips "· קובץ הכללים", no hover tooltip, the list
   fallback. The column-width transition when a step is added is left for polish day.
+- Stage 5 approved, including no auto-select after an answer and the token-dialog fix.
 - Rules file (checked 2026-10-16, no change needed): the server loads `data/rules.yaml`, converted
   from the updated official `raw/strauss-rules.json` (SHA-256 `3ca0ac97…3eec`, commit `ea304c3`).
   `/api/health` reports the YAML's own SHA-256 (`48a4b8a7…a268`), not the JSON's. The "mock"
@@ -76,8 +83,15 @@ Two terminals, from the repo root. No API key needed.
 $env:COMPASS_LLM="scripted"
 $env:COMPASS_ADMIN_TOKEN="admin-demo"
 $env:COMPASS_REP_TOKEN="rep-demo"
+uv run python tasks.py demo-reset   # optional: start from an empty demo database
 uv run python -m uvicorn compass.api.main:app --workers 1 --port 8000
 ```
+
+Demo mode has its own database, `data/demo.db` (git-ignored). It never reads or writes
+`data/app.db`: with `COMPASS_LLM=scripted`, `COMPASS_APP_DB` is ignored, and settings refuse to
+start if the demo database would be `app.db`. Move it with `$env:COMPASS_DEMO_DB="data\other.db"`.
+`tasks.py demo-reset` deletes the demo database and its `-wal`/`-shm` files. Stop the demo API
+first: on Windows an open database can't be deleted, and the task says so.
 
 ```powershell
 cd web
@@ -93,7 +107,10 @@ http://localhost:5173/rep in a second tab (token `rep-demo`).
 Regenerating committed artifacts:
 - `uv run python tasks.py ts-types` → `web/src/api/generated.ts` (pytest fails when stale)
 - `uv run python scripts/web_fixtures.py` → `web/src/test/fixtures/*.json` (real demo event logs,
-  the E-001 inbox as `GET /api/tickets` returns it, and the real 422 body for a −50 answer)
+  the E-001 inbox as `GET /api/tickets` returns it, the real 422 body for a −50 answer, and
+  `guard_retry`: the walkthrough with a +2,915 draft the real guard rejects)
+- `uv run python tasks.py openapi` → `openapi.json` (pytest fails when stale)
+- `uv run python tasks.py test-counts` → `tests/counts.json` (see above)
 
 ## Stage 4 — what was built
 
@@ -174,6 +191,92 @@ Regenerating committed artifacts:
   right after the answer) were taken with a local Playwright script and shared in the review; not
   committed.
 
+## Stage 5b — what was built
+
+- **Server settle on answer** (`compass/tools/handlers.py: settle_answered`, called from
+  `compass/tools/tickets.py: answer_ticket`, the one path for the API and the terminal chat). It
+  mirrors `3b50995`. For each participation field the answer fills with a value, the server takes
+  the latest comparison that used it; if that comparison was pending, it recomputes it with the
+  new slot value (same alternative, no model call) and appends `comparison_ready` with
+  `origin: "server"`, `recomputed_from`, `ticket_id`, `answered_field`, and the payload not
+  pending. Both directions share `_recompute_latest`.
+- In the demo, E-001 now shows two final comparisons after the answer: the server's settle
+  (seq 35, before the agent runs) and the agent's own `compare` (seq 38), with the same view.
+- **No eval re-run.** The model reads the transcript (messages), and the guard's allowed numbers
+  come from messages only (`allowed_for_session`). The settle adds an event, not a message, so
+  nothing the model or the guard sees changes. The template fallback reads the latest
+  `comparison_ready`, so after an answer it would now use the settled result. The eval harness
+  already maps `recomputed_from` to the compare input; two harness tests that pinned the exact
+  sequence now include the settle.
+- An answer with no value (text only, the field becomes unknown) settles nothing; the card stays
+  pending. Possible follow-up: show "הנציג ענה בלי סכום" on the card.
+- **UI.** "Final" persists across later comparisons of the same alternative: `settledSeq` marks
+  the comparison that settled it. The 2 s border and the announcement happen once, so the
+  agent's repeat neither flashes nor re-announces.
+- **Demo database**: see "How to run the demo".
+- **Layout.** From 1160px (`--breakpoint-wide`) the two columns don't wrap, the header is
+  sticky (73px, `--header-h`), and the chat is sticky below it, as tall as the viewport minus the
+  header and padding. The message list scrolls inside and the input stays visible. Auto-scroll
+  sets the list's own `scrollTop`; the old `scrollIntoView` would also have scrolled the page.
+  Below 1160px the layout stacks and nothing is sticky. Making the header sticky was needed for
+  "sticky below the header"; it's on the rep screen too.
+- **Empty state:** "איך זה עובד" with the needle outline and the three steps; no numbers.
+- **Car details:** `view.alternative_details` (additive, optional): "חשמלי · קבוצה ג׳" from
+  the catalog's `drive` and `group` (labels in `compass/labels.py: DRIVE_LABELS, car_details`).
+  Family-track cars say "בנזין · מסלול משפחתי", not "קבוצה משפחתי׳". None for a waiver or a car
+  outside the catalog. Shown under the alternative tile's title.
+- Screenshots (1440, demo mode): the empty state; the walkthrough scrolled to the inputs card
+  (scrollY 539, chat input at y=815 of 900); E-001 final from the server settle alone. For the
+  last one, a scratchpad launcher ran the demo with E-001's rep turn replying without `compare`.
+  The events after the answer were `ticket_answered`, `session_status`, `comparison_ready`
+  (server, +611), then a run with no tool calls. Not committed.
+
+## Stage 6 — what was built
+
+- **Judges mode** (`routes/EmployeePage.tsx`, `web/src/judges/`). With the toggle on, the screen
+  becomes two columns:
+  - Summary column: the hero at 52px (`HeroCard compact`), "איך זה עובד" (המודל מציע /
+    הכלים מחשבים / השומר בודק, with purple / green / blue step badges from the chip tokens), and
+    the 2×2 stats grid.
+  - Engine room: "חדר המנועים · תור N", a `<select>` turn selector ("האחרון" follows new runs), the
+    trigger, stat pills (rounds, latency, tokens in/out/cache, cost; demo runs have zero tokens
+    and "cost — (demo)"), then cards:
+    - each tool call: "המודל קרא לכלי", the name, ✓/✕, and a `<details>` with `→ args` and the
+      full `← result`;
+    - each comparison: "הכלי חישב", or "השרת חישב מחדש · בלי מודל" for server-origin ones, with
+      זמני/סופי;
+    - the guard: the verdict, e.g. "3 מתוך 3 אומתו · נשלח"; a chip per number with its source; a
+      rejected draft struck through, the failing numbers as `down` chips "✕ אין מקור", and what
+      happened next;
+    - the rep's answer, templates and errors.
+  - The chat column is hidden in judges mode, as §4.5 describes; turn the toggle off to type.
+- `engineCards(turn)` (pure) builds the cards. The reducer now gives each run a `before` list:
+  events that arrived between runs (the rep's answer, the server's settle). This is how the
+  rep-answer run shows the settle before any model call.
+- Without the admin token the stream carries no inputs, results, numbers or drafts, and the cards
+  show none (tested on a redacted copy of the real log). The stats are fetched only once judges
+  mode is on with the token; the screenshot run checked that no `/admin/` request happened before.
+- **`GET /api/admin/stats`** (admin only, `compass/api/stats.py`):
+  - evals pass rate, model and effort: parsed from the header of `evals/report.md`;
+  - spend: the sum of `evals/spend.jsonl`, with the cap from the report;
+  - cost per conversation: the report's run cost over its scenario runs ($1.1358 / 45 = $0.0252);
+  - tests: `tests/counts.json`.
+
+  USD values are display-ready strings (2 places, 4 for the per-conversation cost); the UI shows
+  them as they are. A missing or broken file blanks only its own tile ("—", "אין נתון"). Nothing
+  is hard-coded in components. `compass` doesn't import the `evals` package; it reads the files.
+- Tests: `tests/api/test_stats.py` (the committed files, a broken ledger, the per-conversation
+  math, admin only, counts freshness) and `web/src/judges/judges.test.tsx`:
+  - engine cards on the walkthrough, the guard-retry and the E-001 logs;
+  - verdict wording;
+  - redacted events;
+  - the `before` grouping;
+  - the room, its turn selector, and the stats grid.
+- Screenshots (1440, demo mode): judges mode on the walkthrough's comparison turn (the `compare`
+  card open; the guard at 3 of 3); and on a guard rejection, run through a scratchpad launcher
+  with `guard_retry_steps()`. In that one the real guard rejected "+2,915" (2 of 3 verified, the
+  draft struck through) and accepted the rewrite ("נשלח אחרי ניסוח מחדש"). Not committed.
+
 ## Open questions and notes
 
 - **System prompt apostrophes.** Decided: `system_he.md` keeps "ב'" (ASCII); the UI's own labels
@@ -188,18 +291,21 @@ Regenerating committed artifacts:
 - **Port 8000.** The old `uvicorn --reload` was stopped before Stage 5, and the Stage 5 demo API
   ran on 8000. Health is at `/api/health`; `/health` is a 404 on any build (the Stage 4 note
   that read it as "old code" was wrong).
-- **An older open ticket in `data/app.db`.** An E-001 ticket created 2026-10-16 08:20 UTC, before
-  Stage 5's runs, is still open in the local demo database and shows in `/rep`. It was left alone
-  (the database is local and not committed).
 - **Waterfall deviations from §4.3.** Rule chips say "קובץ הכללים", not "קובץ הכללים הרשמי",
   because `rules_version` is still `mock-…`. When a step is added (E-001 −50), the other columns
   get narrower at once: the new bar fades in, but the column widths do not animate. Hover shows
   no tooltip, because every bar's value is always shown.
-- **Judges toggle** already asks for and verifies the admin token and reopens the stream with it;
-  the engine-room layout is Stage 6.
+- **Polish day: a compact sticky diff bar on phones.** Below 1160px the hero scrolls away; a
+  thin bar with the signed diff (and זמני/סופי) pinned under the header would keep it in view.
+- **Polish day: provenance wording for server comparisons.** The provenance strip says "חושב בכלי
+  compare" for every comparison. A server-origin one is computed by the same `compare` code
+  without a model call; the strip could say "חושב מחדש בשרת".
+- **Data in `data/app.db`.** The older open E-001 ticket (08:20 UTC) was left alone. Demo runs
+  now use `data/demo.db`, so it no longer shows in the demo.
 
 ## Next
 
-Stage 6: judges mode (§4.5). The engine room (turn selector, stat pills, tool call / result /
-guard / template cards) and the four stats tiles, served by a small admin-only endpoint that
-reads the committed eval files.
+Stage 7: serving (`npm run build` served by FastAPI with SPA fallback, without shadowing
+`/api`), `tasks.py web` / `build-web`, demo mode end to end, and the CI frontend job (npm ci,
+lint, typecheck, vitest, build). Today `tasks.py test-counts` only writes the file and pytest
+checks only the pytest number; the CI job could also verify the vitest number.
