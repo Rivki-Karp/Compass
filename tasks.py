@@ -9,6 +9,7 @@ Usage:
     uv run python tasks.py demo E-001  # Hebrew net breakdown of a golden reference employee
     uv run python tasks.py calc      # interactive calculator: your own profile and scenarios
     uv run python tasks.py serve     # API on http://127.0.0.1:8000 (docs at /docs), auto-reload
+    uv run python tasks.py demo-reset  # wipe demo mode's database (data/demo.db), never app.db
     uv run python tasks.py chat      # terminal chat with the agent (ANTHROPIC_API_KEY in .env)
     uv run python tasks.py eval      # agent evals against the real model -> evals/report.md
     uv run python tasks.py eval --only walkthrough,e001_rep_flow --repeat 3 --effort medium
@@ -83,6 +84,24 @@ def serve() -> None:
     )
 
 
+def demo_reset() -> None:
+    """Demo mode (COMPASS_LLM=scripted) keeps its sessions and tickets in its own database
+    (data/demo.db, or COMPASS_DEMO_DB); delete it so the next demo starts empty. Never app.db."""
+    from compass.api.settings import SettingsError, demo_db_from_env
+
+    try:
+        target = demo_db_from_env()
+    except SettingsError as error:
+        sys.exit(f"demo-reset: {error}")
+    for suffix in ("", "-wal", "-shm", "-journal"):
+        path = target.with_name(target.name + suffix)
+        try:
+            path.unlink(missing_ok=True)
+        except PermissionError:
+            sys.exit(f"demo-reset: {path} is in use. Stop the demo API, then run this again.")
+    print(f"demo-reset: cleared {target} (the next demo run starts with an empty one)")
+
+
 def chat() -> None:
     run(sys.executable, "-m", "compass.agent.chat")
 
@@ -108,6 +127,7 @@ TASKS: dict[str, Callable[..., None]] = {
     "demo": demo,
     "calc": calc,
     "serve": serve,
+    "demo-reset": demo_reset,
     "openapi": openapi,
     "ts-types": ts_types,
     "chat": chat,

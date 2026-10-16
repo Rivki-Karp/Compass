@@ -5,7 +5,7 @@ from the data files; no handler calculates money. Expected failures raise ToolEr
 runner turns into {"ok": false, "error": {...}}.
 """
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -739,15 +739,46 @@ def _recompute_as_pending(
     participation, whatever order the model called the tools in. Recompute the latest
     comparison that used the field (same alternative, no model call) and append it as a
     server-emitted comparison_ready with pending_rep. compare's own result is unchanged."""
+    _recompute_latest(
+        services, session_id, ticket_id, fields, _uses_catalog_default, "pending_field"
+    )
+
+
+def _uses_pending(payload: Mapping[str, Any], field: str) -> bool | None:
+    """Whether this comparison waited for `field` (None: it didn't use it)."""
+    if field == CURRENT_PARTICIPATION:
+        return bool(payload["today_participation"]["pending_rep"])
+    if payload["alternative"].get("car_id") != field.removeprefix(ALTERNATIVE_PARTICIPATION):
+        return None
+    return bool(payload["pending_rep"])
+
+
+def settle_answered(services: Services, session_id: str, ticket_id: str, fields: list[str]) -> None:
+    """The representative answered: the comparison that waited for the answer must turn final
+    without depending on the model calling compare again. Recompute the latest comparison that
+    used each answered field, if it was pending (same alternative, the answer now in the slot,
+    no model call), and append it as a server-emitted comparison_ready. A later compare by the
+    model gives the same numbers."""
+    _recompute_latest(services, session_id, ticket_id, fields, _uses_pending, "answered_field")
+
+
+def _recompute_latest(
+    services: Services,
+    session_id: str,
+    ticket_id: str,
+    fields: list[str],
+    needs_recompute: Callable[[Mapping[str, Any], str], bool | None],
+    field_key: str,
+) -> None:
     comparisons = [
         e for e in services.store.events_after(session_id) if e.type == "comparison_ready"
     ]
-    targets: dict[int, str] = {}  # event seq -> the field it waits for
+    targets: dict[int, str] = {}  # event seq -> the field it concerns
     for field in fields:
         if not is_participation(field):
             continue
         for event in reversed(comparisons):  # the latest comparison that used the field
-            used = _uses_catalog_default(event.payload, field)
+            used = needs_recompute(event.payload, field)
             if used is not None:
                 if used:
                     targets.setdefault(event.seq, field)
@@ -772,6 +803,6 @@ def _recompute_as_pending(
                 "origin": "server",
                 "recomputed_from": seq,
                 "ticket_id": ticket_id,
-                "pending_field": field,
+                field_key: field,
             },
         )

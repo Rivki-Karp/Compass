@@ -26,6 +26,7 @@ export interface ComparisonView {
   alternative_title: string;
   alternative_kind: string;
   alternative_car_id: string | null;
+  alternative_details: string | null;
   group: string | null;
   group_label: string | null;
   group_budget: number | null;

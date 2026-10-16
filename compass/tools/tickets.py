@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from compass.engine.serialize import plain_json
 from compass.state import NotFound, StateError, Ticket
+from compass.tools.handlers import settle_answered
 from compass.tools.profile import (
     FieldError,
     is_fillable,
@@ -121,6 +122,10 @@ def answer_ticket(
         "effective_from": None if effective_from is None else effective_from.isoformat(),
     }
     try:
-        return store.answer_ticket(ticket_id, answer, slot_values, unknown=unknown)
+        answered = store.answer_ticket(ticket_id, answer, slot_values, unknown=unknown)
     except StateError as error:  # answered concurrently
         raise TicketAnswerError(409, str(error), [AnswerError("ticket_already_answered")]) from None
+    # The comparison that waited for this answer turns final now, not when the model next
+    # calls compare (it may not).
+    settle_answered(services, answered.session_id, ticket_id, list(merged))
+    return answered

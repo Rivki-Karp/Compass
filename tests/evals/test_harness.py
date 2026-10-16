@@ -170,7 +170,11 @@ def test_rep_flow_with_a_scripted_model(services: Services) -> None:
     steps = _rep_flow_steps(tool_response(("ask_representative", ASK_ATTO), ("compare", ATTO)))
     run = _run(services, steps, scenario)
     assert run.passed, _failed(run)
-    assert not any(c.result.get("origin") for c in run.trace.comparisons)
+    # The only server comparison is the settle when the representative answers (turn 3).
+    servers = [
+        (c.turn, c.result["pending_rep"]) for c in run.trace.comparisons if c.result.get("origin")
+    ]
+    assert servers == [(3, False)]
 
 
 def test_rep_flow_with_compare_before_ask_representative(services: Services) -> None:
@@ -187,7 +191,13 @@ def test_rep_flow_with_compare_before_ask_representative(services: Services) -> 
     origins = [
         (c.turn, c.result.get("origin"), c.result["pending_rep"]) for c in run.trace.comparisons
     ]
-    assert origins == [(2, None, False), (2, "server", True), (3, None, False)]
+    # compare, the server's pending recompute, the server's settle on the answer, compare again
+    assert origins == [
+        (2, None, False),
+        (2, "server", True),
+        (3, "server", False),
+        (3, None, False),
+    ]
 
 
 def test_a_rep_turn_without_a_ticket_is_a_failure(services: Services) -> None:

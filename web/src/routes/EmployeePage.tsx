@@ -74,7 +74,7 @@ export function EmployeePage() {
         }}
       />
 
-      <main className="flex flex-wrap items-start gap-6 px-8 py-6 max-sm:px-4">
+      <main className="wide:flex-nowrap flex flex-wrap items-start gap-6 px-8 py-6 max-sm:px-4">
         <ChatPanel
           messages={state.messages}
           turns={state.turns}

@@ -16,7 +16,7 @@ export function Header({
   const rep = variant === "rep";
   return (
     <header
-      className={`flex flex-wrap items-center gap-x-6 gap-y-3 border-b px-8 py-3 max-sm:px-4 ${
+      className={`wide:sticky wide:top-0 wide:z-20 wide:h-(--header-h) flex flex-wrap items-center gap-x-6 gap-y-3 border-b px-8 py-3 max-sm:px-4 ${
         rep ? "border-navy bg-navy" : "border-line bg-surface"
       }`}
     >

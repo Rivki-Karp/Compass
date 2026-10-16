@@ -7,7 +7,8 @@ import type { ComparisonState } from "../state/session";
 export const SETTLED_FLASH_MS = 2000;
 
 /** What a screen reader hears when a comparison arrives. When a pending result turns final, it
- * says first what the representative confirmed. */
+ * says first what the representative confirmed; a later comparison that repeats the settled
+ * result gives the same text, so it isn't announced twice. */
 export function announcement(comparison: ComparisonState | null): string {
   if (!comparison) return "";
   const diff = `ההפרש עודכן: ${spokenSigned(comparison.view.display_diff)}`;

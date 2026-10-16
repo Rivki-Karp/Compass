@@ -23,10 +23,13 @@ export function ChatPanel({
   onSend: (text: string) => void;
 }) {
   const [draft, setDraft] = useState("");
-  const listEnd = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLOListElement>(null);
 
+  // Newest message in view: scroll the list itself, never the page (on wide screens the chat
+  // is sticky and the page scroll belongs to the comparison column).
   useEffect(() => {
-    listEnd.current?.scrollIntoView?.({ block: "end" });
+    const el = list.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length, thinking]);
 
   function submit(event: FormEvent) {
@@ -39,7 +42,7 @@ export function ChatPanel({
   return (
     <section
       aria-label="שיחה"
-      className="flex min-h-[560px] flex-[1_1_420px] flex-col rounded-card border border-line bg-surface"
+      className="wide:sticky wide:top-[calc(var(--header-h)+24px)] wide:h-[calc(100dvh-var(--header-h)-48px)] wide:min-h-0 flex min-h-[560px] flex-[1_1_420px] flex-col rounded-card border border-line bg-surface"
     >
       <div className="flex items-center justify-between border-b border-line-soft px-5 py-3">
         <h2 className="text-[15px] font-semibold text-navy">שיחה</h2>
@@ -49,7 +52,11 @@ export function ChatPanel({
         </span>
       </div>
 
-      <ol className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-4" aria-live="polite">
+      <ol
+        ref={list}
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-4"
+        aria-live="polite"
+      >
         {messages.length === 0 && !thinking ? (
           <li className="text-[13px] text-muted">
             ספרו לי על התפקיד והשכר שלכם, ואחשב איך שינוי ברכב ישפיע על הנטו.
@@ -63,7 +70,6 @@ export function ChatPanel({
           />
         ))}
         {thinking ? <Thinking /> : null}
-        <div ref={listEnd} />
       </ol>
 
       {failedText !== null ? (

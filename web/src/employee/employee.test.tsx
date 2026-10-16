@@ -5,6 +5,7 @@ import { initialSession, reduce } from "../state/session";
 import e001Log from "../test/fixtures/e001.json";
 import walkthroughLog from "../test/fixtures/walkthrough.json";
 import { ChatPanel, Thinking } from "./ChatPanel";
+import { EmptyComparison } from "./EmptyComparison";
 import { HeroAnnouncement, HeroCard } from "./HeroCard";
 import { InputsCard } from "./InputsCard";
 
@@ -122,5 +123,55 @@ describe("Thinking", () => {
     act(() => vi.advanceTimersByTime(8000));
     expect(screen.getByText(/עדיין עובד על זה/)).toBeInTheDocument();
     vi.useRealTimers();
+  });
+});
+
+describe("EmptyComparison", () => {
+  it("explains how it works in three steps, with no numbers", () => {
+    const { container } = render(<EmptyComparison />);
+    expect(screen.getByRole("heading")).toHaveTextContent("איך זה עובד");
+    const steps = within(screen.getByRole("list")).getAllByRole("listitem");
+    expect(steps.map((s) => s.textContent?.replace(/^\d/, ""))).toEqual([
+      "ספרו על התפקיד, השכר והרכב",
+      "הכלים מחשבים את הנטו בדיוק",
+      "כל מספר מגיע עם המקור שלו",
+    ]);
+    // the step numbers are decoration (aria-hidden); no amount anywhere
+    const visible = [...container.querySelectorAll("li > span:not([aria-hidden])")];
+    expect(visible.map((e) => e.textContent).join(" ")).not.toMatch(/\d/);
+    expect(container.querySelector("[data-direction='empty']")).not.toBeNull();
+  });
+});
+
+describe("HeroCard: the alternative's drive and group", () => {
+  it("shows the API's details under a catalog car, nothing for a waiver", () => {
+    const { unmount } = render(<HeroCard comparison={must(e001Pending.comparison)} />);
+    expect(screen.getByText("חשמלי · קבוצה ג׳")).toBeInTheDocument();
+    unmount();
+    render(<HeroCard comparison={must(walkthrough.comparison)} />);
+    expect(must(walkthrough.comparison).view.alternative_details).toBeNull();
+    expect(screen.queryByText(/ · קבוצה/)).toBeNull();
+  });
+});
+
+describe("ChatPanel: newest message in view", () => {
+  it("scrolls the message list, never the page", () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    const props = {
+      turns: walkthrough.turns,
+      thinking: false,
+      suggestions: [],
+      failedText: null,
+      onSend: () => {},
+    };
+    const { rerender } = render(
+      <ChatPanel messages={walkthrough.messages.slice(0, 1)} {...props} />,
+    );
+    const ol = document.querySelector("ol[aria-live]") as HTMLOListElement;
+    Object.defineProperty(ol, "scrollHeight", { configurable: true, value: 900 });
+    rerender(<ChatPanel messages={walkthrough.messages} {...props} />);
+    expect(ol.scrollTop).toBe(900);
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 });

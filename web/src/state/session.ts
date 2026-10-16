@@ -40,8 +40,11 @@ export interface ComparisonState {
   seq: number;
   view: ComparisonView;
   origin: "tool" | "server";
-  /** This comparison replaced a pending one of the same alternative and is not pending. */
+  /** Final after a pending one of the same alternative: this comparison settled it, or it
+   * repeats a settled one (the server settles on the rep's answer; the model may compare again). */
   settled: boolean;
+  /** The seq of the comparison that settled it (the moment to flash), or null. */
+  settledSeq: number | null;
 }
 
 export interface SessionState {
@@ -170,13 +173,16 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
         previous !== null &&
         previous.view.alternative_kind === view.alternative_kind &&
         previous.view.alternative_car_id === view.alternative_car_id;
+      const settles = sameAlternative && previous.view.pending && !view.pending;
+      const stays = sameAlternative && previous.settled && !view.pending;
       return {
         ...next,
         comparison: {
           seq: event.seq,
           view,
           origin: event.payload.origin === "server" ? "server" : "tool",
-          settled: sameAlternative && previous.view.pending && !view.pending,
+          settled: settles || stays,
+          settledSeq: settles ? event.seq : stays ? previous.settledSeq : null,
         },
       };
     }

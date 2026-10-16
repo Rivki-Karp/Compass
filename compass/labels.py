@@ -7,6 +7,7 @@ whatever it shows next to a number comes from here, through the API.
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from compass.data.catalog import FAMILY_GROUP
 from compass.engine.models import DeltaLineName, WarningCode
 
 # NetBreakdown fields in the order of the demo table.
@@ -94,6 +95,21 @@ RULE_LABELS: dict[str, str] = {
     "waiver_maintenance": "אחזקה בוויתור לפי העיסוק",
     "family_track": "מסלול משפחתי",
 }
+
+
+DRIVE_LABELS: dict[str, str] = {
+    "electric": "חשמלי",
+    "plugin": "פלאג-אין",
+    "hybrid": "היברידי",
+    "petrol": "בנזין",
+}
+
+
+def car_details(drive: str, group: str) -> str:
+    """A catalog car's drive and group, under its name on the alternative tile: "חשמלי · קבוצה
+    ג׳"; a family-track car: "בנזין · מסלול משפחתי"."""
+    where = RULE_LABELS["family_track"] if group == FAMILY_GROUP else group_label(group)
+    return f"{DRIVE_LABELS[drive]} · {where}"
 
 
 def group_letter(group: str) -> str:

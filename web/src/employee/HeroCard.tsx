@@ -24,16 +24,18 @@ export function HeroAnnouncement({ comparison }: { comparison: ComparisonState |
   );
 }
 
-/** True for SETTLED_FLASH_MS after a comparison that settled a pending one arrives. */
+/** True for SETTLED_FLASH_MS after the comparison that settled a pending one arrives (not
+ * again when a later comparison repeats the settled result). */
 function useSettledFlash(comparison: ComparisonState): boolean {
+  const { settledSeq } = comparison;
   const [flashSeq, setFlashSeq] = useState<number | null>(null);
   useEffect(() => {
-    if (!comparison.settled) return;
-    setFlashSeq(comparison.seq);
+    if (settledSeq === null) return;
+    setFlashSeq(settledSeq);
     const timer = setTimeout(() => setFlashSeq(null), SETTLED_FLASH_MS);
     return () => clearTimeout(timer);
-  }, [comparison.seq, comparison.settled]);
-  return flashSeq === comparison.seq;
+  }, [settledSeq]);
+  return settledSeq !== null && flashSeq === settledSeq;
 }
 
 /**
@@ -108,6 +110,7 @@ export function HeroCard({ comparison }: { comparison: ComparisonState }) {
         </span>
         <NetTile
           label={view.alternative_title}
+          details={view.alternative_details}
           net={view.alternative_net}
           direction={view.direction}
           dashed={view.pending}
@@ -154,11 +157,13 @@ function Tag({ children }: { children: React.ReactNode }) {
 
 function NetTile({
   label,
+  details = null,
   net,
   direction,
   dashed = false,
 }: {
   label: string;
+  details?: string | null;
   net: number | null;
   direction?: ComparisonView["direction"];
   dashed?: boolean;
@@ -174,6 +179,7 @@ function NetTile({
       className={`motion-settle min-w-[180px] flex-1 rounded-tile border px-4 py-3 ${accent} ${dashed ? "border-dashed" : ""}`}
     >
       <div className="text-[13px] text-muted">{label}</div>
+      {details ? <div className="text-[12px] text-steel">{details}</div> : null}
       <div className="mt-1 text-[24px] font-semibold text-ink">
         {net === null ? "—" : <Amount value={net} currency />}
       </div>

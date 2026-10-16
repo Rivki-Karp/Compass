@@ -21,6 +21,7 @@ from compass.labels import (
     DELTA_LABELS,
     RULE_LABELS,
     alternative_title,
+    car_details,
     field_label,
     group_label,
     group_letter,
@@ -112,6 +113,9 @@ class ComparisonView(_View):
     alternative_title: str
     alternative_kind: str
     alternative_car_id: str | None
+    # The catalog car's drive and group ("חשמלי · קבוצה ג׳"); None for a waiver or a car
+    # outside the catalog.
+    alternative_details: str | None = None
     group: str | None
     group_label: str | None
     group_budget: int | None
@@ -174,6 +178,11 @@ def _profile_input(services: Services, tool: str, unit: Unit, slot: Slot) -> Vie
 def _car_name(services: Services, car_id: str) -> str:
     car = services.ctx.catalog.get(car_id)
     return car_id if car is None else car.commercial_name
+
+
+def _car_details(services: Services, car_id: str | None) -> str | None:
+    car = None if car_id is None else services.ctx.catalog.get(car_id)
+    return None if car is None else car_details(car.drive, car.group)
 
 
 def _participation_input(
@@ -345,6 +354,7 @@ def build_view(
         ),
         alternative_kind=alternative["kind"],
         alternative_car_id=car_id,
+        alternative_details=_car_details(services, car_id),
         group=group,
         group_label=None if group is None else group_label(group),
         group_budget=None if budget is None else to_display(budget, ctx.rules),

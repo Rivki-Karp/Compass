@@ -1,5 +1,6 @@
 """A ticket for a participation turns the comparison shown at the catalog default into a pending
-one, whatever order the model called compare and ask_representative in."""
+one, whatever order the model called compare and ask_representative in; the representative's
+answer settles it on the server, whether or not the model calls compare afterwards."""
 
 from typing import Any
 
@@ -132,3 +133,112 @@ def test_current_participation_at_the_catalog_default(
     assert recomputed["origin"] == "server"
     assert recomputed["today_participation"]["pending_rep"] is True
     assert recomputed["pending_field"] == "current_participation"
+
+
+# --- the answer settles it -------------------------------------------------------------------
+
+
+def _input(view: dict[str, Any], input_id: str) -> dict[str, Any]:
+    return next(i for i in view["inputs"] if i["id"] == input_id)
+
+
+@pytest.mark.parametrize("order", ["ask_then_compare", "compare_then_ask"])
+def test_answer_without_a_later_compare_settles_at_611(
+    services: Services, runner: ToolRunner, order: str
+) -> None:
+    sid = _noa(services, runner)
+    if order == "ask_then_compare":
+        ticket = _ask(runner, sid, ATTO)
+        ok(runner.run(sid, "compare", ATTO_3))
+    else:
+        ok(runner.run(sid, "compare", ATTO_3))
+        ticket = _ask(runner, sid, ATTO)
+    pending = _comparisons(services, sid)[-1]
+    assert pending["view"]["pending"] is True and pending["view"]["display_diff"] == 661
+
+    answer_ticket(services, ticket, values={ATTO: 350})  # and no compare after it
+
+    settled = _comparisons(services, sid)[-1]
+    assert settled["origin"] == "server"
+    assert settled["recomputed_from"] == pending["seq"]
+    assert (settled["ticket_id"], settled["answered_field"]) == (ticket, ATTO)
+    assert settled["pending_rep"] is False
+    assert settled["participation_source"] == "representative"
+    view = settled["view"]
+    assert view["pending"] is False and view["pending_fields"] == []
+    assert view["display_diff"] == 611
+    assert (view["today_net"], view["alternative_net"]) == (11032, 11643)
+    participation = _input(view, "alternative_participation")
+    assert (participation["value"], participation["source"]) == (350, "representative")
+    assert view["alternative_car_id"] == pending["view"]["alternative_car_id"]
+
+
+def test_answer_then_the_agents_compare_gives_the_same_view(
+    services: Services, runner: ToolRunner
+) -> None:
+    sid = _noa(services, runner)
+    ok(runner.run(sid, "compare", ATTO_3))
+    ticket = _ask(runner, sid, ATTO)
+    answer_ticket(services, ticket, values={ATTO: 350})
+    ok(runner.run(sid, "compare", ATTO_3))  # the model compares again, as in the demo script
+    *_, settled, agents = _comparisons(services, sid)
+    assert settled["origin"] == "server" and "origin" not in agents
+    assert agents["view"] == settled["view"]
+    assert agents["comparison"] == settled["comparison"]
+
+
+def test_a_field_the_comparison_did_not_use_settles_nothing(
+    services: Services, runner: ToolRunner
+) -> None:
+    sid = _noa(services, runner)
+    ok(runner.run(sid, "compare", ATTO_3))
+    other = _ask(runner, sid, "alternative_participation:CAR-11")  # another car
+    before = len(_comparisons(services, sid))
+    answer_ticket(services, other, values={"alternative_participation:CAR-11": 500})
+    assert len(_comparisons(services, sid)) == before
+
+
+def test_a_non_participation_answer_settles_nothing(services: Services, runner: ToolRunner) -> None:
+    sid = _noa(services, runner)
+    ok(runner.run(sid, "compare", ATTO_3))
+    ticket = _ask(runner, sid, "bonus")
+    before = len(_comparisons(services, sid))
+    answer_ticket(services, ticket, values={"bonus": 0})
+    assert len(_comparisons(services, sid)) == before
+
+
+def test_a_comparison_that_was_not_pending_is_not_recomputed(
+    services: Services, runner: ToolRunner
+) -> None:
+    sid = _noa(services, runner)
+    ticket = _ask(runner, sid, ATTO)
+    stated = {"alternative": {"kind": "car", "car_id": "CAR-10", "participation": 400}}
+    ok(runner.run(sid, "compare", stated))  # the employee's own amount: never pending
+    before = len(_comparisons(services, sid))
+    answer_ticket(services, ticket, values={ATTO: 350})
+    assert len(_comparisons(services, sid)) == before
+
+
+def test_an_answer_without_a_value_settles_nothing(services: Services, runner: ToolRunner) -> None:
+    sid = _noa(services, runner)
+    ok(runner.run(sid, "compare", ATTO_3))
+    ticket = _ask(runner, sid, ATTO)
+    before = len(_comparisons(services, sid))
+    answer_ticket(services, ticket, answer_text="אבדוק ואחזור אליך")  # the field becomes unknown
+    assert len(_comparisons(services, sid)) == before
+
+
+def test_current_participation_answer_settles_today(services: Services, runner: ToolRunner) -> None:
+    today = {"today": {"kind": "company_car", "car_id": "CAR-09"}}  # participation unknown
+    sid = _noa(services, runner, today)
+    ok(runner.run(sid, "compare", {"alternative": {"kind": "waiver"}}))
+    ticket = _ask(runner, sid, "current_participation")
+    answer_ticket(services, ticket, values={"current_participation": 300})
+    settled = _comparisons(services, sid)[-1]
+    assert settled["origin"] == "server" and settled["answered_field"] == "current_participation"
+    assert settled["today_participation"] == {
+        "source": "representative",
+        "pending_rep": False,
+        "effective_from": None,
+    }
+    assert settled["view"]["pending"] is False

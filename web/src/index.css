@@ -64,6 +64,9 @@
   --font-sans: "IBM Plex Sans Hebrew", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
+  /* layout: two columns side by side from here up (the chat stays in view); below, stacked */
+  --breakpoint-wide: 1160px;
+
   /* shape (brief §3.4) */
   --radius-card: 16px;
   --radius-tile: 12px;
@@ -72,6 +75,10 @@
 }
 
 @layer base {
+  :root {
+    --header-h: 73px; /* the header's height on wide screens (48px mark + 2 x 12px + border) */
+  }
+
   html {
     background: var(--color-ground);
     color: var(--color-ink);

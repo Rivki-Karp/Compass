@@ -323,3 +323,27 @@ def test_direction_is_flat_for_a_zero_diff(services: Services, runner: ToolRunne
     ]
     view = build_view(services, sid, flat["alternative"], flat)
     assert view["direction"] == "flat" and view["breakdown"] == []
+
+
+def test_alternative_details_from_the_catalog(services: Services, runner: ToolRunner) -> None:
+    sid = _session(services, runner, NOA)
+    ok(runner.run(sid, "compare", {"alternative": {"kind": "car", "car_id": "CAR-10"}}))
+    assert _last(services, sid)["view"]["alternative_details"] == "חשמלי · קבוצה ג׳"
+    ok(runner.run(sid, "compare", {"alternative": {"kind": "car", "car_id": "CAR-12"}}))
+    assert _last(services, sid)["view"]["alternative_details"] == "בנזין · קבוצה ג׳"
+    ok(runner.run(sid, "compare", {"alternative": {"kind": "waiver"}}))
+    assert _last(services, sid)["view"]["alternative_details"] is None  # nothing for a waiver
+
+
+def test_alternative_details_for_a_family_track_car() -> None:
+    from compass.labels import car_details
+
+    assert car_details("petrol", "משפחתי") == "בנזין · מסלול משפחתי"  # never "קבוצה משפחתי׳"
+    assert car_details("plugin", "ד") == "פלאג-אין · קבוצה ד׳"
+
+
+def test_every_catalog_drive_has_a_label() -> None:
+    from compass.data.drive import Drive
+    from compass.labels import DRIVE_LABELS
+
+    assert set(DRIVE_LABELS) == set(get_args(Drive))
