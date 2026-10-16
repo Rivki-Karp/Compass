@@ -1,4 +1,4 @@
-# Handoff — Day 4 (the UI), checkpoint after Stage 7
+# Handoff — Day 4 (the UI), checkpoint after Stage 8
 
 Written 2026-10-16 from the real repo state (git log, a full test run). The brief is
 `briefs/day4-ui.md`; the decisions approved during review are listed below.
@@ -8,7 +8,7 @@ Written 2026-10-16 from the real repo state (git log, a full test run). The brie
 | Ref | Commit | Notes |
 |---|---|---|
 | `main` | `e319ec7` | identical to `origin/main`; nothing from Day 4 is merged |
-| `day4/ui` | `f92c111` + this handoff | pushed to `origin/day4/ui`; rebased on `main` before Stage 1 |
+| `day4/ui` | `600557e` + this handoff | pushed to `origin/day4/ui`; rebased on `main` before Stage 1 |
 
 ## Stages
 
@@ -34,18 +34,24 @@ Written 2026-10-16 from the real repo state (git log, a full test run). The brie
 | docs | `d37597d` | handoff, checkpoint after Stage 6 |
 | 6b | `b484310` | the settle in the rep notification + guard source "server", eval re-run, judges follows new runs |
 | 7 | `f92c111` | FastAPI serves `web/dist` with SPA fallback, `tasks.py build-web` / `web`, CI frontend job |
+| docs | `75dc17b` | handoff, checkpoint after Stage 7 |
+| 7b | `72d8f1f` | silent replays, `tasks.py demo`, offline test, not-found page, relaxed rep-flow check |
+| 8 | `600557e` | Playwright end to end in demo mode, README screenshots, CI e2e job |
 
-Remaining: 8 (Playwright e2e + README screenshots),
-9 (docs, final report).
+Remaining: 9 (docs, final report).
 
 ## Tests and CI
 
-- `pytest`: **581 passed** (571 after 6b). `ruff check` and `ruff format --check` clean.
-- `web/`: `npm run lint`, `npm run typecheck` clean; `npm test` (vitest) **127 passed** (122
-  after Stage 6); `npm run build` ok; `npm audit` 0 vulnerabilities.
-- CI (GitHub Actions) has two jobs: `test` (Python: data build, lint, pytest) and `web` (npm ci,
-  lint, typecheck, vitest, a check that the vitest count equals `tests/counts.json`, build). No
-  API calls in either.
+- `pytest`: **591 passed** (581 after Stage 7). `ruff check` and `ruff format --check` clean.
+- `web/`: `npm run lint`, `npm run typecheck` clean; `npm test` (vitest) **136 passed** (127
+  after Stage 7); `npm run build` ok; `npm audit` 0 vulnerabilities.
+- Playwright (`web/e2e/`, `npm run e2e` from `web/`): **3 passed in 24–26 s** (about 28 s with
+  the build and the server start), on Windows.
+- CI (GitHub Actions) has three jobs: `test` (Python: data build, lint, pytest), `web` (npm ci,
+  lint, typecheck, vitest, a check that the vitest count equals `tests/counts.json`, build) and
+  `e2e` (Python and data, npm ci, Chromium, `npm run e2e`; the report is uploaded on failure).
+  No API calls in any of them. The new jobs haven't been seen running on GitHub yet: `gh` isn't
+  installed on this machine.
 - `tests/counts.json` holds the counts judges mode shows. After adding tests run
   `uv run python tasks.py test-counts`; a full `pytest` run fails while its pytest number is
   stale (a partial run skips that check). It counts vitest from a real `vitest run`
@@ -414,6 +420,42 @@ Regenerating committed artifacts:
   is the fix to consider.
 - `/docs` stays where it is.
 
+## Stage 8 — what was built
+
+- `web/playwright.config.ts` starts what `tasks.py demo` runs: `npm run build`, then the real API
+  in demo mode serving the build. It uses its own port (8765), its own tokens, and a fresh demo
+  database per run under `web/test-results/`, so it never touches a running demo or `app.db`. One
+  worker; Chromium at 1440×900.
+- `web/e2e/demo.spec.ts`, three stories:
+  1. **Walkthrough:** +2,914 in the hero; the waterfall has 6 columns (5 steps and the total,
+     the last one "פלוס 2,914"); the provenance strip shows the default selection (+1,500), "חושב
+     בכלי compare" and its inputs.
+  2. **E-001:** +661 with "ממתינה לנציג" and "זמני". In a second page, `/rep` with the rep token
+     opens this run's (newest) ticket and answers 350. The employee page then shows +611, "סופי",
+     no pending chip, and the participation row with 350 and "אושר על ידי נציג". Then judges
+     mode on with the admin token (the stream reopens and replays) and off again (another
+     replay and a remount).
+     - An in-page recorder logs every text of the hero's live region and every time any settle
+       border turns on.
+     - Assertions: the settle announcement appears exactly once and is the last one; the border
+       turned on exactly once.
+     - A mutation run (every event treated as fresh) fails this test with 3 borders instead of
+       1, so it guards the 7b fix.
+  3. **Judges mode:** without the token, the toggle opens the dialog and cancelling leaves judges
+     mode off; the network log has no `/api/admin/*` request and no request with an
+     `Authorization` header. The page then reads the replayed session stream itself and parses
+     every event: `tool_call` has only `name, tool_use_id`, `tool_result` only
+     `name, ok, tool_use_id`, `guard_check` only `action, passed`, `agent_finished` only
+     `outcome` (the server's allowlist). With the admin token: the engine room, and a guard card
+     "3 מתוך 3 אומתו · נשלח" with +2,914 traced to `compare`; the stats tiles load.
+- **README screenshots** (1440 wide, from this run, committed): `docs/screenshots/employee.png`
+  (the walkthrough), `docs/screenshots/representative.png` (`/rep` with the E-001 ticket),
+  `docs/screenshots/judges.png` (judges mode on the walkthrough, full page). Every e2e run
+  rewrites them; commit them only when the UI changed on purpose. The README section that shows
+  them is Stage 9.
+- vitest is scoped to `src/**/*.test.{ts,tsx}`, so it never picks up `e2e/`; `tsconfig` covers
+  `e2e/` and the Playwright config, so typecheck and lint include them.
+
 ## Open questions and notes
 
 - **System prompt apostrophes.** Decided: `system_he.md` keeps "ב'" (ASCII); the UI's own labels
@@ -442,7 +484,6 @@ Regenerating committed artifacts:
 
 ## Next
 
-Stage 8: one Playwright test in demo mode (walkthrough; E-001 with `/rep` in a second page; judges
-mode with and without the admin token), runnable on Windows and in CI if under ~2 minutes, plus
-the three README screenshots from that run. `@playwright/test` is already a dev dependency; the
-scratchpad scripts used for Stages 5–7 are a starting point.
+Stage 9: the README "UI" section (screens with `docs/screenshots/`, judges mode, demo mode, the
+PowerShell commands, `tasks.py demo`), this handoff checked against git, and the final report
+(per stage, all API changes, test counts, deviations from §3–4, known gaps).
