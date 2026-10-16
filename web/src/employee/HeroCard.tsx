@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ComparisonView } from "../api/types";
 import { SHEKEL } from "../lib/format";
 import type { ComparisonState } from "../state/session";
@@ -6,6 +6,7 @@ import { Amount } from "../ui/Amount";
 import { Icon } from "../ui/icons";
 import { Needle } from "../ui/Needle";
 import { SourceChip } from "../ui/SourceChip";
+import { useFreshness } from "./effects";
 import { announcement, SETTLED_FLASH_MS } from "./settle";
 
 const TONE = { up: "text-up", down: "text-down", flat: "text-ink" } as const;
@@ -15,22 +16,37 @@ const CAPTION = {
   flat: "אין שינוי בנטו",
 } as const;
 
-/** The hero's live region (it never remounts, so each new text is announced). */
+/**
+ * The hero's live region. Its text changes only for a fresh comparison, so a replay (reconnect)
+ * or a remount (layout change) is never announced again; the page renders it once, outside both
+ * layouts.
+ */
 export function HeroAnnouncement({ comparison }: { comparison: ComparisonState | null }) {
+  const seq = comparison?.seq ?? 0;
+  const isFresh = useFreshness("announce", seq);
+  const fresh = comparison !== null && isFresh(seq);
+  const [text, setText] = useState("");
+  useEffect(() => {
+    if (comparison && fresh) setText(announcement(comparison));
+  }, [comparison, fresh]);
   return (
     <p aria-live="polite" className="sr-only">
-      {announcement(comparison)}
+      {text}
     </p>
   );
 }
 
-/** True for SETTLED_FLASH_MS after the comparison that settled a pending one arrives (not
- * again when a later comparison repeats the settled result). */
-function useSettledFlash(comparison: ComparisonState): boolean {
+/** True for SETTLED_FLASH_MS after the comparison that settled a pending one arrives: once
+ * (not when a later comparison repeats the settled result, a replay or a remount). */
+function useSettledFlash(comparison: ComparisonState, fresh: boolean): boolean {
   const { settledSeq } = comparison;
   const [flashSeq, setFlashSeq] = useState<number | null>(null);
+  // Read when settledSeq changes, not a dependency: a later repeat makes it stale, and that
+  // must not cancel the running 2 s.
+  const freshRef = useRef(fresh);
+  freshRef.current = fresh;
   useEffect(() => {
-    if (settledSeq === null) return;
+    if (settledSeq === null || !freshRef.current) return;
     setFlashSeq(settledSeq);
     const timer = setTimeout(() => setFlashSeq(null), SETTLED_FLASH_MS);
     return () => clearTimeout(timer);
@@ -54,7 +70,10 @@ export function HeroCard({
 }) {
   const view = comparison.view;
   const provisional = view.pending || view.partial;
-  const flash = useSettledFlash(comparison);
+  // Motion only for a result the client hasn't shown yet (never on a replay or a remount).
+  const isFresh = useFreshness("hero", comparison.seq);
+  const fresh = isFresh(comparison.seq);
+  const flash = useSettledFlash(comparison, isFresh(comparison.settledSeq));
   return (
     <article
       aria-label="תוצאת ההשוואה"
@@ -63,7 +82,7 @@ export function HeroCard({
       <span
         key={`ring-${comparison.seq}`}
         aria-hidden="true"
-        className="motion-ring pointer-events-none absolute inset-0 rounded-card"
+        className={`pointer-events-none absolute inset-0 rounded-card ${fresh ? "motion-ring" : ""}`}
       />
       {/* final: a 2px `up` border over the card's own for 2 s, no layout shift */}
       <span
@@ -96,7 +115,7 @@ export function HeroCard({
         <Needle direction={view.direction} />
         <div
           key={`number-${comparison.seq}`}
-          className={`motion-crossfade motion-settle ${provisional ? "opacity-75" : ""}`}
+          className={`${fresh ? "motion-crossfade" : ""} motion-settle ${provisional ? "opacity-75" : ""}`}
         >
           <div className={`flex items-baseline gap-2 ${TONE[view.direction]}`}>
             <span className={`${compact ? "text-[52px]" : "text-[64px]"} leading-none font-bold`}>

@@ -200,6 +200,26 @@ def test_rep_flow_with_compare_before_ask_representative(services: Services) -> 
     ]
 
 
+def test_rep_flow_passes_on_the_server_settle_without_compare(services: Services) -> None:
+    # 6b: the rep notification carries the settled comparison; the model may state it as is.
+    scenario = next(s for s in load_all(["e001_rep_flow"])).model_dump(mode="json")
+    steps = _rep_flow_steps(tool_response(("ask_representative", ASK_ATTO), ("compare", ATTO)))
+    without_compare = [*steps[:-2], text_response("הנציג אישר 350 ₪: +611 ₪ בחודש.")]
+    run = _run(services, without_compare, scenario)
+    assert run.passed, _failed(run)
+    assert [c.name for c in run.trace.calls if c.turn == 3] == []
+
+
+def test_rep_flow_fails_when_the_reply_states_another_number(services: Services) -> None:
+    scenario = next(s for s in load_all(["e001_rep_flow"])).model_dump(mode="json")
+    steps = _rep_flow_steps(tool_response(("ask_representative", ASK_ATTO), ("compare", ATTO)))
+    vague = [*steps[:-2], text_response("הנציג ענה, והחישוב בכרטיס עודכן.")]
+    run = _run(services, vague, scenario)
+    assert not run.passed
+    failed = [r.label for r in run.results if not r.passed]
+    assert failed == ["reply {'turn': 3} (1 patterns)"], failed
+
+
 def test_a_rep_turn_without_a_ticket_is_a_failure(services: Services) -> None:
     scenario = next(s for s in load_all(["e001_rep_flow"])).model_dump(mode="json")
     steps = [text_response("שלום"), text_response("שלום"), text_response("לא פניתי לנציג.")]
@@ -237,6 +257,33 @@ def test_comparison_check_picks_the_last_matching_compare() -> None:
     assert evaluate(trace, [check])[0].passed
     early = {"comparison": {"alternative": {"kind": "waiver"}, "turn": 0, "diff": 10}}
     assert evaluate(trace, [early])[0].passed
+
+
+def test_comparison_check_by_origin() -> None:
+    def comparison(turn: int, diff: int, origin: str | None) -> Comparison:
+        result: dict[str, Any] = {
+            "comparison": {
+                "today": {"display": {"net": 1}},
+                "alternative": {"display": {"net": 2}, "metadata": {"maintenance_source": None}},
+                "display_diff": diff,
+                "partial": False,
+            },
+            "participation_source": "representative",
+            "pending_rep": False,
+            "hypothetical": False,
+        }
+        if origin:
+            result["origin"] = origin
+        return Comparison(turn, {"alternative": {"kind": "car"}}, result)
+
+    settled_only = Trace(comparisons=[comparison(3, 611, "server")])
+    with_compare = Trace(comparisons=[comparison(3, 611, "server"), comparison(3, 999, None)])
+    server = {"comparison": {"origin": "server", "turn": 3, "diff": 611}}
+    tool = {"comparison": {"origin": "tool", "diff": 611}}
+    assert evaluate(settled_only, [server])[0].passed  # no compare needed
+    assert evaluate(with_compare, [server])[0].passed  # the settle, not the later compare
+    assert not evaluate(settled_only, [tool])[0].passed  # no compare: nothing to look at
+    assert not evaluate(with_compare, [tool])[0].passed  # compare said 999
 
 
 # --- ledger and report ----------------------------------------------------------------------

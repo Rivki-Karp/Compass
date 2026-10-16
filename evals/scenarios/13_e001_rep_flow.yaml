@@ -34,10 +34,22 @@ checks:
     diff: 611
     pending_rep: false
     participation_source: representative
-- tool_called:
-    name: compare
+# The rep's answer: the server settles the comparison (no model call) and the reply states
+# the result. Whether the model also calls compare is its choice; if it does, the comparison
+# check above sees its result and it must agree.
+- comparison:
+    alternative:
+      kind: car
+      car_id: CAR-10
     turn: 3
-    ok: true
+    origin: server
+    diff: 611
+    pending_rep: false
+    participation_source: representative
+- reply:
+    turn: 3
+    matches:
+    - '611'
 - reply:
     turn: 2
     matches:

@@ -81,7 +81,27 @@ Remaining: 8 (Playwright e2e + README screenshots),
 
 ## How to run the demo (PowerShell)
 
-One terminal, from the repo root, one URL. No API key needed.
+**For the final, one command** from the repo root (no API key, no network):
+
+```powershell
+uv run python tasks.py demo
+```
+
+It sets demo mode (`COMPASS_LLM=scripted`), empties the demo database (`demo-reset`), runs
+`build-web` if `web/dist` is missing or older than any file under `web/src`, `web/public`,
+`index.html`, `package.json`, `package-lock.json` or `vite.config.ts`, then serves on port 8000
+(no auto-reload) and prints the URLs:
+
+- employee: http://127.0.0.1:8000/
+- representative: http://127.0.0.1:8000/rep
+- judges mode: the toggle on the employee screen
+- API docs: http://127.0.0.1:8000/docs
+
+The rep and admin tokens come from `.env` (or the environment). The task prints where each token
+comes from, never its value. A token set nowhere defaults to `rep-demo` / `admin-demo`, and that
+default is printed. Ctrl+C stops it. `tasks.py demo E-001` is still the terminal breakdown.
+
+The same steps by hand, one terminal, one URL:
 
 ```powershell
 $env:COMPASS_LLM="scripted"
@@ -343,6 +363,57 @@ Regenerating committed artifacts:
   - no build means API only;
   - the catch-all isn't in the schema.
 
+## Stage 7b — what was built
+
+- **Replays never re-trigger effects.** Two layers, each with its own test:
+  - *The stream* (`state/useSession.ts: streamReducer`). A reopened stream (judges toggle, token
+    change, network blip) replays from the start into a new state. The screen keeps the previous
+    state until the replay reaches the highest seq it already showed, so nothing blanks or
+    remounts. A new session resets.
+  - *The effects* (`employee/effects.ts: useFreshness`). One memory per session (a context from
+    the page) holds, per channel, the highest seq whose effect already played: "hero" (the ring
+    and the crossfade), the settle border, "announce" (the live region). Only a higher seq is
+    fresh. This also covers remounts: switching to judges mode moves the hero into the other
+    layout. The live region now renders once on the page, outside both layouts, and its text
+    changes only for a fresh comparison.
+  - The flash timer keys on `settledSeq` alone (freshness read through a ref), so a later
+    repeat can't cancel the running 2 s.
+  - Test (`employee/replay.test.tsx`, the real E-001 log): apply it; reopen and replay it;
+    switch layouts as the toggle does. It samples the live region and the border after every
+    event. Result: two announcements in all (the +661 pending and the settled +611), one border,
+    no ring or crossfade on the remounted card, the screen never blank. A new event after a
+    replay is fresh again. A mutation check (every event treated as fresh) fails the
+    layout-switch test.
+- **`tasks.py demo`**: see "How to run the demo" (`tests/test_tasks.py`).
+- **No network in demo mode** (`tests/agent/test_demo_offline.py`). The walkthrough, E-001 and
+  the rep's answer 350 → +611 run through the real app with no API key, while every way out is
+  patched to record and raise:
+  - `anthropic.Anthropic()`;
+  - httpx's sync and async transports;
+  - `socket.create_connection`;
+  - `socket.connect` to any non-loopback address. Loopback stays open, because asyncio on
+    Windows connects a local socket pair to itself.
+
+  It asserts no attempt was made. A second test proves the patches do refuse.
+- **Unknown UI routes** show "הדף לא נמצא" with a link to the home page (`routes/NotFound.tsx`,
+  `<Route path="*">`). In the production build that includes `/__styleguide`; it is dev-only
+  (tested with `DEV` stubbed off and on).
+- **Eval check relaxed.** `e001_rep_flow` no longer requires `compare` in turn 3. The
+  `comparison` check takes `origin: server | tool`. The scenario now requires the server's
+  settled comparison in turn 3 (+611, source representative, not pending) and a turn-3 reply
+  that states 611. The existing last-comparison check stays, so a `compare` the model does call
+  must agree. Harness tests: settle-only passes; a reply without 611 fails on that check alone;
+  the origin filter.
+- **Eval re-run ×1 at low: 0/1, $0.0699.** The turn-3 checks passed: the reply stated +611
+  (11,032 → 11,643), and the model did call `compare` in turn 3. It failed the turn-2 check: the
+  model opened the ticket and then asked "רוצה שאריץ את ההשוואה עכשיו?" instead of comparing.
+  So there was no +661 pending comparison, and therefore nothing for the server to settle (the
+  `origin: server` check found none). The 6b run with the same prompt compared in turn 2 in 3/3,
+  so this looks like turn-2 variance, not the relaxed check. Not re-run beyond the ×1 asked for.
+  If it repeats, a prompt nudge for turn 2 ("after ask_representative, compare in the same turn")
+  is the fix to consider.
+- `/docs` stays where it is.
+
 ## Open questions and notes
 
 - **System prompt apostrophes.** Decided: `system_he.md` keeps "ב'" (ASCII); the UI's own labels
@@ -363,11 +434,6 @@ Regenerating committed artifacts:
   no tooltip, because every bar's value is always shown.
 - **Polish day: a compact sticky diff bar on phones.** Below 1160px the hero scrolls away; a
   thin bar with the signed diff (and זמני/סופי) pinned under the header would keep it in view.
-- **Polish day: replays re-run the settle effects.** Turning judges mode on (or any reconnect)
-  reopens the stream and replays every event. The hero remounts, so its crossfade and, after a
-  settle, the 2 s `up` border play again, and the live region announces the latest result again.
-  A "replaying" flag in the session state (set until the snapshot's last seq is reached) would
-  silence both.
 - **Polish day: provenance wording for server comparisons.** The provenance strip says "חושב בכלי
   compare" for every comparison. A server-origin one is computed by the same `compare` code
   without a model call; the strip could say "חושב מחדש בשרת".

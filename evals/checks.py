@@ -6,12 +6,14 @@ the model's prose for numbers.
 Check types (one key per check):
     tool_called      {name, input?, result?, ok?, turn?}   some call matches
     tool_not_called  {name, input?, result?, ok?, turn?}   no call matches
-    comparison       {alternative?, turn?, today_net?, alternative_net?, diff?, has_diff?,
-                      participation_source?, maintenance_source?, pending_rep?,
+    comparison       {alternative?, turn?, origin?, today_net?, alternative_net?, diff?,
+                      has_diff?, participation_source?, maintenance_source?, pending_rep?,
                       hypothetical?, partial?}
                      the last comparison shown (a comparison_ready event: compare's result
                      or a server recompute of it, whose compare input alternative matches,
-                     at or before `turn`) has these values
+                     at or before `turn`) has these values. `origin: server` looks only at
+                     the server's recomputes (a ticket opened, or the rep's answer settled it);
+                     `origin: tool` only at compare's own results
     slot             {field, value?, state?, source?, absent?}   the final session profile
     reply            {turn?, matches?, not_matches?}   regexes on the shown replies of `turn`
                      (default: all replies); every `matches` regex must match some reply,
@@ -40,6 +42,7 @@ _ARGS: dict[str, set[str]] = {
     "comparison": {
         "alternative",
         "turn",
+        "origin",
         "today_net",
         "alternative_net",
         "diff",
@@ -201,12 +204,13 @@ def _comparison(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
         c
         for c in trace.comparisons
         if ("turn" not in args or c.turn <= args["turn"])
+        and ("origin" not in args or c.result.get("origin", "tool") == args["origin"])
         and matches(args.get("alternative", {}), c.input.get("alternative"))
     ]
     if not candidates:
         return False, "no comparison matches"
     got = _comparison_values(candidates[-1].result)
-    expected = {k: v for k, v in args.items() if k not in ("alternative", "turn")}
+    expected = {k: v for k, v in args.items() if k not in ("alternative", "turn", "origin")}
     wrong = {k: got[k] for k, v in expected.items() if not matches(v, got[k])}
     detail = f"t{candidates[-1].turn} " + ", ".join(f"{k}={got[k]}" for k in expected)
     return (not wrong), (detail if not wrong else f"{detail}; expected {expected}")

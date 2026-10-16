@@ -6,6 +6,7 @@ Usage:
     uv run python tasks.py test      # run the test suite
     uv run python tasks.py lint      # ruff check + ruff format --check
     uv run python tasks.py fmt       # apply ruff formatting and safe fixes
+    uv run python tasks.py demo      # THE demo: reset, build if needed, serve on :8000 (no key)
     uv run python tasks.py demo E-001  # Hebrew net breakdown of a golden reference employee
     uv run python tasks.py calc      # interactive calculator: your own profile and scenarios
     uv run python tasks.py serve     # API on http://127.0.0.1:8000 (docs at /docs), auto-reload
@@ -66,7 +67,68 @@ def fmt() -> None:
 
 
 def demo(*args: str) -> None:
-    run(sys.executable, "-m", "compass.demo", *args)
+    """No arguments: the demo (see demo_app). With an employee id: the terminal breakdown."""
+    if args:
+        run(sys.executable, "-m", "compass.demo", *args)
+    else:
+        demo_app()
+
+
+DEMO_TOKENS = {"COMPASS_REP_TOKEN": "rep-demo", "COMPASS_ADMIN_TOKEN": "admin-demo"}
+
+
+def demo_app() -> None:
+    """One command for the demo: demo mode (the scripted model; no API key, no network), an
+    empty demo database, the UI built if web/dist is missing or older than its sources, then the
+    API and the UI on http://127.0.0.1:8000 until Ctrl+C."""
+    import os
+
+    from compass.api.settings import _env
+
+    os.environ["COMPASS_LLM"] = "scripted"
+    configured = _env(REPO_ROOT / ".env")
+    tokens: dict[str, str] = {}
+    for name, default in DEMO_TOKENS.items():
+        if configured.get(name):
+            tokens[name] = f"from .env / the environment ({name})"
+        else:
+            os.environ[name] = default
+            tokens[name] = default
+    demo_reset()
+    if _web_build_is_stale():
+        build_web()
+    else:
+        print("web/dist is up to date")
+    print(
+        "\nCompass demo (demo mode: scripted model, no API key, no network)\n"
+        "  employee:       http://127.0.0.1:8000/\n"
+        "  representative: http://127.0.0.1:8000/rep   token: "
+        f"{tokens['COMPASS_REP_TOKEN']}\n"
+        "  judges mode:    the toggle on the employee screen   token: "
+        f"{tokens['COMPASS_ADMIN_TOKEN']}\n"
+        "  API docs:       http://127.0.0.1:8000/docs\n"
+        "Ctrl+C stops it.\n",
+        flush=True,
+    )
+    # No --reload: a demo runs what was built and started, nothing changes under it.
+    run(sys.executable, "-m", "uvicorn", "compass.api.main:app", "--workers", "1", "--port", "8000")
+
+
+WEB_SOURCES = ("src", "public", "index.html", "package.json", "package-lock.json", "vite.config.ts")
+
+
+def _web_build_is_stale() -> bool:
+    """Whether web/dist is missing, or older than any file the build reads."""
+    index = WEB / "dist" / "index.html"
+    if not index.is_file():
+        return True
+    built = index.stat().st_mtime
+    for name in WEB_SOURCES:
+        path = WEB / name
+        files = path.rglob("*") if path.is_dir() else [path]
+        if any(f.is_file() and f.stat().st_mtime > built for f in files):
+            return True
+    return False
 
 
 def calc() -> None:

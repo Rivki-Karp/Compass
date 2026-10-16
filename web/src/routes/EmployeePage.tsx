@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { JudgesStats } from "../api/types";
 import { ChatPanel } from "../employee/ChatPanel";
+import { type EffectsMemory, EffectsMemoryContext } from "../employee/effects";
 import { EmptyComparison } from "../employee/EmptyComparison";
 import { HeroAnnouncement, HeroCard } from "../employee/HeroCard";
 import { InputsCard } from "../employee/InputsCard";
@@ -44,6 +45,10 @@ export function EmployeePage() {
   const [adminToken, setAdminToken] = useState<string | null>(() => getToken("admin"));
   const session = useSession(judges ? adminToken : null);
   const { state } = session;
+  // Which effects (motion, announcements) already played, per session: never twice.
+  // A new, empty memory for each session id (the dependency is the point, not an input).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const effects = useMemo<EffectsMemory>(() => ({}), [session.sessionId]);
   const stats = useJudgesStats(judges ? adminToken : null);
   const [turn, setTurn] = useTurnSelection(state.turns.length);
 
@@ -80,61 +85,63 @@ export function EmployeePage() {
 
   const comparison = state.comparison;
   return (
-    <div className="min-h-screen bg-ground">
-      <Header>
-        <ConnectionPill status={session.connection} />
-        {health?.llm === "scripted" ? <DemoBadge /> : null}
-        <JudgesToggle on={judges} onToggle={toggleJudges} />
-      </Header>
-      <TokenDialog
-        open={asking}
-        title="מצב שופטים"
-        description="מצב השופטים מציג את חדר המנועים: קריאות לכלים, בדיקת המספרים ועלויות. הזינו את טוקן המנהל; הוא נשמר לסשן הזה בלבד."
-        label="טוקן מנהל"
-        verify={verifyAdmin}
-        onCancel={() => setAsking(false)}
-        onAccept={(token) => {
-          setToken("admin", token);
-          setAdminToken(token);
-          setAsking(false);
-          setJudges(true);
-        }}
-      />
+    <EffectsMemoryContext.Provider value={effects}>
+      <div className="min-h-screen bg-ground">
+        {/* once, outside both layouts: switching layouts never re-announces */}
+        <HeroAnnouncement comparison={comparison} />
+        <Header>
+          <ConnectionPill status={session.connection} />
+          {health?.llm === "scripted" ? <DemoBadge /> : null}
+          <JudgesToggle on={judges} onToggle={toggleJudges} />
+        </Header>
+        <TokenDialog
+          open={asking}
+          title="מצב שופטים"
+          description="מצב השופטים מציג את חדר המנועים: קריאות לכלים, בדיקת המספרים ועלויות. הזינו את טוקן המנהל; הוא נשמר לסשן הזה בלבד."
+          label="טוקן מנהל"
+          verify={verifyAdmin}
+          onCancel={() => setAsking(false)}
+          onAccept={(token) => {
+            setToken("admin", token);
+            setAdminToken(token);
+            setAsking(false);
+            setJudges(true);
+          }}
+        />
 
-      {judges ? (
-        <main className="wide:flex-nowrap flex flex-wrap items-start gap-6 px-8 py-6 max-sm:px-4">
-          <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-6">
-            <HeroAnnouncement comparison={comparison} />
-            {comparison ? <HeroCard comparison={comparison} compact /> : <EmptyComparison />}
-            <HowItWorks />
-            <StatsGrid stats={stats} />
-          </div>
-          <EngineRoom turns={state.turns} selected={turn} onSelect={setTurn} />
-        </main>
-      ) : (
-        <main className="wide:flex-nowrap flex flex-wrap items-start gap-6 px-8 py-6 max-sm:px-4">
-          <ChatPanel
-            messages={state.messages}
-            turns={state.turns}
-            thinking={state.thinking || session.sending}
-            suggestions={suggestions}
-            failedText={session.sendFailure?.text ?? null}
-            onSend={session.send}
-          />
-          <div className="flex min-w-0 flex-[999_1_640px] flex-col gap-6">
-            <HeroAnnouncement comparison={comparison} />
-            {comparison ? (
-              <>
-                <HeroCard comparison={comparison} />
-                <Waterfall view={comparison.view} />
-                <InputsCard view={comparison.view} />
-              </>
-            ) : (
-              <EmptyComparison />
-            )}
-          </div>
-        </main>
-      )}
-    </div>
+        {judges ? (
+          <main className="wide:flex-nowrap flex flex-wrap items-start gap-6 px-8 py-6 max-sm:px-4">
+            <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-6">
+              {comparison ? <HeroCard comparison={comparison} compact /> : <EmptyComparison />}
+              <HowItWorks />
+              <StatsGrid stats={stats} />
+            </div>
+            <EngineRoom turns={state.turns} selected={turn} onSelect={setTurn} />
+          </main>
+        ) : (
+          <main className="wide:flex-nowrap flex flex-wrap items-start gap-6 px-8 py-6 max-sm:px-4">
+            <ChatPanel
+              messages={state.messages}
+              turns={state.turns}
+              thinking={state.thinking || session.sending}
+              suggestions={suggestions}
+              failedText={session.sendFailure?.text ?? null}
+              onSend={session.send}
+            />
+            <div className="flex min-w-0 flex-[999_1_640px] flex-col gap-6">
+              {comparison ? (
+                <>
+                  <HeroCard comparison={comparison} />
+                  <Waterfall view={comparison.view} />
+                  <InputsCard view={comparison.view} />
+                </>
+              ) : (
+                <EmptyComparison />
+              )}
+            </div>
+          </main>
+        )}
+      </div>
+    </EffectsMemoryContext.Provider>
   );
 }

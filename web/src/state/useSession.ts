@@ -29,11 +29,52 @@ function storeSession(id: string | null): void {
   }
 }
 
-type Action = { kind: "event"; event: SessionEvent } | { kind: "reset" };
+type Action =
+  | { kind: "event"; event: SessionEvent }
+  /** The stream reopened (judges toggle, token, network): it replays every event. */
+  | { kind: "replay" }
+  /** Another session (a new one, or the server forgot this one). */
+  | { kind: "reset" };
 
-function sessionReducer(state: SessionState, action: Action): SessionState {
-  return action.kind === "reset" ? initialSession : reduce(state, action.event);
+/**
+ * The state being rebuilt by the stream, and what the screen shows meanwhile. A reopened stream
+ * replays from the start (judges mode needs the admin fields of old events too), so the new
+ * state starts empty; until it has caught up with everything already shown (`shownThrough`), the
+ * screen keeps the previous state. Nothing blanks, nothing remounts, nothing animates twice.
+ */
+export interface StreamState {
+  building: SessionState;
+  shown: SessionState | null; // null: show `building`
+  shownThrough: number;
 }
+
+export const initialStream: StreamState = {
+  building: initialSession,
+  shown: null,
+  shownThrough: 0,
+};
+
+export function streamReducer(stream: StreamState, action: Action): StreamState {
+  switch (action.kind) {
+    case "reset":
+      return initialStream;
+    case "replay": {
+      const visible = stream.shown ?? stream.building;
+      return {
+        building: initialSession,
+        shown: visible.lastSeq > 0 ? visible : null,
+        shownThrough: Math.max(stream.shownThrough, visible.lastSeq),
+      };
+    }
+    case "event": {
+      const building = reduce(stream.building, action.event);
+      const caughtUp = building.lastSeq >= stream.shownThrough;
+      return { ...stream, building, shown: caughtUp ? null : stream.shown };
+    }
+  }
+}
+
+export const visibleState = (stream: StreamState): SessionState => stream.shown ?? stream.building;
 
 export interface SendFailure {
   text: string;
@@ -52,7 +93,8 @@ export interface UseSession {
 /** `adminToken`: open the stream with it (judges mode gets the full events). */
 export function useSession(adminToken: string | null): UseSession {
   const [sessionId, setSessionId] = useState<string | null>(storedSession);
-  const [state, dispatch] = useReducer(sessionReducer, initialSession);
+  const [stream, dispatch] = useReducer(streamReducer, initialStream);
+  const state = visibleState(stream);
   const [connection, setConnection] = useState<StreamStatus>("connecting");
   const [sending, setSending] = useState(false);
   const [sendFailure, setSendFailure] = useState<SendFailure | null>(null);
@@ -77,7 +119,7 @@ export function useSession(adminToken: string | null): UseSession {
   // Stream the session's events (replayed from the start on every (re)open).
   useEffect(() => {
     if (!sessionId) return;
-    dispatch({ kind: "reset" });
+    dispatch({ kind: "replay" });
     const close = openStream({
       url: sessionEventsUrl(sessionId),
       token: adminToken,
@@ -86,6 +128,7 @@ export function useSession(adminToken: string | null): UseSession {
           // 404: the server no longer knows this session (e.g. a fresh database)
           storeSession(null);
           setSessionId(null);
+          dispatch({ kind: "reset" });
           return;
         }
         setConnection(status);
