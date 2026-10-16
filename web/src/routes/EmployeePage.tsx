@@ -84,7 +84,7 @@ export function EmployeePage() {
           onSend={session.send}
         />
         <div className="flex min-w-0 flex-[999_1_640px] flex-col gap-6">
-          <HeroAnnouncement view={comparison?.view ?? null} />
+          <HeroAnnouncement comparison={comparison} />
           {comparison ? (
             <>
               <HeroCard comparison={comparison} />

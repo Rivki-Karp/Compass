@@ -42,7 +42,7 @@ describe("HeroCard: the walkthrough", () => {
   });
 
   it("announces the update to screen readers", () => {
-    render(<HeroAnnouncement view={comparison.view} />);
+    render(<HeroAnnouncement comparison={comparison} />);
     expect(screen.getByText("ההפרש עודכן: פלוס 2,914 שקלים")).toBeInTheDocument();
   });
 });

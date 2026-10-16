@@ -2,17 +2,43 @@ import type { ReactNode } from "react";
 import mark from "../assets/compass-mark.png";
 import type { StreamStatus } from "../api/sse";
 
-/** The app header (brief §4.1): the mark, the wordmark, and the status controls. */
-export function Header({ children }: { children?: ReactNode }) {
+/**
+ * The app header (brief §4.1): the mark, the wordmark, and the status controls. The rep screen
+ * uses the navy variant (§4.6): the mark on a white tile, "מסך נציג" under the wordmark.
+ */
+export function Header({
+  children,
+  variant = "employee",
+}: {
+  children?: ReactNode;
+  variant?: "employee" | "rep";
+}) {
+  const rep = variant === "rep";
   return (
-    <header className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-line bg-surface px-8 py-3">
+    <header
+      className={`flex flex-wrap items-center gap-x-6 gap-y-3 border-b px-8 py-3 max-sm:px-4 ${
+        rep ? "border-navy bg-navy" : "border-line bg-surface"
+      }`}
+    >
       <div className="flex items-center gap-3">
-        <img src={mark} alt="" className="h-12 w-12" />
+        {rep ? (
+          <span className="rounded-tile bg-surface p-1">
+            <img src={mark} alt="" className="h-10 w-10" />
+          </span>
+        ) : (
+          <img src={mark} alt="" className="h-12 w-12" />
+        )}
         <div>
-          <div className="ltr text-[20px] leading-tight font-bold tracking-[0.04em] text-navy">
+          <div
+            className={`ltr text-[20px] leading-tight font-bold tracking-[0.04em] ${
+              rep ? "text-white" : "text-navy"
+            }`}
+          >
             COMPASS
           </div>
-          <div className="text-[13px] text-muted">יועץ הרכב של Strauss</div>
+          <div className={`text-[13px] ${rep ? "text-mist" : "text-muted"}`}>
+            {rep ? "מסך נציג" : "יועץ הרכב של Strauss"}
+          </div>
         </div>
       </div>
       <div className="ms-auto flex flex-wrap items-center gap-3">{children}</div>

@@ -45,17 +45,31 @@ def main() -> int:
 
             walkthrough = run(WALKTHROUGH.employee_messages)
             e001 = run(E001.employee_messages)
-            (ticket,) = client.get("/api/tickets", params={"status": "open"}, headers=REP).json()
+            inbox = client.get("/api/tickets", params={"status": "open"}, headers=REP).json()
+            (ticket,) = inbox
+            answer_url = f"/api/tickets/{ticket['id']}/answer"
+            refused = client.post(
+                answer_url,
+                json={"values": {"alternative_participation:CAR-10": "-50"}},
+                headers=REP,
+            )
+            assert refused.status_code == 422
             client.post(
-                f"/api/tickets/{ticket['id']}/answer",
+                answer_url,
                 json={"values": {"alternative_participation:CAR-10": 350}},
                 headers=REP,
             )
             assert agent.wait_idle(30)
             OUT.mkdir(parents=True, exist_ok=True)
-            for name, sid in (("walkthrough", walkthrough), ("e001", e001)):
+            outputs: dict[str, Any] = {
+                "walkthrough": _events(app, walkthrough),
+                "e001": _events(app, e001),
+                "e001_inbox": inbox,  # GET /api/tickets?status=open before the answer
+                "e001_answer_negative": refused.json(),  # the 422 body for -50
+            }
+            for name, data in outputs.items():
                 path = OUT / f"{name}.json"
-                text = json.dumps(_events(app, sid), ensure_ascii=False, indent=1)
+                text = json.dumps(data, ensure_ascii=False, indent=1)
                 path.write_text(text + "\n", encoding="utf-8", newline="\n")
                 print(f"wrote {path.relative_to(REPO_ROOT)}")
     return 0

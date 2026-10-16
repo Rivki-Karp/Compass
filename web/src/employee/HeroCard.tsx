@@ -1,10 +1,12 @@
+import { useEffect, useState } from "react";
 import type { ComparisonView } from "../api/types";
-import { SHEKEL, spokenSigned } from "../lib/format";
+import { SHEKEL } from "../lib/format";
 import type { ComparisonState } from "../state/session";
 import { Amount } from "../ui/Amount";
 import { Icon } from "../ui/icons";
 import { Needle } from "../ui/Needle";
 import { SourceChip } from "../ui/SourceChip";
+import { announcement, SETTLED_FLASH_MS } from "./settle";
 
 const TONE = { up: "text-up", down: "text-down", flat: "text-ink" } as const;
 const CAPTION = {
@@ -13,13 +15,25 @@ const CAPTION = {
   flat: "אין שינוי בנטו",
 } as const;
 
-/** What a screen reader hears when a comparison arrives (the region itself never remounts). */
-export function HeroAnnouncement({ view }: { view: ComparisonView | null }) {
+/** The hero's live region (it never remounts, so each new text is announced). */
+export function HeroAnnouncement({ comparison }: { comparison: ComparisonState | null }) {
   return (
     <p aria-live="polite" className="sr-only">
-      {view ? `ההפרש עודכן: ${spokenSigned(view.display_diff)}` : ""}
+      {announcement(comparison)}
     </p>
   );
+}
+
+/** True for SETTLED_FLASH_MS after a comparison that settled a pending one arrives. */
+function useSettledFlash(comparison: ComparisonState): boolean {
+  const [flashSeq, setFlashSeq] = useState<number | null>(null);
+  useEffect(() => {
+    if (!comparison.settled) return;
+    setFlashSeq(comparison.seq);
+    const timer = setTimeout(() => setFlashSeq(null), SETTLED_FLASH_MS);
+    return () => clearTimeout(timer);
+  }, [comparison.seq, comparison.settled]);
+  return flashSeq === comparison.seq;
 }
 
 /**
@@ -31,6 +45,7 @@ export function HeroAnnouncement({ view }: { view: ComparisonView | null }) {
 export function HeroCard({ comparison }: { comparison: ComparisonState }) {
   const view = comparison.view;
   const provisional = view.pending || view.partial;
+  const flash = useSettledFlash(comparison);
   return (
     <article
       aria-label="תוצאת ההשוואה"
@@ -41,11 +56,20 @@ export function HeroCard({ comparison }: { comparison: ComparisonState }) {
         aria-hidden="true"
         className="motion-ring pointer-events-none absolute inset-0 rounded-card"
       />
+      {/* final: a 2px `up` border over the card's own for 2 s, no layout shift */}
+      <span
+        aria-hidden="true"
+        data-settled-flash={flash ? "on" : "off"}
+        className={`motion-settle pointer-events-none absolute -inset-px rounded-card border-2 border-up ${
+          flash ? "opacity-100" : "opacity-0"
+        }`}
+      />
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-[15px] font-semibold text-navy">
           {view.alternative_title} לעומת היום
         </h2>
         {view.pending ? <SourceChip source="pending_rep" /> : null}
+        {comparison.settled ? <FinalChip /> : null}
         {view.group_label ? (
           <span className="ms-auto rounded-chip bg-tool-chip-bg px-3 py-0.5 text-[13px] text-steel">
             {view.group_label}
@@ -108,6 +132,15 @@ export function HeroCard({ comparison }: { comparison: ComparisonState }) {
         </ul>
       ) : null}
     </article>
+  );
+}
+
+function FinalChip() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-chip bg-up-bg px-2.5 py-0.5 text-[12px] leading-5 font-semibold text-up">
+      <Icon name="check" size={13} />
+      סופי
+    </span>
   );
 }
 
