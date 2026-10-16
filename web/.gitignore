@@ -3,3 +3,4 @@ dist/
 playwright-report/
 test-results/
 *.local
+vitest-results.json

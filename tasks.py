@@ -10,6 +10,8 @@ Usage:
     uv run python tasks.py calc      # interactive calculator: your own profile and scenarios
     uv run python tasks.py serve     # API on http://127.0.0.1:8000 (docs at /docs), auto-reload
     uv run python tasks.py demo-reset  # wipe demo mode's database (data/demo.db), never app.db
+    uv run python tasks.py build-web # build the UI (web/dist); `serve` then serves it at /
+    uv run python tasks.py web       # dev: API :8000 + Vite http://localhost:5173 (Ctrl+C: both)
     uv run python tasks.py chat      # terminal chat with the agent (ANTHROPIC_API_KEY in .env)
     uv run python tasks.py eval      # agent evals against the real model -> evals/report.md
     uv run python tasks.py eval --only walkthrough,e001_rep_flow --repeat 3 --effort medium
@@ -20,6 +22,7 @@ Usage:
 
 import subprocess
 import sys
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -83,6 +86,75 @@ def serve() -> None:
         "--port",
         "8000",
     )
+
+
+NPM = "npm.cmd" if sys.platform == "win32" else "npm"
+WEB = REPO_ROOT / "web"
+
+
+def build_web() -> None:
+    """Build the UI into web/dist (`npm ci` first when web/node_modules is missing). The API
+    serves it at / with an SPA fallback: one URL, http://127.0.0.1:8000."""
+    if not (WEB / "node_modules").is_dir():
+        run_in(WEB, NPM, "ci")
+    run_in(WEB, NPM, "run", "build")
+    print("built web/dist: `uv run python tasks.py serve`, then open http://127.0.0.1:8000")
+
+
+def web() -> None:
+    """Development: the API (auto-reload) and Vite (hot reload, proxies /api to the API).
+    Ctrl+C stops both, child processes included."""
+    if not (WEB / "node_modules").is_dir():
+        run_in(WEB, NPM, "ci")
+    api = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "compass.api.main:app",
+            "--reload",
+            "--workers",
+            "1",
+            "--port",
+            "8000",
+        ],
+        cwd=REPO_ROOT,
+    )
+    vite = subprocess.Popen([NPM, "run", "dev"], cwd=WEB)
+    print("API http://127.0.0.1:8000 · UI http://localhost:5173 · Ctrl+C stops both", flush=True)
+    try:
+        while api.poll() is None and vite.poll() is None:
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        for process in (vite, api):
+            _stop(process)
+
+
+def _stop(process: subprocess.Popen[bytes]) -> None:
+    """Stop a process and its children (on Windows, npm leaves node running otherwise)."""
+    if process.poll() is not None:
+        return
+    if sys.platform == "win32":
+        subprocess.run(
+            ["taskkill", "/T", "/F", "/PID", str(process.pid)],
+            capture_output=True,
+            check=False,
+        )
+    else:
+        process.terminate()
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+
+
+def run_in(cwd: Path, *args: str) -> None:
+    print(f"$ ({cwd.name})", " ".join(args), flush=True)
+    result = subprocess.run(args, cwd=cwd)
+    if result.returncode != 0:
+        sys.exit(result.returncode)
 
 
 def demo_reset() -> None:
@@ -164,6 +236,8 @@ TASKS: dict[str, Callable[..., None]] = {
     "calc": calc,
     "serve": serve,
     "demo-reset": demo_reset,
+    "build-web": build_web,
+    "web": web,
     "openapi": openapi,
     "ts-types": ts_types,
     "test-counts": test_counts,

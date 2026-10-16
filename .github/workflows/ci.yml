@@ -28,3 +28,45 @@ jobs:
 
       - name: Test
         run: uv run python tasks.py test
+
+  web:
+    # The UI: no API calls, no network beyond npm. Node is pinned in web/.nvmrc.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npx vitest run --reporter=default --reporter=json --outputFile=vitest-results.json
+
+      - name: Test count matches tests/counts.json (judges mode shows it)
+        run: |
+          node -e '
+            const ran = require("./vitest-results.json").numTotalTests;
+            const committed = require("../tests/counts.json").vitest;
+            if (ran !== committed) {
+              console.error(`vitest ran ${ran} tests, tests/counts.json says ${committed}: run uv run python tasks.py test-counts`);
+              process.exit(1);
+            }
+            console.log(`vitest: ${ran} tests, as committed`);
+          '
+
+      - name: Build
+        run: npm run build

@@ -35,6 +35,7 @@ from compass.api.agent import AgentRunner
 from compass.api.broker import TICKETS, Broker
 from compass.api.redact import public_message, public_payload
 from compass.api.settings import Settings
+from compass.api.spa import mount_spa
 from compass.api.stats import judges_stats
 from compass.config import CATALOG_JSON, OCCUPATIONS_JSON
 from compass.engine.context import ContextError
@@ -469,4 +470,7 @@ def create_app(
         }
 
     app.include_router(api)
+    # The web UI last, so it can never shadow an API route (see spa.py).
+    if settings.web_dist is not None and (settings.web_dist / "index.html").is_file():
+        mount_spa(app, settings.web_dist)
     return app

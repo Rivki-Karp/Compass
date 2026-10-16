@@ -18,6 +18,7 @@ from compass.config import (
     REPO_ROOT,
     RULES_YAML,
     VEHICLES_DB,
+    WEB_DIST,
 )
 
 
@@ -86,6 +87,8 @@ class Settings:
     rules_path: Path = RULES_YAML
     aliases_path: Path = ALIASES_YAML
     vehicles_db: Path = VEHICLES_DB
+    # The built web UI, served at / with an SPA fallback when its index.html exists.
+    web_dist: Path | None = WEB_DIST
     # POST /api/sessions/{id}/tools/{name}: dev / demo only.
     dev_tools: bool = False
     cors_origins: tuple[str, ...] = field(default=DEFAULT_CORS_ORIGINS)
@@ -120,6 +123,7 @@ class Settings:
             if llm == "scripted"
             else _path(env.get("COMPASS_APP_DB"), APP_DB),
             rules_path=_path(env.get("COMPASS_RULES"), RULES_YAML),
+            web_dist=_path(env.get("COMPASS_WEB_DIST"), WEB_DIST),
             dev_tools=env.get("COMPASS_DEV_TOOLS") == "1",
             rep_token=env.get("COMPASS_REP_TOKEN") or None,
             admin_token=env.get("COMPASS_ADMIN_TOKEN") or None,
