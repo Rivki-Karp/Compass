@@ -44,7 +44,14 @@ function useSettledFlash(comparison: ComparisonState): boolean {
  * (both keyed by the comparison's seq). Nothing here interpolates digits: every number is the
  * API's.
  */
-export function HeroCard({ comparison }: { comparison: ComparisonState }) {
+export function HeroCard({
+  comparison,
+  compact = false,
+}: {
+  comparison: ComparisonState;
+  /** Judges mode's summary column: the number at 52px (brief §4.5). */
+  compact?: boolean;
+}) {
   const view = comparison.view;
   const provisional = view.pending || view.partial;
   const flash = useSettledFlash(comparison);
@@ -92,7 +99,7 @@ export function HeroCard({ comparison }: { comparison: ComparisonState }) {
           className={`motion-crossfade motion-settle ${provisional ? "opacity-75" : ""}`}
         >
           <div className={`flex items-baseline gap-2 ${TONE[view.direction]}`}>
-            <span className="text-[64px] leading-none font-bold">
+            <span className={`${compact ? "text-[52px]" : "text-[64px]"} leading-none font-bold`}>
               <Amount value={view.display_diff} signed />
             </span>
             <span className="text-[28px] font-bold">{SHEKEL}</span>

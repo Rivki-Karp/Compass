@@ -15,6 +15,7 @@ Usage:
     uv run python tasks.py eval --only walkthrough,e001_rep_flow --repeat 3 --effort medium
     uv run python tasks.py openapi   # write openapi.json (commit it with API changes)
     uv run python tasks.py ts-types  # write web/src/api/generated.ts (commit it with view changes)
+    uv run python tasks.py test-counts  # write tests/counts.json (judges mode; pytest checks it)
 """
 
 import subprocess
@@ -118,6 +119,41 @@ def ts_types() -> None:
     run(sys.executable, "-m", "compass.api.ts_types")
 
 
+def test_counts() -> None:
+    """Count the pytest and vitest tests and write tests/counts.json, which judges mode shows."""
+    import datetime
+    import json
+    import re
+    import subprocess
+
+    collected = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q"],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=REPO_ROOT,
+    ).stdout
+    found = re.search(r"(\d+) tests? collected", collected)
+    if found is None:
+        sys.exit(f"test-counts: unexpected pytest output:\n{collected[-500:]}")
+    npx = "npx.cmd" if sys.platform == "win32" else "npx"
+    report = REPO_ROOT / "web" / "node_modules" / ".vitest-counts.json"
+    subprocess.run(
+        [npx, "vitest", "run", "--reporter=json", f"--outputFile={report}"],
+        capture_output=True,
+        check=True,
+        cwd=REPO_ROOT / "web",
+    )
+    counts = {
+        "pytest": int(found.group(1)),
+        "vitest": json.loads(report.read_text(encoding="utf-8"))["numTotalTests"],
+        "as_of": datetime.date.today().isoformat(),
+    }
+    path = REPO_ROOT / "tests" / "counts.json"
+    path.write_text(json.dumps(counts, indent=1) + "\n", encoding="utf-8", newline="\n")
+    print(f"tests/counts.json: {counts}")
+
+
 TASKS: dict[str, Callable[..., None]] = {
     "install": install,
     "data": data,
@@ -130,6 +166,7 @@ TASKS: dict[str, Callable[..., None]] = {
     "demo-reset": demo_reset,
     "openapi": openapi,
     "ts-types": ts_types,
+    "test-counts": test_counts,
     "chat": chat,
     "eval": evals,
 }

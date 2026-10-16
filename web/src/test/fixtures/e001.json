@@ -1,15 +1,15 @@
 [
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 1,
   "type": "session_created",
   "payload": {
    "status": "active"
   },
-  "created_at": "2026-10-16T08:55:38.178+00:00"
+  "created_at": "2026-10-16T09:55:15.411+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 2,
   "type": "user_message",
   "payload": {
@@ -18,19 +18,19 @@
     "text": "אני מנהלת מוצר, שכר בסיס 18,500"
    }
   },
-  "created_at": "2026-10-16T08:55:38.196+00:00"
+  "created_at": "2026-10-16T09:55:15.442+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 3,
   "type": "agent_started",
   "payload": {
    "trigger": "employee_turn"
   },
-  "created_at": "2026-10-16T08:55:38.226+00:00"
+  "created_at": "2026-10-16T09:55:15.482+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 4,
   "type": "tool_call",
   "payload": {
@@ -41,10 +41,10 @@
     "base_salary": 18500
    }
   },
-  "created_at": "2026-10-16T08:55:38.251+00:00"
+  "created_at": "2026-10-16T09:55:15.508+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 5,
   "type": "profile_updated",
   "payload": {
@@ -66,10 +66,10 @@
     }
    }
   },
-  "created_at": "2026-10-16T08:55:38.265+00:00"
+  "created_at": "2026-10-16T09:55:15.525+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 6,
   "type": "tool_result",
   "payload": {
@@ -112,10 +112,10 @@
     "group_budget": "4500"
    }
   },
-  "created_at": "2026-10-16T08:55:38.295+00:00"
+  "created_at": "2026-10-16T09:55:15.555+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 7,
   "type": "guard_check",
   "payload": {
@@ -129,10 +129,10 @@
    },
    "action": "accept"
   },
-  "created_at": "2026-10-16T08:55:38.332+00:00"
+  "created_at": "2026-10-16T09:55:15.588+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 8,
   "type": "assistant_message",
   "payload": {
@@ -141,17 +141,17 @@
    "kind": "reply",
    "comparison_ref": null
   },
-  "created_at": "2026-10-16T08:55:38.363+00:00"
+  "created_at": "2026-10-16T09:55:15.621+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 9,
   "type": "agent_finished",
   "payload": {
    "outcome": "reply",
    "error": null,
    "rounds": 1,
-   "latency_ms": 188,
+   "latency_ms": 172,
    "model": "scripted",
    "usage": {
     "input_tokens": 0,
@@ -161,10 +161,10 @@
    },
    "cost_usd": null
   },
-  "created_at": "2026-10-16T08:55:38.379+00:00"
+  "created_at": "2026-10-16T09:55:15.633+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 10,
   "type": "user_message",
   "payload": {
@@ -173,19 +173,19 @@
     "text": "אין לי עמלות או בונוסים. פנסיה 6%, קרן השתלמות 2.5%, 2.75 נקודות זיכוי, 2 ילדים מתחת לגיל 23. היום יש לי קורולה קרוס 2025 ואני משתתפת ב-300 ₪."
    }
   },
-  "created_at": "2026-10-16T08:55:38.395+00:00"
+  "created_at": "2026-10-16T09:55:15.655+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 11,
   "type": "agent_started",
   "payload": {
    "trigger": "employee_turn"
   },
-  "created_at": "2026-10-16T08:55:38.431+00:00"
+  "created_at": "2026-10-16T09:55:15.683+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 12,
   "type": "tool_call",
   "payload": {
@@ -200,10 +200,10 @@
     "children_under_23": 2
    }
   },
-  "created_at": "2026-10-16T08:55:38.454+00:00"
+  "created_at": "2026-10-16T09:55:15.711+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 13,
   "type": "profile_updated",
   "payload": {
@@ -240,10 +240,10 @@
     }
    }
   },
-  "created_at": "2026-10-16T08:55:38.468+00:00"
+  "created_at": "2026-10-16T09:55:15.727+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 14,
   "type": "tool_result",
   "payload": {
@@ -280,10 +280,10 @@
     "group_budget": "4500"
    }
   },
-  "created_at": "2026-10-16T08:55:38.484+00:00"
+  "created_at": "2026-10-16T09:55:15.768+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 15,
   "type": "tool_call",
   "payload": {
@@ -298,10 +298,10 @@
     }
    }
   },
-  "created_at": "2026-10-16T08:55:38.517+00:00"
+  "created_at": "2026-10-16T09:55:15.794+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 16,
   "type": "current_situation_set",
   "payload": {
@@ -321,10 +321,10 @@
     "label": "COROLLA CROSS"
    }
   },
-  "created_at": "2026-10-16T08:55:38.526+00:00"
+  "created_at": "2026-10-16T09:55:15.808+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 17,
   "type": "tool_result",
   "payload": {
@@ -352,10 +352,10 @@
     "warnings": []
    }
   },
-  "created_at": "2026-10-16T08:55:38.536+00:00"
+  "created_at": "2026-10-16T09:55:15.820+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 18,
   "type": "guard_check",
   "payload": {
@@ -369,10 +369,10 @@
    },
    "action": "accept"
   },
-  "created_at": "2026-10-16T08:55:38.579+00:00"
+  "created_at": "2026-10-16T09:55:15.859+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 19,
   "type": "assistant_message",
   "payload": {
@@ -381,17 +381,17 @@
    "kind": "reply",
    "comparison_ref": null
   },
-  "created_at": "2026-10-16T08:55:38.616+00:00"
+  "created_at": "2026-10-16T09:55:15.911+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 20,
   "type": "agent_finished",
   "payload": {
    "outcome": "reply",
    "error": null,
    "rounds": 1,
-   "latency_ms": 203,
+   "latency_ms": 250,
    "model": "scripted",
    "usage": {
     "input_tokens": 0,
@@ -401,10 +401,10 @@
    },
    "cost_usd": null
   },
-  "created_at": "2026-10-16T08:55:38.627+00:00"
+  "created_at": "2026-10-16T09:55:15.919+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 21,
   "type": "user_message",
   "payload": {
@@ -413,19 +413,19 @@
     "text": "מה יקרה לנטו אם אעבור ל-ATTO 3? אני לא יודעת מה תהיה ההשתתפות שלי בו, אפשר לשאול את הנציג?"
    }
   },
-  "created_at": "2026-10-16T08:55:38.642+00:00"
+  "created_at": "2026-10-16T09:55:15.949+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 22,
   "type": "agent_started",
   "payload": {
    "trigger": "employee_turn"
   },
-  "created_at": "2026-10-16T08:55:38.678+00:00"
+  "created_at": "2026-10-16T09:55:15.973+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 23,
   "type": "tool_call",
   "payload": {
@@ -438,16 +438,16 @@
     ]
    }
   },
-  "created_at": "2026-10-16T08:55:38.718+00:00"
+  "created_at": "2026-10-16T09:55:15.995+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 24,
   "type": "ticket_opened",
   "payload": {
    "ticket": {
-    "id": "f596001887ca48a9ad11cb193b30764d",
-    "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+    "id": "5f66103cb490479bbf963c4c38ec84c5",
+    "session_id": "65f7076476454d83a81e0d897da0738e",
     "question": "מה גובה ההשתתפות העצמית החודשית ב-ATTO 3?",
     "context": {
      "display_name": null,
@@ -462,23 +462,23 @@
     "quick_answers": [],
     "status": "open",
     "answer": null,
-    "created_at": "2026-10-16T08:55:38.743+00:00",
+    "created_at": "2026-10-16T09:55:16.016+00:00",
     "answered_at": null
    }
   },
-  "created_at": "2026-10-16T08:55:38.747+00:00"
+  "created_at": "2026-10-16T09:55:16.021+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 25,
   "type": "session_status",
   "payload": {
    "status": "waiting_for_rep"
   },
-  "created_at": "2026-10-16T08:55:38.747+00:00"
+  "created_at": "2026-10-16T09:55:16.021+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 26,
   "type": "tool_result",
   "payload": {
@@ -488,7 +488,7 @@
    "summary": {},
    "result": {
     "ok": true,
-    "ticket_id": "f596001887ca48a9ad11cb193b30764d",
+    "ticket_id": "5f66103cb490479bbf963c4c38ec84c5",
     "status": "open",
     "context": {
      "display_name": null,
@@ -499,10 +499,10 @@
     }
    }
   },
-  "created_at": "2026-10-16T08:55:38.772+00:00"
+  "created_at": "2026-10-16T09:55:16.058+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 27,
   "type": "tool_call",
   "payload": {
@@ -515,10 +515,10 @@
     }
    }
   },
-  "created_at": "2026-10-16T08:55:38.818+00:00"
+  "created_at": "2026-10-16T09:55:16.398+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 28,
   "type": "comparison_ready",
   "payload": {
@@ -989,10 +989,10 @@
     "rules_version": "mock-2026-10-12"
    }
   },
-  "created_at": "2026-10-16T08:55:38.846+00:00"
+  "created_at": "2026-10-16T09:55:16.435+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 29,
   "type": "tool_result",
   "payload": {
@@ -1248,10 +1248,10 @@
     }
    }
   },
-  "created_at": "2026-10-16T08:55:38.866+00:00"
+  "created_at": "2026-10-16T09:55:16.505+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 30,
   "type": "guard_check",
   "payload": {
@@ -1269,10 +1269,10 @@
    },
    "action": "accept"
   },
-  "created_at": "2026-10-16T08:55:38.898+00:00"
+  "created_at": "2026-10-16T09:55:16.543+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 31,
   "type": "assistant_message",
   "payload": {
@@ -1281,17 +1281,17 @@
    "kind": "reply",
    "comparison_ref": 28
   },
-  "created_at": "2026-10-16T08:55:38.948+00:00"
+  "created_at": "2026-10-16T09:55:16.605+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 32,
   "type": "agent_finished",
   "payload": {
    "outcome": "reply",
    "error": null,
    "rounds": 2,
-   "latency_ms": 328,
+   "latency_ms": 688,
    "model": "scripted",
    "usage": {
     "input_tokens": 0,
@@ -1301,14 +1301,14 @@
    },
    "cost_usd": null
   },
-  "created_at": "2026-10-16T08:55:38.991+00:00"
+  "created_at": "2026-10-16T09:55:16.658+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 33,
   "type": "ticket_answered",
   "payload": {
-   "ticket_id": "f596001887ca48a9ad11cb193b30764d",
+   "ticket_id": "5f66103cb490479bbf963c4c38ec84c5",
    "answer": {
     "text": null,
     "quick_answer_id": null,
@@ -1325,19 +1325,19 @@
    },
    "unknown": []
   },
-  "created_at": "2026-10-16T08:55:39.052+00:00"
+  "created_at": "2026-10-16T09:55:16.710+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 34,
   "type": "session_status",
   "payload": {
    "status": "active"
   },
-  "created_at": "2026-10-16T08:55:39.052+00:00"
+  "created_at": "2026-10-16T09:55:16.710+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 35,
   "type": "comparison_ready",
   "payload": {
@@ -1588,7 +1588,7 @@
    },
    "origin": "server",
    "recomputed_from": 28,
-   "ticket_id": "f596001887ca48a9ad11cb193b30764d",
+   "ticket_id": "5f66103cb490479bbf963c4c38ec84c5",
    "answered_field": "alternative_participation:CAR-10",
    "view": {
     "version": 1,
@@ -1820,19 +1820,19 @@
     "rules_version": "mock-2026-10-12"
    }
   },
-  "created_at": "2026-10-16T08:55:39.087+00:00"
+  "created_at": "2026-10-16T09:55:16.774+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 36,
   "type": "agent_started",
   "payload": {
    "trigger": "rep_answer"
   },
-  "created_at": "2026-10-16T08:55:39.173+00:00"
+  "created_at": "2026-10-16T09:55:16.847+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 37,
   "type": "tool_call",
   "payload": {
@@ -1845,10 +1845,10 @@
     }
    }
   },
-  "created_at": "2026-10-16T08:55:39.201+00:00"
+  "created_at": "2026-10-16T09:55:16.966+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 38,
   "type": "comparison_ready",
   "payload": {
@@ -2327,10 +2327,10 @@
     "rules_version": "mock-2026-10-12"
    }
   },
-  "created_at": "2026-10-16T08:55:39.236+00:00"
+  "created_at": "2026-10-16T09:55:16.988+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 39,
   "type": "tool_result",
   "payload": {
@@ -2586,10 +2586,10 @@
     }
    }
   },
-  "created_at": "2026-10-16T08:55:39.272+00:00"
+  "created_at": "2026-10-16T09:55:17.028+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 40,
   "type": "guard_check",
   "payload": {
@@ -2611,10 +2611,10 @@
    },
    "action": "accept"
   },
-  "created_at": "2026-10-16T08:55:39.306+00:00"
+  "created_at": "2026-10-16T09:55:17.072+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 41,
   "type": "assistant_message",
   "payload": {
@@ -2623,17 +2623,17 @@
    "kind": "reply",
    "comparison_ref": 38
   },
-  "created_at": "2026-10-16T08:55:39.403+00:00"
+  "created_at": "2026-10-16T09:55:17.101+00:00"
  },
  {
-  "session_id": "4c1f38b4046042cd9a8a7125c182210e",
+  "session_id": "65f7076476454d83a81e0d897da0738e",
   "seq": 42,
   "type": "agent_finished",
   "payload": {
    "outcome": "reply",
    "error": null,
    "rounds": 1,
-   "latency_ms": 265,
+   "latency_ms": 297,
    "model": "scripted",
    "usage": {
     "input_tokens": 0,
@@ -2643,6 +2643,6 @@
    },
    "cost_usd": null
   },
-  "created_at": "2026-10-16T08:55:39.414+00:00"
+  "created_at": "2026-10-16T09:55:17.113+00:00"
  }
 ]

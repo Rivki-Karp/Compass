@@ -34,6 +34,8 @@ export interface Turn {
   finished: PayloadByType["agent_finished"] | null;
   tools: ToolActivity[];
   events: SessionEvent[];
+  /** Events between the previous run and this one (the rep's answer, the server's settle). */
+  before: SessionEvent[];
 }
 
 export interface ComparisonState {
@@ -57,6 +59,8 @@ export interface SessionState {
   comparison: ComparisonState | null;
   openTickets: Ticket[];
   lastError: string | null; // agent_error kind of the latest failed run
+  /** Events since the last run finished, outside any run; the next run takes them as `before`. */
+  between: SessionEvent[];
 }
 
 export const initialSession: SessionState = {
@@ -69,6 +73,7 @@ export const initialSession: SessionState = {
   comparison: null,
   openTickets: [],
   lastError: null,
+  between: [],
 };
 
 function currentTurn(state: SessionState): Turn | null {
@@ -87,7 +92,11 @@ function updateTurn(state: SessionState, update: (turn: Turn) => Turn): SessionS
 export function reduce(state: SessionState, event: SessionEvent): SessionState {
   if (event.seq <= state.lastSeq) return state; // replayed: already applied
   let next: SessionState = { ...state, lastSeq: event.seq };
-  next = updateTurn(next, (turn) => ({ ...turn, events: [...turn.events, event] }));
+  if (currentTurn(next)) {
+    next = updateTurn(next, (turn) => ({ ...turn, events: [...turn.events, event] }));
+  } else if (event.type !== "agent_started") {
+    next = { ...next, between: [...next.between, event] };
+  }
 
   switch (event.type) {
     case "user_message":
@@ -128,6 +137,7 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
         thinking: true,
         thinkingSince: event.created_at,
         lastError: null,
+        between: [],
         turns: [
           ...next.turns,
           {
@@ -137,6 +147,7 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
             finished: null,
             tools: [],
             events: [event],
+            before: next.between,
           },
         ],
       };

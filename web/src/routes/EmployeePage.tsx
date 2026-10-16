@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { api } from "../api/client";
+import type { JudgesStats } from "../api/types";
 import { ChatPanel } from "../employee/ChatPanel";
 import { EmptyComparison } from "../employee/EmptyComparison";
 import { HeroAnnouncement, HeroCard } from "../employee/HeroCard";
 import { InputsCard } from "../employee/InputsCard";
+import { EngineRoom } from "../judges/EngineRoom";
+import { HowItWorks, StatsGrid } from "../judges/Summary";
 import { demoSuggestions, GENERAL_SUGGESTIONS } from "../employee/suggestions";
 import { clearToken, getToken, setToken } from "../lib/tokens";
 import { useHealth } from "../lib/useHealth";
@@ -11,7 +15,27 @@ import { ConnectionPill, DemoBadge, Header, JudgesToggle } from "../ui/Header";
 import { TokenDialog } from "../ui/TokenDialog";
 import { Waterfall } from "../waterfall/Waterfall";
 
-/** The employee screen (brief §4.2): chat on the right, the comparison on the left. */
+/** Judges mode's stats tiles: loaded with the admin token when judges mode turns on. */
+function useJudgesStats(token: string | null): JudgesStats | null {
+  const [stats, setStats] = useState<JudgesStats | null>(null);
+  useEffect(() => {
+    if (!token) return;
+    let live = true;
+    api
+      .judgesStats(token)
+      .then((s) => live && setStats(s))
+      .catch(() => live && setStats(null));
+    return () => {
+      live = false;
+    };
+  }, [token]);
+  return token ? stats : null;
+}
+
+/**
+ * The employee screen (brief §4.2): chat on the right, the comparison on the left. In judges
+ * mode (§4.5): the summary on the right, the engine room on the left.
+ */
 export function EmployeePage() {
   const health = useHealth();
   const [judges, setJudges] = useState(false);
@@ -19,6 +43,8 @@ export function EmployeePage() {
   const [adminToken, setAdminToken] = useState<string | null>(() => getToken("admin"));
   const session = useSession(judges ? adminToken : null);
   const { state } = session;
+  const stats = useJudgesStats(judges ? adminToken : null);
+  const [turn, setTurn] = useState<number | null>(null); // null: follow the latest run
 
   // A stored admin token the server no longer accepts: forget it, leave judges mode.
   useEffect(() => {
@@ -74,28 +100,40 @@ export function EmployeePage() {
         }}
       />
 
-      <main className="wide:flex-nowrap flex flex-wrap items-start gap-6 px-8 py-6 max-sm:px-4">
-        <ChatPanel
-          messages={state.messages}
-          turns={state.turns}
-          thinking={state.thinking || session.sending}
-          suggestions={suggestions}
-          failedText={session.sendFailure?.text ?? null}
-          onSend={session.send}
-        />
-        <div className="flex min-w-0 flex-[999_1_640px] flex-col gap-6">
-          <HeroAnnouncement comparison={comparison} />
-          {comparison ? (
-            <>
-              <HeroCard comparison={comparison} />
-              <Waterfall view={comparison.view} />
-              <InputsCard view={comparison.view} />
-            </>
-          ) : (
-            <EmptyComparison />
-          )}
-        </div>
-      </main>
+      {judges ? (
+        <main className="wide:flex-nowrap flex flex-wrap items-start gap-6 px-8 py-6 max-sm:px-4">
+          <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-6">
+            <HeroAnnouncement comparison={comparison} />
+            {comparison ? <HeroCard comparison={comparison} compact /> : <EmptyComparison />}
+            <HowItWorks />
+            <StatsGrid stats={stats} />
+          </div>
+          <EngineRoom turns={state.turns} selected={turn} onSelect={setTurn} />
+        </main>
+      ) : (
+        <main className="wide:flex-nowrap flex flex-wrap items-start gap-6 px-8 py-6 max-sm:px-4">
+          <ChatPanel
+            messages={state.messages}
+            turns={state.turns}
+            thinking={state.thinking || session.sending}
+            suggestions={suggestions}
+            failedText={session.sendFailure?.text ?? null}
+            onSend={session.send}
+          />
+          <div className="flex min-w-0 flex-[999_1_640px] flex-col gap-6">
+            <HeroAnnouncement comparison={comparison} />
+            {comparison ? (
+              <>
+                <HeroCard comparison={comparison} />
+                <Waterfall view={comparison.view} />
+                <InputsCard view={comparison.view} />
+              </>
+            ) : (
+              <EmptyComparison />
+            )}
+          </div>
+        </main>
+      )}
     </div>
   );
 }

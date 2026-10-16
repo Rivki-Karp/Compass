@@ -325,8 +325,9 @@ Invoke-RestMethod "http://127.0.0.1:8000/api/tickets?status=open" `
 | `GET /api/sessions/{id}/events` | Server-sent events: replays everything after `Last-Event-ID` (or `?after=`), then streams live; heartbeat every 15 s |
 | `POST /api/sessions/{id}/tools/{name}` | Run a tool directly: **dev / demo only** (`COMPASS_DEV_TOOLS=1`, otherwise 404) |
 | `GET /api/tickets?status=open` | Representative inbox (**rep token**) |
-| `POST /api/tickets/{id}/answer` | `{answer_text?, quick_answer_id?, values?, effective_from?}` (**rep token**): values are validated like `save_profile` and fill the blocking fields (source `representative`); blocking fields left without a value become `unknown`. Resumes the session and appends `ticket_answered` to the employee's stream |
+| `POST /api/tickets/{id}/answer` | `{answer_text?, quick_answer_id?, values?, effective_from?}` (**rep token**): values are validated like `save_profile` and fill the blocking fields (source `representative`); blocking fields left without a value become `unknown`. Resumes the session and appends `ticket_answered` to the employee's stream, then (if a comparison waited for that participation) a `comparison_ready` the server recomputed with the answer (`origin: "server"`, not pending), whether or not the model compares again |
 | `GET /api/rules`, `/api/catalog`, `/api/occupations` | Read-only data for the UI (money as exact strings) |
+| `GET /api/admin/stats` | Judges mode's stats tiles (**admin token**), read from the committed `evals/report.md`, `evals/spend.jsonl` and `tests/counts.json`; a part whose file is missing is null |
 | `POST /api/admin/reload-rules` | Re-read and validate `rules.yaml` live (**admin token**). Invalid → 422 with the readable message, and the previous rules stay active |
 | `GET /api/health` | ok, the rules version and SHA-256, and the data versions |
 

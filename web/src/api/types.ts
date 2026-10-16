@@ -96,6 +96,7 @@ export interface PayloadByType {
     recomputed_from?: number;
     ticket_id?: string;
     pending_field?: string;
+    answered_field?: string; // the server settled it when the rep answered this field
     [key: string]: unknown;
   };
   ticket_opened: { ticket: Ticket };
@@ -154,6 +155,24 @@ export interface Health {
   llm: "anthropic" | "scripted" | "none";
   demo_scripts: DemoScript[] | null;
   dev_tools: boolean;
+}
+
+/** GET /api/admin/stats: judges mode's tiles, from committed files. Money is display-ready
+ * USD strings; a part is null when its file is missing. */
+export interface JudgesStats {
+  evals: {
+    run_at: string;
+    model: string;
+    effort: string;
+    repeat: number;
+    scenarios_passed: number;
+    scenarios_total: number;
+    runs_passed: number;
+    runs_total: number;
+  } | null;
+  spend: { total_usd: string; calls: number; cap_usd: string | null } | null;
+  tests: { pytest: number; vitest: number; as_of: string } | null;
+  cost_per_conversation: { usd: string; runs: number } | null;
 }
 
 export interface AnswerError {

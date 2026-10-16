@@ -189,6 +189,7 @@ def test_docs_list_every_endpoint(client: TestClient) -> None:
         "/api/catalog",
         "/api/occupations",
         "/api/admin/reload-rules",
+        "/api/admin/stats",
         "/api/health",
     }
 

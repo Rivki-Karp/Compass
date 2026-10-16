@@ -35,6 +35,7 @@ from compass.api.agent import AgentRunner
 from compass.api.broker import TICKETS, Broker
 from compass.api.redact import public_message, public_payload
 from compass.api.settings import Settings
+from compass.api.stats import judges_stats
 from compass.config import CATALOG_JSON, OCCUPATIONS_JSON
 from compass.engine.context import ContextError
 from compass.engine.serialize import plain_json
@@ -408,6 +409,12 @@ def create_app(
         return [o.model_dump(mode="json") for o in services.ctx.occupations.values()]
 
     # --- admin ----------------------------------------------------------------------------
+
+    @api.get("/admin/stats", tags=["admin"], dependencies=[admin_only])
+    def admin_stats() -> dict[str, Any]:
+        """Judges mode's stats tiles, from committed files (evals/report.md, evals/spend.jsonl,
+        tests/counts.json). A part whose file is missing or unreadable is null."""
+        return judges_stats()
 
     @api.post("/admin/reload-rules", tags=["admin"], dependencies=[admin_only])
     def reload_rules() -> JSONResponse:

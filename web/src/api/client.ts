@@ -1,6 +1,6 @@
 /** The REST side of the API (same origin: Vite proxies /api in dev, FastAPI serves the build). */
 
-import type { AnswerError, Health, TicketWithView } from "./types";
+import type { AnswerError, Health, JudgesStats, TicketWithView } from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -35,6 +35,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ text }),
     }),
+  judgesStats: (token: string) => request<JudgesStats>("/admin/stats", {}, token),
   openTickets: (token: string) => request<TicketWithView[]>("/tickets?status=open", {}, token),
   answerTicket: (token: string, ticketId: string, values: Record<string, unknown>) =>
     request<unknown>(

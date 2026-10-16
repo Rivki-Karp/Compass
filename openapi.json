@@ -189,6 +189,35 @@
         ]
       }
     },
+    "/api/admin/stats": {
+      "get": {
+        "description": "Judges mode's stats tiles, from committed files (evals/report.md, evals/spend.jsonl,\ntests/counts.json). A part whose file is missing or unreadable is null.",
+        "operationId": "admin_stats_api_admin_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Admin Stats Api Admin Stats Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "AdminToken": []
+          }
+        ],
+        "summary": "Admin Stats",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/catalog": {
       "get": {
         "operationId": "get_catalog_api_catalog_get",
