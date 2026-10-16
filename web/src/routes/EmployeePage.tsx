@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { BreakdownList } from "../employee/BreakdownList";
 import { ChatPanel } from "../employee/ChatPanel";
 import { EmptyComparison } from "../employee/EmptyComparison";
 import { HeroAnnouncement, HeroCard } from "../employee/HeroCard";
@@ -10,6 +9,7 @@ import { useHealth } from "../lib/useHealth";
 import { useSession } from "../state/useSession";
 import { ConnectionPill, DemoBadge, Header, JudgesToggle } from "../ui/Header";
 import { TokenDialog } from "../ui/TokenDialog";
+import { Waterfall } from "../waterfall/Waterfall";
 
 /** The employee screen (brief §4.2): chat on the right, the comparison on the left. */
 export function EmployeePage() {
@@ -88,7 +88,7 @@ export function EmployeePage() {
           {comparison ? (
             <>
               <HeroCard comparison={comparison} />
-              <BreakdownList view={comparison.view} />
+              <Waterfall view={comparison.view} />
               <InputsCard view={comparison.view} />
             </>
           ) : (

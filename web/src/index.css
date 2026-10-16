@@ -108,6 +108,14 @@
   .motion-needle {
     transition: transform 300ms ease-out;
   }
+  /* waterfall bars and their labels move to new heights; numbers never interpolate */
+  .motion-bar {
+    transition:
+      transform 300ms ease-out,
+      height 300ms ease-out,
+      top 300ms ease-out,
+      fill 200ms ease-out;
+  }
   .motion-settle {
     transition:
       opacity 300ms ease-out,
