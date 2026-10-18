@@ -71,18 +71,34 @@ def event_types(services: Services, sid: str) -> list[str]:
 # --- the basic loop ---------------------------------------------------------------------------
 
 
+def last_reply(services: Services, sid: str) -> dict[str, Any]:
+    events = services.store.events_after(sid)
+    return [e.payload for e in events if e.type == "assistant_message"][-1]
+
+
 def test_text_reply(services: Services, sid: str) -> None:
     runner, llm = make_runner(services, [text_response("שלום! מה התפקיד שלך?")])
     say(runner, sid, "היי")
     outcome = runner.last_outcome[sid]
     assert (outcome.kind, outcome.text) == ("reply", "שלום! מה התפקיד שלך?")
-    assert event_types(services, sid)[-4:] == [
+    assert event_types(services, sid)[-5:] == [
         "user_message",
         "agent_started",
         "guard_check",
         "assistant_message",
+        "agent_finished",
     ]
-    reply = services.store.events_after(sid)[-1].payload
+    finished = services.store.events_after(sid)[-1].payload
+    assert finished["outcome"] == "reply" and finished["rounds"] == 0
+    assert finished["model"] == "scripted" and finished["cost_usd"] is None  # no price entry
+    assert set(finished["usage"]) == {
+        "input_tokens",
+        "output_tokens",
+        "cache_read_input_tokens",
+        "cache_creation_input_tokens",
+    }
+    assert finished["latency_ms"] >= 0
+    reply = last_reply(services, sid)
     assert reply["text"] == "שלום! מה התפקיד שלך?" and reply["comparison_ref"] is None
     (call,) = llm.calls
     assert call.system == "SYSTEM" and len(call.tools) == 9
@@ -117,7 +133,12 @@ def test_tool_loop(services: Services, sid: str) -> None:
     assert '"exact"' not in results[1]["content"] and '"display_diff":2914' in results[1]["content"]
     types = event_types(services, sid)
     assert types.count("tool_call") == 3 and types.count("tool_result") == 3
-    reply = services.store.events_after(sid)[-1].payload
+    # tool_result carries the full result too (judges mode; redacted for everyone else).
+    compare_result = [
+        e.payload for e in services.store.events_after(sid) if e.type == "tool_result"
+    ][-1]
+    assert compare_result["result"]["comparison"]["display_diff"] == 2914
+    reply = last_reply(services, sid)
     comparison = [e for e in services.store.events_after(sid) if e.type == "comparison_ready"]
     assert reply["comparison_ref"] == comparison[-1].seq
 
@@ -353,13 +374,20 @@ def test_through_the_api(tmp_path: Path) -> None:
         holder["r"] = build_claude_runner(settings, services, llm=llm, tool_runner=tool_runner)
         return holder["r"]
 
-    app = create_app(Settings(app_db=tmp_path / "a.db"), agent_factory=factory)
+    settings = Settings(app_db=tmp_path / "a.db", admin_token="adm")
+    app = create_app(settings, agent_factory=factory)
     with TestClient(app) as client:
         sid = client.post("/api/sessions").json()["id"]
         response = client.post(f"/api/sessions/{sid}/messages", json={"text": "מפתחת תוכנה"})
         assert response.status_code == 202  # returns at once; the agent runs in the background
         assert holder["r"].wait_idle(10)
         snapshot = client.get(f"/api/sessions/{sid}").json()
+        full = client.get(f"/api/sessions/{sid}", headers={"Authorization": "Bearer adm"}).json()
     assert snapshot["slots"]["group"]["value"] == "ב"  # the tool really ran
-    roles = [m["role"] for m in snapshot["messages"]]
+    # Without the admin token: the employee's message and the shown reply's text only.
+    assert [(m["role"], m["content"]["text"]) for m in snapshot["messages"]] == [
+        ("user", "מפתחת תוכנה"),
+        ("assistant", "רשמתי."),
+    ]
+    roles = [m["role"] for m in full["messages"]]
     assert roles == ["user", "system_event", "assistant", "tool", "assistant"]

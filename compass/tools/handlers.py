@@ -5,7 +5,8 @@ from the data files; no handler calculates money. Expected failures raise ToolEr
 runner turns into {"ok": false, "error": {...}}.
 """
 
-from collections.abc import Mapping
+import logging
+from collections.abc import Callable, Mapping
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -46,6 +47,9 @@ from compass.tools.profile import (
     tool_fields,
 )
 from compass.tools.services import Services
+from compass.tools.view import build_view
+
+log = logging.getLogger(__name__)
 
 SCENARIO = TypeAdapter(Scenario)
 
@@ -499,8 +503,18 @@ def compare(services: Services, session_id: str, data: CompareInput) -> dict[str
         _alternative(services, session_id, data.alternative),
         explicit=data.alternative.participation is not None,
     )
-    kind = services.store.record_comparison(session_id, scenario.model_dump(mode="json"), payload)
+    kind = _record_comparison(services, session_id, scenario, payload)
     return {"alternative_kind": kind, **payload}
+
+
+def _record_comparison(
+    services: Services, session_id: str, scenario: Scenario, payload: dict[str, Any]
+) -> str:
+    """Store the comparison and emit comparison_ready with its display-ready `view` (the event
+    only: the tool result stays as it was, so the model never sees the UI's labels)."""
+    alternative = scenario.model_dump(mode="json")
+    view = build_view(services, session_id, alternative, payload)
+    return services.store.record_comparison(session_id, alternative, {**payload, "view": view})
 
 
 def _comparison(
@@ -565,7 +579,9 @@ def list_options(services: Services, session_id: str, data: ListOptionsInput) ->
             return candidate
         stated = data.participation.get(candidate.car_id)
         if stated is not None:
-            candidate = candidate.model_copy(update={"participation": stated})
+            candidate = candidate.model_copy(
+                update={"participation": stated, "participation_source": "employee_input"}
+            )
         resolved, info = _with_participation(
             candidate,
             slots,
@@ -707,7 +723,60 @@ def ask_representative(
         pending_slots=[slot_name(f) for f in data.blocking_fields],
     )
     _recompute_as_pending(services, session_id, ticket.id, data.blocking_fields)
-    return {"ticket_id": ticket.id, "status": ticket.status, "context": context}
+    provisional = _provisional_comparisons(services, session_id, ticket.id, data.blocking_fields)
+    result: dict[str, Any] = {"ticket_id": ticket.id, "status": ticket.status, "context": context}
+    if provisional:
+        # what compare would have returned: the model may state it (pending) without calling
+        # compare, and the guard allows its numbers (they are in this tool result)
+        result["provisional_comparisons"] = provisional
+    return result
+
+
+def _provisional_comparisons(
+    services: Services, session_id: str, ticket_id: str, fields: list[str]
+) -> list[dict[str, Any]]:
+    """A ticket for a car's participation, and no comparison of that car yet: compute one now
+    (the current profile and situation, the catalog default for the participation, no model
+    call) and emit it as a server comparison_ready, pending. The rep's answer then settles it
+    (settle_answered), whatever the model does in between. Returns each one as compare returns
+    it. Missing inputs: nothing is emitted (logged); the model asks for them as usual."""
+    compared = {
+        e.payload["alternative"].get("car_id")
+        for e in services.store.events_after(session_id)
+        if e.type == "comparison_ready"
+    }
+    results: list[dict[str, Any]] = []
+    for field in fields:
+        if not field.startswith(ALTERNATIVE_PARTICIPATION):
+            continue
+        car_id = field.removeprefix(ALTERNATIVE_PARTICIPATION)
+        if car_id in compared:
+            continue  # shown already: _recompute_as_pending marks it pending if needed
+        try:
+            alternative = _alternative(
+                services, session_id, AlternativeInput(kind="car", car_id=car_id)
+            )
+            scenario, payload = _comparison(services, session_id, alternative, explicit=False)
+        except ToolError as error:
+            log.info("no provisional comparison for %s in %s: %s", car_id, session_id, error)
+            continue
+        if payload["missing"]:
+            log.info(
+                "no provisional comparison for %s in %s: missing %s",
+                car_id,
+                session_id,
+                payload["missing"],
+            )
+            continue
+        kind = _record_comparison(
+            services,
+            session_id,
+            scenario,
+            {**payload, "origin": "server", "ticket_id": ticket_id, "pending_field": field},
+        )
+        compared.add(car_id)
+        results.append({"ok": True, "alternative_kind": kind, **payload})
+    return results
 
 
 def _uses_catalog_default(payload: Mapping[str, Any], field: str) -> bool | None:
@@ -726,15 +795,75 @@ def _recompute_as_pending(
     participation, whatever order the model called the tools in. Recompute the latest
     comparison that used the field (same alternative, no model call) and append it as a
     server-emitted comparison_ready with pending_rep. compare's own result is unchanged."""
+    _recompute_latest(
+        services, session_id, ticket_id, fields, _uses_catalog_default, "pending_field"
+    )
+
+
+def _uses_pending(payload: Mapping[str, Any], field: str) -> bool | None:
+    """Whether this comparison waited for `field` (None: it didn't use it)."""
+    if field == CURRENT_PARTICIPATION:
+        return bool(payload["today_participation"]["pending_rep"])
+    if payload["alternative"].get("car_id") != field.removeprefix(ALTERNATIVE_PARTICIPATION):
+        return None
+    return bool(payload["pending_rep"])
+
+
+def settle_answered(services: Services, session_id: str, ticket_id: str, fields: list[str]) -> None:
+    """The representative answered: the comparison that waited for the answer must turn final
+    without depending on the model calling compare again. Recompute the latest comparison that
+    used each answered field, if it was pending (same alternative, the answer now in the slot,
+    no model call), and append it as a server-emitted comparison_ready. A later compare by the
+    model gives the same numbers."""
+    _recompute_latest(services, session_id, ticket_id, fields, _uses_pending, "answered_field")
+
+
+# Keys a server-emitted comparison_ready adds to compare's own result.
+_EVENT_ONLY = frozenset(
+    {
+        "alternative",
+        "view",
+        "origin",
+        "recomputed_from",
+        "ticket_id",
+        "pending_field",
+        "answered_field",
+    }
+)
+
+
+def settled_compare_results(
+    services: Services, session_id: str, ticket_id: str
+) -> list[dict[str, Any]]:
+    """The comparisons the server settled when `ticket_id` was answered, each in the exact
+    shape compare returns (what the model would have got by calling compare itself)."""
+    return [
+        {"ok": True, **{k: v for k, v in e.payload.items() if k not in _EVENT_ONLY}}
+        for e in services.store.events_after(session_id)
+        if e.type == "comparison_ready"
+        and e.payload.get("origin") == "server"
+        and e.payload.get("ticket_id") == ticket_id
+        and "answered_field" in e.payload
+    ]
+
+
+def _recompute_latest(
+    services: Services,
+    session_id: str,
+    ticket_id: str,
+    fields: list[str],
+    needs_recompute: Callable[[Mapping[str, Any], str], bool | None],
+    field_key: str,
+) -> None:
     comparisons = [
         e for e in services.store.events_after(session_id) if e.type == "comparison_ready"
     ]
-    targets: dict[int, str] = {}  # event seq -> the field it waits for
+    targets: dict[int, str] = {}  # event seq -> the field it concerns
     for field in fields:
         if not is_participation(field):
             continue
         for event in reversed(comparisons):  # the latest comparison that used the field
-            used = _uses_catalog_default(event.payload, field)
+            used = needs_recompute(event.payload, field)
             if used is not None:
                 if used:
                     targets.setdefault(event.seq, field)
@@ -750,14 +879,15 @@ def _recompute_as_pending(
             )
         except ToolError:  # the profile changed since and no longer computes: nothing to redo
             continue
-        services.store.record_comparison(
+        _record_comparison(
+            services,
             session_id,
-            scenario.model_dump(mode="json"),
+            scenario,
             {
                 **payload,
                 "origin": "server",
                 "recomputed_from": seq,
                 "ticket_id": ticket_id,
-                "pending_field": field,
+                field_key: field,
             },
         )

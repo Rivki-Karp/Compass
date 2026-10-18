@@ -38,6 +38,14 @@ class RunResult:
         return self.trace.guard_actions.count("template")
 
 
+def _input_of(alternative: dict[str, Any]) -> dict[str, Any]:
+    """The compare input that names a stored alternative (a car by its catalog id)."""
+    car_id = alternative.get("car_id")
+    if car_id is not None:
+        return {"alternative": {"kind": "car", "car_id": car_id}}
+    return {"alternative": {"kind": alternative.get("kind")}}
+
+
 class Harness:
     def __init__(
         self, services: Services, runner: ClaudeAgentRunner, guard: Guard, model: str
@@ -141,7 +149,12 @@ class Harness:
                     compare_input = p["input"] or {}
             elif event.type == "comparison_ready":
                 origin = p.get("recomputed_from")
-                source = compare_input if origin is None else inputs_by_seq.get(origin, {})
+                if origin is not None:  # a server recompute: the input of what it recomputes
+                    source = inputs_by_seq.get(origin, {})
+                elif p.get("origin") == "server":  # a ticket's provisional comparison (8b)
+                    source = _input_of(p["alternative"])
+                else:  # compare's own result
+                    source = compare_input
                 inputs_by_seq[event.seq] = source
                 trace.comparisons.append(Comparison(turn, source, p))
             elif event.type == "assistant_message":

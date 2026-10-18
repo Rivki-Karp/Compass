@@ -32,17 +32,22 @@ from sse_starlette import EventSourceResponse, ServerSentEvent
 from starlette.concurrency import run_in_threadpool
 
 from compass.api.agent import AgentRunner
-from compass.api.broker import Broker
+from compass.api.broker import TICKETS, Broker
+from compass.api.redact import public_message, public_payload
 from compass.api.settings import Settings
+from compass.api.spa import mount_spa
+from compass.api.stats import judges_stats
 from compass.config import CATALOG_JSON, OCCUPATIONS_JSON
 from compass.engine.context import ContextError
 from compass.engine.serialize import plain_json
+from compass.labels import error_message
 from compass.rules import RulesError
 from compass.state import NotFound, Store
 from compass.tools import ToolRunner
 from compass.tools.services import Services
 from compass.tools.tickets import TicketAnswerError
 from compass.tools.tickets import answer_ticket as answer_ticket_with_rules
+from compass.tools.view import build_ticket_view
 
 
 class _Body(BaseModel):
@@ -103,6 +108,28 @@ def _token_guard(
             raise HTTPException(
                 401, f"missing or invalid {role} token", headers={"WWW-Authenticate": "Bearer"}
             )
+
+    return check
+
+
+def _optional_token(
+    expected: str | None, scheme: HTTPBearer, role: str, env_var: str
+) -> Callable[..., bool]:
+    """Dependency: True with a valid `Authorization: Bearer <token>`, False without one. A token
+    that is given but wrong is an error (401), never a silent downgrade; unconfigured -> 503."""
+
+    def check(
+        credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(scheme)],
+    ) -> bool:
+        if credentials is None:
+            return False
+        if not expected:
+            raise HTTPException(503, f"{role} access is not configured (set {env_var})")
+        if not hmac.compare_digest(credentials.credentials.encode(), expected.encode()):
+            raise HTTPException(
+                401, f"missing or invalid {role} token", headers={"WWW-Authenticate": "Bearer"}
+            )
+        return True
 
     return check
 
@@ -177,6 +204,14 @@ def create_app(
         )
     )
 
+    admin_optional = _optional_token(
+        settings.admin_token,
+        HTTPBearer(auto_error=False, scheme_name="AdminToken"),
+        "admin",
+        "COMPASS_ADMIN_TOKEN",
+    )
+    IsAdmin = Annotated[bool, Depends(admin_optional)]
+
     def require_session(session_id: str) -> None:
         try:
             store.session_status(session_id)
@@ -190,12 +225,17 @@ def create_app(
         return SessionCreated(id=store.create_session())
 
     @api.get("/sessions/{session_id}", tags=["sessions"])
-    def get_session(session_id: str) -> dict[str, Any]:
-        """Full snapshot: everything the UI needs to restore after a refresh."""
+    def get_session(session_id: str, admin: IsAdmin) -> dict[str, Any]:
+        """Snapshot: everything the UI needs to restore after a refresh. Without the admin
+        bearer, messages are the employee's and the shown replies' text only."""
         try:
-            return store.snapshot(session_id)
+            snapshot = store.snapshot(session_id)
         except NotFound:
             raise HTTPException(404, f"session {session_id} not found") from None
+        if not admin:
+            shown = (public_message(m) for m in snapshot["messages"])
+            snapshot["messages"] = [m for m in shown if m is not None]
+        return snapshot
 
     @api.post(
         "/sessions/{session_id}/messages",
@@ -219,13 +259,15 @@ def create_app(
     async def stream_events(
         request: Request,
         session_id: str,
+        admin: IsAdmin,
         last_event_id: Annotated[int | None, Header(alias="Last-Event-ID", ge=0)] = None,
         after: Annotated[
             int | None, Query(ge=0, description="Replay after this seq (no header)")
         ] = None,
     ) -> EventSourceResponse:
         """Server-sent events. Replays everything after Last-Event-ID (or `after`), then
-        streams live; a comment heartbeat keeps the connection open."""
+        streams live; a comment heartbeat keeps the connection open. Without the admin bearer
+        each payload is redacted to its public part (compass/api/redact.py)."""
         require_session(session_id)
         start = last_event_id if last_event_id is not None else (after or 0)
 
@@ -238,10 +280,13 @@ def create_app(
                     batch = await run_in_threadpool(store.events_after, session_id, cursor)
                     for event in batch:
                         cursor = event.seq
+                        data = event.model_dump()
+                        if not admin:
+                            data["payload"] = public_payload(event.type, event.payload)
                         yield ServerSentEvent(
                             id=str(event.seq),
                             event=event.type,
-                            data=json.dumps(event.model_dump(), ensure_ascii=False),
+                            data=json.dumps(data, ensure_ascii=False),
                         )
                     if await request.is_disconnected():
                         return
@@ -269,8 +314,48 @@ def create_app(
     def list_tickets(
         status: Literal["open", "answered"] | None = None,
     ) -> list[dict[str, Any]]:
-        """The representative inbox."""
-        return [t.model_dump() for t in store.tickets(status=status)]
+        """The representative inbox. Each ticket has a display-ready `view` (title, the fields
+        with their catalog default, the employee's latest comparison)."""
+        return inbox(status)
+
+    def inbox(status: Literal["open", "answered"] | None) -> list[dict[str, Any]]:
+        return [
+            {**t.model_dump(), "view": build_ticket_view(services, t)}
+            for t in store.tickets(status=status)
+        ]
+
+    @api.get(
+        "/tickets/events",
+        tags=["representative"],
+        dependencies=[rep_only],
+        response_class=EventSourceResponse,
+        responses={200: {"content": {"text/event-stream": {}}}},
+    )
+    async def stream_tickets(request: Request) -> EventSourceResponse:
+        """Server-sent events for the inbox: a `tickets` event with every open ticket (as in
+        GET /tickets?status=open) on connect and whenever the list or a ticket's comparison
+        changes. Each event is the whole list, so a reconnect needs no replay."""
+
+        async def events() -> AsyncIterator[ServerSentEvent]:
+            waiter = broker.subscribe(TICKETS)
+            last: str | None = None
+            try:
+                while True:
+                    waiter.clear()
+                    tickets = await run_in_threadpool(inbox, "open")
+                    data = json.dumps({"tickets": tickets}, ensure_ascii=False)
+                    if data != last:
+                        last = data
+                        yield ServerSentEvent(event="tickets", data=data)
+                    if await request.is_disconnected():
+                        return
+                    with suppress(TimeoutError):
+                        await asyncio.wait_for(waiter.wait(), timeout=settings.heartbeat_seconds)
+            finally:
+                broker.unsubscribe(TICKETS, waiter)
+
+        ping = max(1, round(settings.heartbeat_seconds))
+        return EventSourceResponse(events(), ping=ping)
 
     @api.post("/tickets/{ticket_id}/answer", tags=["representative"], dependencies=[rep_only])
     def answer_ticket(ticket_id: str, body: TicketAnswer) -> dict[str, Any]:
@@ -287,7 +372,21 @@ def create_app(
                 effective_from=body.effective_from,
             )
         except TicketAnswerError as error:
-            raise HTTPException(error.status, error.detail) from None
+            # `detail` as before (English); `errors` adds a code and a Hebrew message per reason.
+            return JSONResponse(
+                status_code=error.status,
+                content={
+                    "detail": error.detail,
+                    "errors": [
+                        {
+                            "code": e.code,
+                            "field": e.field,
+                            "message": error_message(e.code, e.params),
+                        }
+                        for e in error.errors
+                    ],
+                },
+            )
         agent.on_ticket_answered(answered.session_id, ticket_id)
         return answered.model_dump()
 
@@ -312,6 +411,12 @@ def create_app(
 
     # --- admin ----------------------------------------------------------------------------
 
+    @api.get("/admin/stats", tags=["admin"], dependencies=[admin_only])
+    def admin_stats() -> dict[str, Any]:
+        """Judges mode's stats tiles, from committed files (evals/report.md, evals/spend.jsonl,
+        tests/counts.json). A part whose file is missing or unreadable is null."""
+        return judges_stats()
+
     @api.post("/admin/reload-rules", tags=["admin"], dependencies=[admin_only])
     def reload_rules() -> JSONResponse:
         """Re-read and validate rules.yaml live. Invalid -> 422; the previous rules stay."""
@@ -327,6 +432,20 @@ def create_app(
                 },
             )
         return JSONResponse({"version": rules.version, "sha256": services.rules_sha256})
+
+    llm_mode = (
+        "scripted"
+        if settings.llm == "scripted"
+        else "anthropic"
+        if settings.anthropic_api_key
+        else "none"
+    )
+
+    scripts = None
+    if llm_mode == "scripted":
+        from compass.agent.demo_llm import demo_scripts  # the agent layer sits above the API
+
+        scripts = demo_scripts()
 
     @api.get("/health", tags=["admin"])
     def health() -> dict[str, Any]:
@@ -345,7 +464,13 @@ def create_app(
                 "value_of_use_year": rules.value_of_use.tax_year,
             },
             "dev_tools": settings.dev_tools,
+            # "scripted": demo mode (the UI shows its badge and the scripts' messages).
+            "llm": llm_mode,
+            "demo_scripts": scripts,
         }
 
     app.include_router(api)
+    # The web UI last, so it can never shadow an API route (see spa.py).
+    if settings.web_dist is not None and (settings.web_dist / "index.html").is_file():
+        mount_spa(app, settings.web_dist)
     return app

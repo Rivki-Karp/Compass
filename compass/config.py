@@ -16,8 +16,10 @@ RAW_CHALLENGE_XLSX: Path = RAW_DIR / "strauss_challenge_data.xlsx"
 
 # Generated / curated data
 VEHICLES_DB: Path = DATA_DIR / "vehicles.db"
+WEB_DIST: Path = REPO_ROOT / "web" / "dist"  # `tasks.py build-web` (git-ignored)
 CATALOG_JSON: Path = DATA_DIR / "catalog.json"
 OCCUPATIONS_JSON: Path = DATA_DIR / "occupations.json"
 RULES_YAML: Path = DATA_DIR / "rules.yaml"
 ALIASES_YAML: Path = DATA_DIR / "aliases.yaml"
 APP_DB: Path = DATA_DIR / "app.db"  # session store (git-ignored)
+DEMO_DB: Path = DATA_DIR / "demo.db"  # demo mode's own session store (git-ignored)

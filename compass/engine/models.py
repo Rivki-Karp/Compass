@@ -65,26 +65,51 @@ class EmployeeProfile(_Frozen):
 ParticipationSource = Literal["employee_input", "catalog_default", "representative"]
 # "employee_input": today's existing maintenance (CurrentMaintenance).
 MaintenanceSource = Literal["occupation", "representative", "employee_input"]
+GivenParticipationSource = Literal["employee_input", "representative"]
 
 
-class CompanyCar(_Frozen):
+class _CarParticipation(_Frozen):
+    """A catalog car's participation and who supplied it: the source is set exactly when the
+    amount is given (a missing amount means the catalog default, decided by the engine)."""
+
+    participation: OptionalAmount = None
+    participation_source: GivenParticipationSource | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_source(cls, data: Any) -> Any:
+        """A given amount defaults to the employee's. Scenarios stored before this rule said
+        "employee_input" for a missing amount: that is read as no source."""
+        if not isinstance(data, dict):
+            return data
+        given = data.get("participation") is not None
+        source = data.get("participation_source")
+        if given and source is None:
+            return {**data, "participation_source": "employee_input"}
+        if not given and source == "employee_input":
+            return {**data, "participation_source": None}
+        return data
+
+    @model_validator(mode="after")
+    def _source_matches_value(self) -> "_CarParticipation":
+        if (self.participation is None) != (self.participation_source is None):
+            raise ValueError("participation_source is set exactly when participation is given")
+        return self
+
+
+class CompanyCar(_CarParticipation):
     """A regular (budget-group) company car."""
 
     kind: Literal["company_car"] = "company_car"
     car_id: str
-    # None -> catalog default_employee_participation (source "catalog_default").
-    participation: OptionalAmount = None
-    # Who supplied `participation` when it is given.
-    participation_source: Literal["employee_input", "representative"] = "employee_input"
+    # participation None -> catalog default_employee_participation (see _CarParticipation).
 
 
-class FamilyCar(_Frozen):
+class FamilyCar(_CarParticipation):
     """A family-track car (rules.family_track.cars)."""
 
     kind: Literal["family_car"] = "family_car"
     car_id: str
-    participation: OptionalAmount = None
-    participation_source: Literal["employee_input", "representative"] = "employee_input"
 
 
 class Waiver(_Frozen):
@@ -212,13 +237,18 @@ class DisplayDeltaLine(_Frozen):
     net_effect: int  # same convention as DeltaLine, whole ILS
 
 
+WarningCode = Literal[
+    "group_mismatch_with_occupation",
+    "current_car_above_group",
+    "current_car_not_in_catalog",
+]
+
+
 class EngineWarning(_Frozen):
     """Non-blocking: something the employee or representative should double-check.
+    Every code has a Hebrew message in compass.labels."""
 
-    Codes: group_mismatch_with_occupation, current_car_above_group, current_car_not_in_catalog.
-    """
-
-    code: str
+    code: WarningCode
     facts: FrozenFacts = Field(default_factory=dict)
 
 

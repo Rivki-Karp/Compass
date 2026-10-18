@@ -16,7 +16,8 @@ from typing import Any
 
 from compass.agent.prompts import opening_message
 from compass.agent.runner import ClaudeAgentRunner
-from compass.demo import BREAKDOWN_ROWS, DELTA_LABELS, WIDTH
+from compass.demo import WIDTH
+from compass.labels import BREAKDOWN_ROWS, DELTA_LABELS
 from compass.state import Event
 from compass.tools.profile import TOOL_OF, to_tool_value
 from compass.tools.services import Services

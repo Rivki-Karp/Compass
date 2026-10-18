@@ -170,7 +170,12 @@ def test_rep_flow_with_a_scripted_model(services: Services) -> None:
     steps = _rep_flow_steps(tool_response(("ask_representative", ASK_ATTO), ("compare", ATTO)))
     run = _run(services, steps, scenario)
     assert run.passed, _failed(run)
-    assert not any(c.result.get("origin") for c in run.trace.comparisons)
+    # The server's comparisons: the ticket's provisional one (turn 2, pending; 8b) and the
+    # settle when the representative answers (turn 3).
+    servers = [
+        (c.turn, c.result["pending_rep"]) for c in run.trace.comparisons if c.result.get("origin")
+    ]
+    assert servers == [(2, True), (3, False)]
 
 
 def test_rep_flow_with_compare_before_ask_representative(services: Services) -> None:
@@ -187,7 +192,33 @@ def test_rep_flow_with_compare_before_ask_representative(services: Services) -> 
     origins = [
         (c.turn, c.result.get("origin"), c.result["pending_rep"]) for c in run.trace.comparisons
     ]
-    assert origins == [(2, None, False), (2, "server", True), (3, None, False)]
+    # compare, the server's pending recompute, the server's settle on the answer, compare again
+    assert origins == [
+        (2, None, False),
+        (2, "server", True),
+        (3, "server", False),
+        (3, None, False),
+    ]
+
+
+def test_rep_flow_passes_on_the_server_settle_without_compare(services: Services) -> None:
+    # 6b: the rep notification carries the settled comparison; the model may state it as is.
+    scenario = next(s for s in load_all(["e001_rep_flow"])).model_dump(mode="json")
+    steps = _rep_flow_steps(tool_response(("ask_representative", ASK_ATTO), ("compare", ATTO)))
+    without_compare = [*steps[:-2], text_response("הנציג אישר 350 ₪: +611 ₪ בחודש.")]
+    run = _run(services, without_compare, scenario)
+    assert run.passed, _failed(run)
+    assert [c.name for c in run.trace.calls if c.turn == 3] == []
+
+
+def test_rep_flow_fails_when_the_reply_states_another_number(services: Services) -> None:
+    scenario = next(s for s in load_all(["e001_rep_flow"])).model_dump(mode="json")
+    steps = _rep_flow_steps(tool_response(("ask_representative", ASK_ATTO), ("compare", ATTO)))
+    vague = [*steps[:-2], text_response("הנציג ענה, והחישוב בכרטיס עודכן.")]
+    run = _run(services, vague, scenario)
+    assert not run.passed
+    failed = [r.label for r in run.results if not r.passed]
+    assert failed == ["reply {'turn': 3} (1 patterns)"], failed
 
 
 def test_a_rep_turn_without_a_ticket_is_a_failure(services: Services) -> None:
@@ -229,6 +260,33 @@ def test_comparison_check_picks_the_last_matching_compare() -> None:
     assert evaluate(trace, [early])[0].passed
 
 
+def test_comparison_check_by_origin() -> None:
+    def comparison(turn: int, diff: int, origin: str | None) -> Comparison:
+        result: dict[str, Any] = {
+            "comparison": {
+                "today": {"display": {"net": 1}},
+                "alternative": {"display": {"net": 2}, "metadata": {"maintenance_source": None}},
+                "display_diff": diff,
+                "partial": False,
+            },
+            "participation_source": "representative",
+            "pending_rep": False,
+            "hypothetical": False,
+        }
+        if origin:
+            result["origin"] = origin
+        return Comparison(turn, {"alternative": {"kind": "car"}}, result)
+
+    settled_only = Trace(comparisons=[comparison(3, 611, "server")])
+    with_compare = Trace(comparisons=[comparison(3, 611, "server"), comparison(3, 999, None)])
+    server = {"comparison": {"origin": "server", "turn": 3, "diff": 611}}
+    tool = {"comparison": {"origin": "tool", "diff": 611}}
+    assert evaluate(settled_only, [server])[0].passed  # no compare needed
+    assert evaluate(with_compare, [server])[0].passed  # the settle, not the later compare
+    assert not evaluate(settled_only, [tool])[0].passed  # no compare: nothing to look at
+    assert not evaluate(with_compare, [tool])[0].passed  # compare said 999
+
+
 # --- ledger and report ----------------------------------------------------------------------
 
 
@@ -266,3 +324,20 @@ def test_report_renders_the_table_and_failures(services: Services) -> None:
     assert "| walkthrough | 0/1 | 4.0 |" in report
     assert "### walkthrough: FAIL" in report and "❌ comparison" in report
     assert "Shown replies failing the guard: 0" in report
+
+
+def test_rep_flow_with_ask_only_passes_on_the_provisional_comparison(services: Services) -> None:
+    # 8b: the model only opens the ticket; the server computes the provisional comparison
+    # (+661, pending) and settles it on the answer (+611). The model states both, no compare.
+    scenario = next(s for s in load_all(["e001_rep_flow"])).model_dump(mode="json")
+    steps = [
+        *_rep_flow_steps(tool_response(("ask_representative", ASK_ATTO)))[:-2],
+        text_response("הנציג אישר 350 ₪: +611 ₪ בחודש."),
+    ]
+    run = _run(services, steps, scenario)
+    assert run.passed, _failed(run)
+    assert [c.name for c in run.trace.calls if c.name == "compare"] == []
+    shown = [
+        (c.turn, c.result.get("origin"), c.result["pending_rep"]) for c in run.trace.comparisons
+    ]
+    assert shown == [(2, "server", True), (3, "server", False)]

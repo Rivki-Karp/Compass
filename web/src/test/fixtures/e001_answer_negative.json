@@ -1,0 +1,12 @@
+{
+ "detail": [
+  "alternative_participation:CAR-10: must be 0-20,000 (got -50)"
+ ],
+ "errors": [
+  {
+   "code": "out_of_range",
+   "field": "alternative_participation:CAR-10",
+   "message": "הערך צריך להיות בין 0 ל-20,000."
+  }
+ ]
+}

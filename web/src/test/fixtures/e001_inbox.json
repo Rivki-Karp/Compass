@@ -1,0 +1,41 @@
+[
+ {
+  "id": "282126f9fbcd4e87aa6680e74f4be9f4",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "question": "מה גובה ההשתתפות העצמית החודשית ב-ATTO 3?",
+  "context": {
+   "display_name": null,
+   "occupation": "מנהל/ת מוצר",
+   "group": "ג",
+   "current_situation": "COROLLA CROSS",
+   "requested_alternative": null
+  },
+  "blocking_fields": [
+   "alternative_participation:CAR-10"
+  ],
+  "quick_answers": [],
+  "status": "open",
+  "answer": null,
+  "created_at": "2026-10-18T08:19:54.316+00:00",
+  "answered_at": null,
+  "view": {
+   "version": 1,
+   "title": "השתתפות עצמית · ATTO 3",
+   "fields": [
+    {
+     "field": "alternative_participation:CAR-10",
+     "label": "השתתפות בחלופה",
+     "unit": "ils",
+     "car_id": "CAR-10",
+     "car_name": "ATTO 3",
+     "catalog_default": 300
+    }
+   ],
+   "comparison": {
+    "alternative_title": "ATTO 3",
+    "display_diff": 661,
+    "pending": true
+   }
+  }
+ }
+]

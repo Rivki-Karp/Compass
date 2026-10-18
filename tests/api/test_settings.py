@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from compass.api import Settings
-from compass.config import APP_DB, REPO_ROOT
+from compass.config import APP_DB, DEMO_DB, REPO_ROOT
 
 ENV_VARS = (
     "COMPASS_DEV_TOOLS",
@@ -14,6 +14,8 @@ ENV_VARS = (
     "COMPASS_APP_DB",
     "COMPASS_RULES",
     "COMPASS_CORS_ORIGINS",
+    "COMPASS_LLM",
+    "COMPASS_DEMO_DB",
 )
 
 
@@ -137,3 +139,64 @@ def test_real_env_file_loads_agent_settings() -> None:
     settings = Settings.from_env()
     assert settings.max_tool_rounds >= 1
     assert (settings.anthropic_api_key or "<none>") not in repr(settings)
+
+
+def test_llm_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from compass.api.settings import SettingsError
+
+    assert Settings.from_env(env_file=None).llm == "anthropic"
+    env_file = tmp_path / ".env"
+    env_file.write_text("COMPASS_LLM=scripted\n", encoding="utf-8")
+    assert Settings.from_env(env_file=env_file).llm == "scripted"
+    monkeypatch.setenv("COMPASS_LLM", "gpt")
+    with pytest.raises(SettingsError, match="COMPASS_LLM"):
+        Settings.from_env(env_file=None)
+
+
+# --- demo mode's own database ----------------------------------------------------------------
+
+
+def test_demo_mode_uses_demo_db_and_ignores_app_db(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("COMPASS_LLM=scripted\nCOMPASS_APP_DB=data/app.db\n", encoding="utf-8")
+    assert Settings.from_env(env_file=env_file).app_db == DEMO_DB
+    env_file.write_text("COMPASS_LLM=anthropic\nCOMPASS_APP_DB=data/app.db\n", encoding="utf-8")
+    assert Settings.from_env(env_file=env_file).app_db == APP_DB
+
+
+def test_demo_db_can_be_moved(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("COMPASS_LLM", "scripted")
+    monkeypatch.setenv("COMPASS_DEMO_DB", str(tmp_path / "other-demo.db"))
+    assert Settings.from_env(env_file=None).app_db == tmp_path / "other-demo.db"
+
+
+@pytest.mark.parametrize("value", ["data/app.db", str(APP_DB)])
+def test_demo_mode_never_points_at_app_db(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    from compass.api.settings import SettingsError
+
+    monkeypatch.setenv("COMPASS_LLM", "scripted")
+    monkeypatch.setenv("COMPASS_DEMO_DB", value)
+    with pytest.raises(SettingsError, match="app.db"):
+        Settings.from_env(env_file=None)
+
+
+def test_explicit_demo_settings_on_app_db_are_refused() -> None:
+    from compass.api.settings import SettingsError
+
+    with pytest.raises(SettingsError, match="demo mode"):
+        Settings(app_db=APP_DB, llm="scripted")
+    Settings(app_db=APP_DB)  # the real mode keeps app.db
+
+
+def test_demo_reset_wipes_the_demo_db_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import tasks
+
+    demo = tmp_path / "demo.db"
+    for name in ("demo.db", "demo.db-wal", "demo.db-shm", "keep.db"):
+        (tmp_path / name).write_bytes(b"x")
+    monkeypatch.setenv("COMPASS_DEMO_DB", str(demo))
+    app_db_before = APP_DB.stat().st_mtime_ns if APP_DB.exists() else None
+    tasks.demo_reset()
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["keep.db"]
+    assert (APP_DB.stat().st_mtime_ns if APP_DB.exists() else None) == app_db_before
+    tasks.demo_reset()  # nothing there: still fine

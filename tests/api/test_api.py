@@ -183,11 +183,13 @@ def test_docs_list_every_endpoint(client: TestClient) -> None:
         "/api/sessions/{session_id}/events",
         "/api/sessions/{session_id}/tools/{name}",
         "/api/tickets",
+        "/api/tickets/events",
         "/api/tickets/{ticket_id}/answer",
         "/api/rules",
         "/api/catalog",
         "/api/occupations",
         "/api/admin/reload-rules",
+        "/api/admin/stats",
         "/api/health",
     }
 

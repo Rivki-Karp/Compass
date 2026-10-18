@@ -28,3 +28,85 @@ jobs:
 
       - name: Test
         run: uv run python tasks.py test
+
+  web:
+    # The UI: no API calls, no network beyond npm. Node is pinned in web/.nvmrc.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npx vitest run --reporter=default --reporter=json --outputFile=vitest-results.json
+
+      - name: Test count matches tests/counts.json (judges mode shows it)
+        run: |
+          node -e '
+            const ran = require("./vitest-results.json").numTotalTests;
+            const committed = require("../tests/counts.json").vitest;
+            if (ran !== committed) {
+              console.error(`vitest ran ${ran} tests, tests/counts.json says ${committed}: run uv run python tasks.py test-counts`);
+              process.exit(1);
+            }
+            console.log(`vitest: ${ran} tests, as committed`);
+          '
+
+      - name: Build
+        run: npm run build
+
+  e2e:
+    # Playwright, demo mode: the real API (scripted model, no key, no network) serving the build.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python 3.12 and dependencies, build data from raw/
+        run: |
+          uv python install 3.12
+          uv run python tasks.py install
+          uv run python tasks.py data
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install the UI and the browser
+        working-directory: web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: End to end
+        working-directory: web
+        run: npm run e2e
+
+      - name: Keep the report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web/playwright-report

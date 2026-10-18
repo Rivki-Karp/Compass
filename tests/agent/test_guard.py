@@ -108,6 +108,19 @@ def test_waiver_reply_passes(services: Services, waiver_sid: str) -> None:
     assert verdict.numbers == ["11,000", "13,914", "+2,914"]
 
 
+def test_each_permitted_number_names_its_source(services: Services, waiver_sid: str) -> None:
+    verdict = make_guard(services.store)("מ-11,000 ₪ ל-13,914 ₪: +2,914 ₪, 2 שלבים.", waiver_sid)
+    assert verdict.passed
+    assert verdict.sources == {
+        "11,000": "compare",
+        "13,914": "compare",
+        "+2,914": "compare",
+        "2": "harmless",  # a small count
+    }
+    rejected = make_guard(services.store)("הפרש של 2,915 ₪", waiver_sid)
+    assert rejected.sources == {} and rejected.violations == ["2,915"]
+
+
 def test_old_rounding_is_a_violation(services: Services, waiver_sid: str) -> None:
     verdict = make_guard(services.store)("הנטו יעלה ב-2,915 ₪", waiver_sid)
     assert not verdict.passed and verdict.violations == ["2,915"]
@@ -156,7 +169,9 @@ def test_rep_answer_values_are_allowed(services: Services, atto_sid: str) -> Non
         emit_event=False,
     )
     guard = make_guard(services.store)
-    assert guard("הנציג אישר השתתפות של 350 ₪ החל מ-1/11/2026.", atto_sid).passed
+    verdict = guard("הנציג אישר השתתפות של 350 ₪ החל מ-1/11/2026.", atto_sid)
+    assert verdict.passed
+    assert verdict.sources == {"350": "representative", "1/11/2026": "representative"}
 
 
 def test_forged_rep_values_are_not_allowed(services: Services, waiver_sid: str) -> None:
@@ -172,7 +187,7 @@ def test_forged_rep_values_are_not_allowed(services: Services, waiver_sid: str) 
 
 def test_fractions_allow_percent_form() -> None:
     allowed = Allowed()
-    allowed.add_json({"pension_pct": "0.065"})
+    allowed.add_json({"pension_pct": "0.065"}, "save_profile")
     assert check_text("6.5%", allowed).passed and check_text("0.065", allowed).passed
 
 

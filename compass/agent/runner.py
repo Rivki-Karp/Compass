@@ -14,9 +14,11 @@ A run:
 The transcript is append-only (see transcript.py), so the model input only ever grows.
 """
 
+import json
 import logging
 import queue
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -28,6 +30,7 @@ from compass.agent.transcript import (
     model_view,
 )
 from compass.tools import ToolRunner, tool_definitions
+from compass.tools.handlers import settled_compare_results
 from compass.tools.services import Services
 
 log = logging.getLogger(__name__)
@@ -53,6 +56,9 @@ class GuardVerdict:
     passed: bool
     numbers: list[str] = field(default_factory=list)
     violations: list[str] = field(default_factory=list)
+    # number as written -> where it comes from (a tool name, "employee", "representative",
+    # "harmless"); only the permitted ones
+    sources: dict[str, str] = field(default_factory=dict)
 
 
 # (text, session_id) -> verdict.  Stage 3 plugs in the real guard.
@@ -154,8 +160,6 @@ class ClaudeAgentRunner:
 
     def wait_idle(self, timeout: float = 30.0) -> bool:
         """Block until every queued job has run (tests, chat, evals)."""
-        import time
-
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             with self._lock:
@@ -173,6 +177,7 @@ class ClaudeAgentRunner:
     def process(self, session_id: str, job: Job) -> RunOutcome:
         """Run the agent for one job, synchronously. Never raises."""
         kind, ref = job
+        started = time.monotonic()
         try:
             self._append_trigger(session_id, kind, ref)
             start_seq = self._last_event_seq(session_id)
@@ -184,7 +189,29 @@ class ClaudeAgentRunner:
             log.exception("agent run failed for session %s", session_id)
             outcome = self._fail(session_id, "internal", type(error).__name__, ERROR_MESSAGE_HE)
         self.last_outcome[session_id] = outcome
+        self._finished(session_id, outcome, time.monotonic() - started)
         return outcome
+
+    def _finished(self, session_id: str, outcome: RunOutcome, seconds: float) -> None:
+        """agent_finished: the run is over (the UI stops its thinking indicator). Rounds, latency,
+        usage and cost are for judges mode."""
+        model = getattr(self.llm, "model", None)
+        try:
+            self.store.append_event(
+                session_id,
+                "agent_finished",
+                {
+                    "outcome": outcome.kind,
+                    "error": outcome.error,
+                    "rounds": outcome.rounds,
+                    "latency_ms": round(seconds * 1000),
+                    "model": model,
+                    "usage": vars(outcome.usage),
+                    "cost_usd": None if model is None else outcome.usage.cost_usd(model),
+                },
+            )
+        except Exception:  # the store itself failed: nothing more we can do safely
+            log.exception("could not record agent_finished for session %s", session_id)
 
     def _append_trigger(self, session_id: str, kind: str, ref: Any) -> None:
         if kind == "employee_turn":
@@ -203,6 +230,14 @@ class ClaudeAgentRunner:
                 "effective_from": answer.get("effective_from"),
                 "unknown_fields": [f for f in ticket.blocking_fields if f not in values],
             }
+            # The comparisons the server settled with this answer, as compare would have
+            # returned them to the model: it may state them without calling compare, and the
+            # guard allows their numbers (source "server").
+            settled = settled_compare_results(self.services, session_id, ticket.id)
+            if settled:
+                content["server_comparisons"] = [
+                    json.loads(model_view("compare", result)) for result in settled
+                ]
         self.store.add_message(session_id, "system_event", content, emit_event=False)
 
     def _last_event_seq(self, session_id: str) -> int:
@@ -276,6 +311,7 @@ class ClaudeAgentRunner:
                     "name": use["name"],
                     "ok": result["ok"],
                     "summary": _summary(use["name"], result),
+                    "result": result,  # the full result: judges mode only (see api/redact.py)
                 },
             )
             results.append(
@@ -325,6 +361,7 @@ class ClaudeAgentRunner:
             "passed": verdict.passed,
             "numbers": verdict.numbers,
             "violations": verdict.violations,
+            "sources": verdict.sources,
             "action": action,
         }
         if draft is not None:

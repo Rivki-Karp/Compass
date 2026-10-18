@@ -44,6 +44,7 @@ EVENT_TYPES = frozenset(
         "ticket_answered",
         # The agent (Day 3): live progress for the UI and judges mode.
         "agent_started",
+        "agent_finished",
         "tool_call",
         "tool_result",
         "guard_check",
@@ -523,6 +524,16 @@ class Store:
             )
             for r in rows
         ]
+
+    def last_comparison(self, session_id: str) -> dict[str, Any] | None:
+        """The payload of the session's latest comparison_ready, if any."""
+        with self._read() as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM events WHERE session_id = ? AND type = "
+                "'comparison_ready' ORDER BY seq DESC LIMIT 1",
+                (session_id,),
+            ).fetchone()
+        return None if row is None else json.loads(row[0])
 
     # --- snapshot ---------------------------------------------------------------------------
 

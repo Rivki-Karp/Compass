@@ -189,6 +189,35 @@
         ]
       }
     },
+    "/api/admin/stats": {
+      "get": {
+        "description": "Judges mode's stats tiles, from committed files (evals/report.md, evals/spend.jsonl,\ntests/counts.json). A part whose file is missing or unreadable is null.",
+        "operationId": "admin_stats_api_admin_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Admin Stats Api Admin Stats Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "AdminToken": []
+          }
+        ],
+        "summary": "Admin Stats",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/catalog": {
       "get": {
         "operationId": "get_catalog_api_catalog_get",
@@ -310,7 +339,7 @@
     },
     "/api/sessions/{session_id}": {
       "get": {
-        "description": "Full snapshot: everything the UI needs to restore after a refresh.",
+        "description": "Snapshot: everything the UI needs to restore after a refresh. Without the admin\nbearer, messages are the employee's and the shown replies' text only.",
         "operationId": "get_session_api_sessions__session_id__get",
         "parameters": [
           {
@@ -347,6 +376,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "AdminToken": []
+          }
+        ],
         "summary": "Get Session",
         "tags": [
           "sessions"
@@ -355,7 +389,7 @@
     },
     "/api/sessions/{session_id}/events": {
       "get": {
-        "description": "Server-sent events. Replays everything after Last-Event-ID (or `after`), then\nstreams live; a comment heartbeat keeps the connection open.",
+        "description": "Server-sent events. Replays everything after Last-Event-ID (or `after`), then\nstreams live; a comment heartbeat keeps the connection open. Without the admin bearer\neach payload is redacted to its public part (compass/api/redact.py).",
         "operationId": "stream_events_api_sessions__session_id__events_get",
         "parameters": [
           {
@@ -422,6 +456,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "AdminToken": []
+          }
+        ],
         "summary": "Stream Events",
         "tags": [
           "sessions"
@@ -555,7 +594,7 @@
     },
     "/api/tickets": {
       "get": {
-        "description": "The representative inbox.",
+        "description": "The representative inbox. Each ticket has a display-ready `view` (title, the fields\nwith their catalog default, the employee's latest comparison).",
         "operationId": "list_tickets_api_tickets_get",
         "parameters": [
           {
@@ -612,6 +651,29 @@
           }
         ],
         "summary": "List Tickets",
+        "tags": [
+          "representative"
+        ]
+      }
+    },
+    "/api/tickets/events": {
+      "get": {
+        "description": "Server-sent events for the inbox: a `tickets` event with every open ticket (as in\nGET /tickets?status=open) on connect and whenever the list or a ticket's comparison\nchanges. Each event is the whole list, so a reconnect needs no replay.",
+        "operationId": "stream_tickets_api_tickets_events_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {}
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "RepToken": []
+          }
+        ],
+        "summary": "Stream Tickets",
         "tags": [
           "representative"
         ]

@@ -1,0 +1,169 @@
+@import "tailwindcss";
+
+/* Design tokens (brief §3.2). Each is a CSS variable (--color-*, --font-*, --radius-*) and a
+   Tailwind utility (bg-navy, text-muted, border-line, rounded-card, ...). Components use these
+   names only, never raw hex values. `static`: every variable is emitted, used or not. */
+@theme static {
+  --color-*: initial;
+
+  /* brand and surfaces */
+  --color-navy: #082350;
+  --color-royal: #1f5fbf;
+  --color-steel: #2d5c94;
+  --color-mist: #b9cbdd;
+  --color-ground: #f4f7fb;
+  --color-surface: #ffffff;
+  --color-ink: #0b1b33;
+  --color-muted: #4a5b74;
+  --color-line: #dce4ee;
+  --color-line-soft: #eef2f7;
+  --color-white: #ffffff;
+  --color-transparent: transparent;
+
+  /* money direction */
+  --color-up: #0b7a5f;
+  --color-up-bg: #e3f4ee;
+  --color-down: #b4440f;
+  --color-down-bg: #fbede4;
+
+  /* source chips: text / background (/ border) */
+  --color-chip-employee: #2d5c94;
+  --color-chip-employee-bg: #eaf1fb;
+  --color-chip-occupation: #4a3a8c;
+  --color-chip-occupation-bg: #efecfa;
+  --color-chip-rep: #1f5fbf;
+  --color-chip-rep-bg: #e5eefb;
+  --color-chip-catalog: #4a5b74;
+  --color-chip-catalog-bg: #f1f3f6;
+  --color-chip-catalog-border: #c7d2e0;
+  --color-chip-pending: #7a4b00;
+  --color-chip-pending-bg: #fff1d6;
+  --color-chip-pending-border: #c98a1b;
+
+  /* surfaces used by a few components */
+  --color-bubble-border: #e3eaf3;
+  --color-tool-chip-bg: #eaf1fb;
+  --color-provenance-bg: #f3f7fd;
+  --color-provenance-border: #c9d6e8;
+
+  /* engine room (judges mode) */
+  --color-engine: #061a3a;
+  --color-engine-border: #1c3b6b;
+  --color-engine-code: #04132b;
+  --color-engine-text: #e6eef8;
+  --color-engine-muted: #9fb3cf;
+  --color-engine-model: #b9a9f5;
+  --color-engine-tool: #8fd6be;
+  --color-engine-tool-border: #2e8a6f;
+  --color-engine-guard-bg: #0a2550;
+  --color-engine-guard: #9cc3ff;
+  --color-engine-guard-border: #2f5fa8;
+  --color-knob-on: #5b9bff;
+
+  /* type */
+  --font-sans: "IBM Plex Sans Hebrew", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* layout: two columns side by side from here up (the chat stays in view); below, stacked */
+  --breakpoint-wide: 1160px;
+
+  /* shape (brief §3.4) */
+  --radius-card: 16px;
+  --radius-tile: 12px;
+  --radius-control: 10px;
+  --radius-chip: 999px;
+}
+
+@layer base {
+  :root {
+    --header-h: 73px; /* the header's height on wide screens (48px mark + 2 x 12px + border) */
+  }
+
+  html {
+    background: var(--color-ground);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    /* updating numbers never shift width */
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* One focus ring for every interactive element (brief §3.5). */
+  :focus-visible {
+    outline: 3px solid var(--color-royal);
+    outline-offset: 2px;
+  }
+
+  /* Tool names, JSON and car ids read left to right. */
+  code,
+  .ltr {
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
+}
+
+/* Motion only for people who haven't asked for less (brief §3.4). Components opt in through
+   these classes; without the media query nothing moves. */
+@media (prefers-reduced-motion: no-preference) {
+  .motion-crossfade {
+    animation: compass-fade 200ms ease-out;
+  }
+  .motion-ring {
+    animation: compass-ring 900ms ease-out;
+  }
+  .motion-needle {
+    transition: transform 300ms ease-out;
+  }
+  /* waterfall bars and their labels move to new heights; numbers never interpolate */
+  .motion-bar {
+    transition:
+      transform 300ms ease-out,
+      height 300ms ease-out,
+      top 300ms ease-out,
+      fill 200ms ease-out;
+  }
+  .motion-settle {
+    transition:
+      opacity 300ms ease-out,
+      border-color 300ms ease-out;
+  }
+  .motion-dots > span {
+    animation: compass-dot 1.2s infinite ease-in-out;
+  }
+  .motion-dots > span:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  .motion-dots > span:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+}
+
+@keyframes compass-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes compass-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-royal) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+
+@keyframes compass-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
