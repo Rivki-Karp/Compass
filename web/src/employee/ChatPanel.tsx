@@ -52,8 +52,11 @@ export function ChatPanel({
         </span>
       </div>
 
+      {/* Focusable, so keyboard users can scroll it (axe scrollable-region-focusable). */}
       <ol
         ref={list}
+        tabIndex={0}
+        aria-label="הודעות"
         className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-4"
         aria-live="polite"
       >

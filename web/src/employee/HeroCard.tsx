@@ -115,13 +115,17 @@ export function HeroCard({
         <Needle direction={view.direction} />
         <div
           key={`number-${comparison.seq}`}
-          className={`${fresh ? "motion-crossfade" : ""} motion-settle ${provisional ? "opacity-75" : ""}`}
+          className={`${fresh ? "motion-crossfade" : ""} motion-settle`}
         >
           <div className={`flex items-baseline gap-2 ${TONE[view.direction]}`}>
-            <span className={`${compact ? "text-[52px]" : "text-[64px]"} leading-none font-bold`}>
-              <Amount value={view.display_diff} signed />
+            {/* Only the large number is dimmed while provisional: the "זמני" tag and the caption
+                keep full contrast (axe color-contrast, Day 5 Stage 2). */}
+            <span className={`flex items-baseline gap-2 ${provisional ? "opacity-75" : ""}`}>
+              <span className={`${compact ? "text-[52px]" : "text-[64px]"} leading-none font-bold`}>
+                <Amount value={view.display_diff} signed />
+              </span>
+              <span className="text-[28px] font-bold">{SHEKEL}</span>
             </span>
-            <span className="text-[28px] font-bold">{SHEKEL}</span>
             {view.pending ? <Tag>זמני</Tag> : null}
             {view.partial ? <Tag>חלקי</Tag> : null}
           </div>

@@ -9,11 +9,15 @@ import type { StreamStatus } from "../api/sse";
 export function Header({
   children,
   variant = "employee",
+  heading = true,
 }: {
   children?: ReactNode;
   variant?: "employee" | "rep";
+  /** The wordmark is the page's h1 (axe: page-has-heading-one), unless the page has its own. */
+  heading?: boolean;
 }) {
   const rep = variant === "rep";
+  const Title = heading ? "h1" : "div";
   return (
     <header
       className={`wide:sticky wide:top-0 wide:z-20 wide:h-(--header-h) flex flex-wrap items-center gap-x-6 gap-y-3 border-b px-8 py-3 max-sm:px-4 ${
@@ -28,18 +32,18 @@ export function Header({
         ) : (
           <img src={mark} alt="" className="h-12 w-12" />
         )}
-        <div>
-          <div
-            className={`ltr text-[20px] leading-tight font-bold tracking-[0.04em] ${
+        <Title>
+          <span
+            className={`ltr block text-[20px] leading-tight font-bold tracking-[0.04em] ${
               rep ? "text-white" : "text-navy"
             }`}
           >
             COMPASS
-          </div>
-          <div className={`text-[13px] ${rep ? "text-mist" : "text-muted"}`}>
+          </span>
+          <span className={`block text-[13px] font-normal ${rep ? "text-mist" : "text-muted"}`}>
             {rep ? "מסך נציג" : "יועץ הרכב של Strauss"}
-          </div>
-        </div>
+          </span>
+        </Title>
       </div>
       <div className="ms-auto flex flex-wrap items-center gap-3">{children}</div>
     </header>
