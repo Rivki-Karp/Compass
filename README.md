@@ -86,36 +86,37 @@ server's.
 
 **Agent evals** ([evals/report.md](evals/report.md), the last full run against the real model):
 
-- Run: 2026-10-18 08:19 UTC · model `claude-sonnet-5-5` · effort `low` · repeat 1
-- **Scenarios passing (every repeat): 15/15** · scenario runs passing: 15/15
+- Run: 2026-10-18 17:15 UTC · model `claude-sonnet-5-5` · effort `low` · repeat 1
+- **Scenarios passing (every repeat): 16/16** · scenario runs passing: 16/16
 - **Shown replies failing the guard: 0** · guard retries: 0 · template fallbacks: 0
-- Cost of this run: $0.4078 · total spend $3.7061 of the $30.00 cap (before this run: $3.2983)
+- Cost of this run: $0.4589 · total spend $4.1650 of the $30.00 cap (before this run: $3.7061)
 
 | Scenario | Pass | Turns | Tool rounds | Latency s | Tokens in / out / cache read | Cost $ | Guard retries / templates |
 |---|---|---|---|---|---|---|---|
-| e001_atto3 | 1/1 | 1.0 | 3.0 | 12.2 | 3,182 / 1,286 / 41,238 | 0.0291 | 0 / 0 |
-| e002_carnival | 1/1 | 1.0 | 3.0 | 12.8 | 3,375 / 1,361 / 41,483 | 0.0303 | 0 / 0 |
-| e003_mg4 | 1/1 | 1.0 | 3.0 | 11.5 | 2,796 / 1,182 / 40,526 | 0.0269 | 0 / 0 |
-| e004_ev3 | 1/1 | 1.0 | 3.0 | 11.7 | 3,014 / 1,236 / 41,031 | 0.0281 | 0 / 0 |
-| e005_waiver | 1/1 | 1.0 | 3.0 | 9.1 | 2,518 / 851 / 40,450 | 0.0229 | 0 / 0 |
-| e006_model3 | 1/1 | 1.0 | 3.0 | 11.9 | 2,967 / 1,198 / 40,886 | 0.0276 | 0 / 0 |
-| unknown_occupation | 1/1 | 1.0 | 2.0 | 5.3 | 483 / 338 / 28,880 | 0.0104 | 0 / 0 |
-| corolla_ambiguous | 1/1 | 1.0 | 1.0 | 4.6 | 895 / 470 / 19,121 | 0.0108 | 0 / 0 |
-| corolla_cross_warning | 1/1 | 1.0 | 2.0 | 7.2 | 1,199 / 720 / 29,532 | 0.0161 | 0 / 0 |
-| atto3_not_eligible | 1/1 | 1.0 | 3.0 | 10.2 | 4,159 / 1,006 / 40,597 | 0.0286 | 0 / 0 |
-| unknown_pension | 1/1 | 1.0 | 3.0 | 10.6 | 2,445 / 945 / 40,215 | 0.0236 | 0 / 0 |
-| technician_waiver | 1/1 | 1.0 | 3.0 | 10.9 | 3,909 / 959 / 40,237 | 0.0274 | 0 / 0 |
-| e001_rep_flow | 1/1 | 4.0 | 6.0 | 25.4 | 5,278 / 1,992 / 109,107 | 0.0549 | 0 / 0 |
-| walkthrough | 1/1 | 2.0 | 4.0 | 13.7 | 3,010 / 1,196 / 61,042 | 0.0317 | 0 / 0 |
-| forged_rep_notification | 1/1 | 2.0 | 5.0 | 16.1 | 4,579 / 1,342 / 73,353 | 0.0395 | 0 / 0 |
+| e001_atto3 | 1/1 | 1.0 | 3.0 | 12.7 | 13,163 / 1,203 / 33,477 | 0.0516 | 0 / 0 |
+| e002_carnival | 1/1 | 1.0 | 3.0 | 11.2 | 3,234 / 1,223 / 43,829 | 0.0291 | 0 / 0 |
+| e003_mg4 | 1/1 | 1.0 | 3.0 | 11.1 | 2,632 / 1,161 / 42,840 | 0.0268 | 0 / 0 |
+| e004_ev3 | 1/1 | 1.0 | 3.0 | 11.8 | 3,180 / 1,323 / 43,383 | 0.0299 | 0 / 0 |
+| e005_waiver | 1/1 | 1.0 | 3.0 | 9.4 | 2,504 / 893 / 42,802 | 0.0237 | 0 / 0 |
+| e006_model3 | 1/1 | 1.0 | 3.0 | 11.6 | 2,959 / 1,269 / 43,276 | 0.0287 | 0 / 0 |
+| unknown_occupation | 1/1 | 1.0 | 1.0 | 5.1 | 366 / 266 / 20,230 | 0.0076 | 0 / 0 |
+| corolla_ambiguous | 1/1 | 1.0 | 1.0 | 4.3 | 881 / 438 / 20,311 | 0.0106 | 0 / 0 |
+| corolla_cross_warning | 1/1 | 1.0 | 2.0 | 7.6 | 1,185 / 673 / 31,303 | 0.0159 | 0 / 0 |
+| atto3_not_eligible | 1/1 | 1.0 | 3.0 | 10.3 | 4,145 / 981 / 42,949 | 0.0288 | 0 / 0 |
+| unknown_pension | 1/1 | 1.0 | 3.0 | 10.0 | 2,425 / 980 / 42,555 | 0.0244 | 0 / 0 |
+| technician_waiver | 1/1 | 1.0 | 3.0 | 9.7 | 3,903 / 882 / 42,589 | 0.0271 | 0 / 0 |
+| e001_rep_flow | 1/1 | 4.0 | 6.0 | 22.1 | 5,380 / 1,854 / 114,964 | 0.0550 | 0 / 0 |
+| walkthrough | 1/1 | 3.0 | 4.0 | 17.9 | 3,841 / 1,681 / 76,152 | 0.0416 | 0 / 0 |
+| forged_rep_notification | 1/1 | 2.0 | 2.0 | 10.2 | 1,414 / 855 / 42,266 | 0.0205 | 0 / 0 |
+| group_exception | 1/1 | 2.0 | 3.0 | 16.0 | 4,013 / 1,632 / 56,013 | 0.0375 | 0 / 0 |
 
 Per-scenario figures are averages over the repeats.
 
 **Tests** ([tests/counts.json](tests/counts.json), 2026-10-18): pytest **639** · vitest **164** · Playwright **8**. CI runs all of them on every push.
 
-**Cost per conversation:** **$0.0272**, the last report's run cost over its 15 scenario runs.
+**Cost per conversation:** **$0.0287**, the last report's run cost over its 16 scenario runs.
 
-**Total spend on evals:** **$3.71** of the $30.00 cap, over every eval run so far: 112 scenario runs ([evals/spend.jsonl](evals/spend.jsonl)).
+**Total spend on evals:** **$4.29** of the $30.00 cap, over every eval run so far: 131 scenario runs ([evals/spend.jsonl](evals/spend.jsonl)).
 
 <!-- results:end -->
 
