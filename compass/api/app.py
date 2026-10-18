@@ -7,6 +7,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+import logging
 import sqlite3
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager, suppress
@@ -34,7 +35,7 @@ from starlette.concurrency import run_in_threadpool
 from compass.api.agent import AgentRunner
 from compass.api.broker import TICKETS, Broker
 from compass.api.redact import public_message, public_payload
-from compass.api.settings import Settings
+from compass.api.settings import Settings, token_warnings
 from compass.api.spa import mount_spa
 from compass.api.stats import judges_stats
 from compass.config import CATALOG_JSON, OCCUPATIONS_JSON
@@ -73,6 +74,9 @@ class TicketAnswer(_Body):
     effective_from: date | None = Field(
         None, description="When a participation amount takes effect (participation fields only)"
     )
+
+
+log = logging.getLogger(__name__)
 
 
 def _sha256(path: Path) -> str | None:
@@ -145,6 +149,8 @@ def create_app(
     """`agent` replaces the agent outright; `agent_factory` builds it on the app's own services
     (tests plug a scripted model in this way). Default: Claude if a key is set, else none."""
     settings = Settings.from_env() if settings is None else settings
+    for warning in token_warnings(settings.rep_token, settings.admin_token):
+        log.warning(warning)
     store = Store(settings.app_db)
     services = Services(
         store,
@@ -464,6 +470,9 @@ def create_app(
                 "value_of_use_year": rules.value_of_use.tax_year,
             },
             "dev_tools": settings.dev_tools,
+            # Whether each token is set (never its value): an empty one disables its screen,
+            # and the UI says so instead of asking for a token that can never work.
+            "auth": {"rep": bool(settings.rep_token), "admin": bool(settings.admin_token)},
             # "scripted": demo mode (the UI shows its badge and the scripts' messages).
             "llm": llm_mode,
             "demo_scripts": scripts,

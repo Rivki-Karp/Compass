@@ -96,6 +96,7 @@ def demo_app() -> None:
         else:
             os.environ[name] = default
             tokens[name] = default
+    _print_token_warnings()
     demo_reset()
     if _web_build_is_stale():
         build_web()
@@ -137,7 +138,17 @@ def calc() -> None:
     run(sys.executable, "-m", "compass.calc")
 
 
+def _print_token_warnings() -> None:
+    """An empty rep or admin token (in .env or the environment): say which screen won't work.
+    Never prints a token's value."""
+    from compass.api.settings import token_warnings_from_env
+
+    for warning in token_warnings_from_env(REPO_ROOT / ".env"):
+        print(f"WARNING: {warning}", flush=True)
+
+
 def serve() -> None:
+    _print_token_warnings()
     # One process: the agent's per-session workers and locks live in memory.
     run(
         sys.executable,

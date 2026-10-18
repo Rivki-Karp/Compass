@@ -1,10 +1,12 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useState, type FormEvent } from "react";
+import { TOKEN_NOT_CONFIGURED, type TokenCheck } from "../lib/tokenCheck";
 import { Button } from "./Button";
 
 /**
  * Asks for a token once (admin: judges mode; rep: the inbox). `verify` checks it with the
- * server before it is kept; the caller stores it in sessionStorage only.
+ * server before it is kept; the caller stores it in sessionStorage only. `notConfigured`: the
+ * server says it has no such token, so the dialog says so instead of asking.
  */
 export function TokenDialog({
   open,
@@ -12,6 +14,7 @@ export function TokenDialog({
   description,
   label,
   verify,
+  notConfigured = false,
   onCancel,
   onAccept,
 }: {
@@ -19,7 +22,8 @@ export function TokenDialog({
   title: string;
   description: string;
   label: string;
-  verify: (token: string) => Promise<"ok" | "wrong" | "unavailable">;
+  verify: (token: string) => Promise<TokenCheck>;
+  notConfigured?: boolean;
   onCancel: () => void;
   onAccept: (token: string) => void;
 }) {
@@ -42,9 +46,16 @@ export function TokenDialog({
       setError(null);
       onAccept(value);
     } else {
-      setError(result === "wrong" ? "הטוקן שגוי." : "לא ניתן לאמת כרגע. נסו שוב.");
+      setError(
+        result === "wrong"
+          ? "הטוקן שגוי."
+          : result === "not_configured"
+            ? TOKEN_NOT_CONFIGURED
+            : "לא ניתן לאמת כרגע. נסו שוב.",
+      );
     }
   }
+  const shown = notConfigured ? TOKEN_NOT_CONFIGURED : error;
 
   return (
     <Dialog.Root
@@ -79,17 +90,18 @@ export function TokenDialog({
               dir="ltr"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              aria-invalid={error ? true : undefined}
-              aria-describedby={error ? "token-error" : undefined}
+              disabled={notConfigured}
+              aria-invalid={shown ? true : undefined}
+              aria-describedby={shown ? "token-error" : undefined}
               className="h-12 rounded-tile border border-line px-3 font-mono text-[15px]"
             />
-            {error ? (
+            {shown ? (
               <p id="token-error" role="alert" className="text-[13px] text-down">
-                {error}
+                {shown}
               </p>
             ) : null}
             <div className="mt-3 flex gap-3">
-              <Button type="submit" disabled={checking}>
+              <Button type="submit" disabled={checking || notConfigured}>
                 {checking ? "בודק…" : "אישור"}
               </Button>
               <Dialog.Close asChild>

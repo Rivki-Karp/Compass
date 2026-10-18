@@ -18,6 +18,7 @@ import { useHealth } from "../lib/useHealth";
 import { limitReached } from "../state/session";
 import { useSession } from "../state/useSession";
 import { ConnectionPill, DemoBadge, Header, JudgesToggle } from "../ui/Header";
+import { tokenCheck, type TokenCheck } from "../lib/tokenCheck";
 import { TokenDialog } from "../ui/TokenDialog";
 import { Waterfall } from "../waterfall/Waterfall";
 
@@ -81,13 +82,12 @@ export function EmployeePage() {
     else setAsking(true);
   }
 
-  async function verifyAdmin(token: string): Promise<"ok" | "wrong" | "unavailable"> {
+  async function verifyAdmin(token: string): Promise<TokenCheck> {
     if (!session.sessionId) return "unavailable";
     const response = await fetch(`/api/sessions/${session.sessionId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (response.ok) return "ok";
-    return response.status === 401 ? "wrong" : "unavailable";
+    return tokenCheck(response.status, [401]);
   }
 
   const comparison = state.comparison;
@@ -110,6 +110,7 @@ export function EmployeePage() {
           description="מצב השופטים מציג את חדר המנועים: קריאות לכלים, בדיקת המספרים ועלויות. הזינו את טוקן המנהל; הוא נשמר לסשן הזה בלבד."
           label="טוקן מנהל"
           verify={verifyAdmin}
+          notConfigured={health?.auth?.admin === false}
           onCancel={() => setAsking(false)}
           onAccept={(token) => {
             setToken("admin", token);

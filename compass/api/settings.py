@@ -79,6 +79,29 @@ def _env(env_file: Path | None) -> dict[str, str]:
     return {k: v for k, v in file_values.items() if v} | {k: v for k, v in os.environ.items() if v}
 
 
+# An empty token leaves its screen unusable (503); say so at startup, never with the value.
+TOKEN_USES = {
+    "COMPASS_REP_TOKEN": "the representative screen (/rep)",
+    "COMPASS_ADMIN_TOKEN": "judges mode",
+}
+
+
+def token_warnings(rep_token: str | None, admin_token: str | None) -> list[str]:
+    """One line per empty token: which screen it disables and where the fix is. Never a value."""
+    given = {"COMPASS_REP_TOKEN": rep_token, "COMPASS_ADMIN_TOKEN": admin_token}
+    return [
+        f"{name} is empty: {use} cannot be used. Generate a token and set it in .env "
+        "(see docs/demo-runbook.md, section 1)."
+        for name, use in TOKEN_USES.items()
+        if not given[name]
+    ]
+
+
+def token_warnings_from_env(env_file: Path | None = ENV_FILE) -> list[str]:
+    env = _env(env_file)
+    return token_warnings(env.get("COMPASS_REP_TOKEN"), env.get("COMPASS_ADMIN_TOKEN"))
+
+
 def demo_db_from_env(env_file: Path | None = ENV_FILE) -> Path:
     """Demo mode's database: COMPASS_DEMO_DB, default data/demo.db. Never app.db."""
     path = _path(_env(env_file).get("COMPASS_DEMO_DB"), DEMO_DB)

@@ -80,3 +80,36 @@ def test_demo_prints_the_urls_and_never_a_token_from_env(
     assert "secret-rep-value" not in out and "(COMPASS_REP_TOKEN)" in out
     assert "admin-demo" in out  # unset: the demo default, shown
     assert os.environ["COMPASS_ADMIN_TOKEN"] == "admin-demo"
+
+
+def test_serve_warns_about_an_empty_token_and_never_prints_a_value(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    (tmp_path / ".env").write_text(
+        "COMPASS_REP_TOKEN=\nCOMPASS_ADMIN_TOKEN=secret-admin-value\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(tasks, "REPO_ROOT", tmp_path)
+    monkeypatch.delenv("COMPASS_REP_TOKEN", raising=False)
+    monkeypatch.delenv("COMPASS_ADMIN_TOKEN", raising=False)
+    calls: list[Any] = []
+    monkeypatch.setattr(tasks, "run", lambda *args: calls.append(args))
+    tasks.serve()
+    out = capsys.readouterr().out
+    assert "WARNING: COMPASS_REP_TOKEN is empty: the representative screen (/rep)" in out
+    assert "docs/demo-runbook.md" in out
+    assert "COMPASS_ADMIN_TOKEN" not in out and "secret-admin-value" not in out
+    assert calls  # still serves
+
+
+def test_demo_has_no_token_warning_its_defaults_fill_them(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tasks, "demo_reset", lambda: None)
+    monkeypatch.setattr(tasks, "_web_build_is_stale", lambda: False)
+    monkeypatch.setattr(tasks, "run", lambda *args: None)
+    monkeypatch.delenv("COMPASS_LLM", raising=False)
+    monkeypatch.delenv("COMPASS_REP_TOKEN", raising=False)
+    monkeypatch.delenv("COMPASS_ADMIN_TOKEN", raising=False)
+    monkeypatch.setattr(tasks, "REPO_ROOT", tmp_path)  # an empty .env-less repo
+    tasks.demo()
+    assert "WARNING" not in capsys.readouterr().out

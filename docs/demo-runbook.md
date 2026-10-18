@@ -19,8 +19,17 @@ uv run python tasks.py build-web     # the UI the server will serve
 uv run python tasks.py test          # optional sanity check
 ```
 
-Check `.env` has `ANTHROPIC_API_KEY`, `COMPASS_REP_TOKEN` and `COMPASS_ADMIN_TOKEN`, and write
-the two tokens on a card: you'll type them on stage.
+Check `.env` has `ANTHROPIC_API_KEY`, `COMPASS_REP_TOKEN` and `COMPASS_ADMIN_TOKEN`. An empty
+token disables its screen: `/rep` and the judges-mode dialog then say "טוקן לא הוגדר בשרת", and
+`tasks.py serve` prints a warning at startup naming the empty variable. To generate a token, run
+this in PowerShell once per token and paste the output after the `=` in `.env`:
+
+```powershell
+[guid]::NewGuid().ToString()
+```
+
+Restart the server after changing `.env`. Write the two tokens on a card: you'll type them on
+stage.
 
 Build the Docker image too, while there is network (it downloads npm and PyPI packages; on
 stage, `up` without `--build` needs no network). On a NetFree connection, point the build at its

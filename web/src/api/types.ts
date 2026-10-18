@@ -157,6 +157,8 @@ export interface Health {
   llm: "anthropic" | "scripted" | "none";
   demo_scripts: DemoScript[] | null;
   dev_tools: boolean;
+  /** Whether each token is set on the server (never its value). */
+  auth?: { rep: boolean; admin: boolean };
 }
 
 /** GET /api/admin/stats: judges mode's tiles, from committed files. Money is display-ready

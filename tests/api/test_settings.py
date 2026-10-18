@@ -200,3 +200,14 @@ def test_demo_reset_wipes_the_demo_db_only(tmp_path: Path, monkeypatch: pytest.M
     assert sorted(p.name for p in tmp_path.iterdir()) == ["keep.db"]
     assert (APP_DB.stat().st_mtime_ns if APP_DB.exists() else None) == app_db_before
     tasks.demo_reset()  # nothing there: still fine
+
+
+def test_token_warnings_name_the_empty_token_never_a_value() -> None:
+    from compass.api.settings import token_warnings
+
+    assert token_warnings("rep-value", "admin-value") == []
+    (rep,) = token_warnings(None, "admin-value")
+    assert rep.startswith("COMPASS_REP_TOKEN is empty: the representative screen (/rep)")
+    assert "docs/demo-runbook.md" in rep and "admin-value" not in rep
+    both = token_warnings("", None)
+    assert [w.split(" ", 1)[0] for w in both] == ["COMPASS_REP_TOKEN", "COMPASS_ADMIN_TOKEN"]
