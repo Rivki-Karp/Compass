@@ -32,15 +32,21 @@ def _path(value: str | None, default: Path) -> Path:
 
 DEFAULT_MODEL = "claude-sonnet-5-5"
 DEFAULT_MAX_TOOL_ROUNDS = 8
+# The session safety limit (Day 5, replaces drop_block): after this many agent runs, or this many
+# input tokens (uncached + cache read + cache write, summed over every model call), the session
+# gets a fixed reply and no more model calls. The longest eval conversation (e001_rep_flow, 4
+# turns) used about 114k input tokens, so 2M is about 17 times that (roughly $1 at its rate).
+DEFAULT_MAX_SESSION_TURNS = 40
+DEFAULT_MAX_SESSION_INPUT_TOKENS = 2_000_000
 
 
 class SettingsError(ValueError):
     """A setting in .env or the environment has an invalid value."""
 
 
-def _positive_int(value: str | None, name: str) -> int:
+def _positive_int(value: str | None, name: str, default: int) -> int:
     if not value:
-        return DEFAULT_MAX_TOOL_ROUNDS
+        return default
     try:
         number = int(value)
     except ValueError:
@@ -100,6 +106,8 @@ class Settings:
     anthropic_api_key: str | None = field(default=None, repr=False)  # never printed
     model: str = DEFAULT_MODEL
     max_tool_rounds: int = DEFAULT_MAX_TOOL_ROUNDS
+    max_session_turns: int = DEFAULT_MAX_SESSION_TURNS
+    max_session_input_tokens: int = DEFAULT_MAX_SESSION_INPUT_TOKENS
     # "anthropic" or "scripted" (demo mode: compass/agent/demo_llm.py).
     llm: str = "anthropic"
 
@@ -131,7 +139,19 @@ class Settings:
             model=env.get("COMPASS_MODEL") or DEFAULT_MODEL,
             llm=llm,
             max_tool_rounds=_positive_int(
-                env.get("COMPASS_MAX_TOOL_ROUNDS"), "COMPASS_MAX_TOOL_ROUNDS"
+                env.get("COMPASS_MAX_TOOL_ROUNDS"),
+                "COMPASS_MAX_TOOL_ROUNDS",
+                DEFAULT_MAX_TOOL_ROUNDS,
+            ),
+            max_session_turns=_positive_int(
+                env.get("COMPASS_MAX_SESSION_TURNS"),
+                "COMPASS_MAX_SESSION_TURNS",
+                DEFAULT_MAX_SESSION_TURNS,
+            ),
+            max_session_input_tokens=_positive_int(
+                env.get("COMPASS_MAX_SESSION_INPUT_TOKENS"),
+                "COMPASS_MAX_SESSION_INPUT_TOKENS",
+                DEFAULT_MAX_SESSION_INPUT_TOKENS,
             ),
             cors_origins=tuple(o.strip() for o in origins.split(","))
             if origins

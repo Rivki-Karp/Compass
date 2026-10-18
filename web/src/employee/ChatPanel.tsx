@@ -14,6 +14,8 @@ export function ChatPanel({
   suggestions,
   failedText,
   onSend,
+  limitReached = false,
+  onNewSession,
 }: {
   messages: ChatMessage[];
   turns: Turn[];
@@ -21,9 +23,18 @@ export function ChatPanel({
   suggestions: string[];
   failedText: string | null;
   onSend: (text: string) => void;
+  /** The session safety limit was reached: a "new chat" button replaces the input. */
+  limitReached?: boolean;
+  onNewSession?: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const list = useRef<HTMLOListElement>(null);
+  const newChat = useRef<HTMLButtonElement>(null);
+
+  // The input the employee was typing in goes away: keep keyboard focus on the way forward.
+  useEffect(() => {
+    if (limitReached) newChat.current?.focus();
+  }, [limitReached]);
 
   // Newest message in view: scroll the list itself, never the page (on wide screens the chat
   // is sticky and the page scroll belongs to the comparison column).
@@ -89,6 +100,15 @@ export function ChatPanel({
         </div>
       ) : null}
 
+      {limitReached ? (
+        <div className="flex border-t border-line-soft px-5 py-4">
+          <Button ref={newChat} onClick={onNewSession} className="flex-1">
+            <Icon name="refresh" size={16} />
+            שיחה חדשה
+          </Button>
+        </div>
+      ) : (
+        <>
       {suggestions.length ? (
         <div className="flex flex-wrap gap-2 px-5 pb-3" aria-label="הצעות">
           {suggestions.map((text) => (
@@ -129,6 +149,8 @@ export function ChatPanel({
           <Icon name="arrowLeft" size={20} />
         </button>
       </form>
+        </>
+      )}
     </section>
   );
 }

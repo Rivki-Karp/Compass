@@ -16,7 +16,7 @@ export interface ChatMessage {
   seq: number;
   role: "employee" | "assistant";
   text: string;
-  kind: "reply" | "template" | "error" | null;
+  kind: PayloadByType["assistant_message"]["kind"] | null;
   turn: number | null; // index into turns (assistant messages)
 }
 
@@ -75,6 +75,12 @@ export const initialSession: SessionState = {
   lastError: null,
   between: [],
 };
+
+/** The session reached its safety limit: its latest reply is the server's fixed "limit" one. */
+export function limitReached(state: SessionState): boolean {
+  const replies = state.messages.filter((m) => m.role === "assistant");
+  return replies[replies.length - 1]?.kind === "limit";
+}
 
 function currentTurn(state: SessionState): Turn | null {
   const turn = state.turns[state.turns.length - 1];

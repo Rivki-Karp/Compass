@@ -11,6 +11,10 @@ A run:
        a deterministic message built from the tool results
     4. emits events throughout; failures end in a friendly Hebrew message + agent_error
 
+Before step 1, the session safety limit: once a session has had `max_session_turns` runs or
+used `max_session_input_tokens` input tokens, a run replies with SESSION_LIMIT_HE (kind "limit")
+and never calls the model or the guard. The UI then offers a new conversation.
+
 The transcript is append-only (see transcript.py), so the model input only ever grows.
 """
 
@@ -47,6 +51,8 @@ GUARD_FALLBACK_HE = (
     "לא הצלחתי לנסח תשובה שכל המספרים בה מאומתים, ולכן לא אציג מספרים בטקסט. "
     "התוצאות המחושבות מוצגות בכרטיס ההשוואה."
 )
+# The session safety limit (replaces drop_block): fixed, no numbers, never sent to the guard.
+SESSION_LIMIT_HE = "השיחה הגיעה לאורך המרבי. אפשר להתחיל שיחה חדשה."
 
 Job = tuple[Literal["employee_turn", "rep_answer"], Any]
 
@@ -78,12 +84,13 @@ def _no_template(session_id: str) -> str:
 @dataclass
 class RunOutcome:
     text: str
-    kind: Literal["reply", "template", "error"]
+    kind: Literal["reply", "template", "error", "limit"]
     rounds: int = 0
     usage: Usage = field(default_factory=Usage)
     guard: list[GuardVerdict] = field(default_factory=list)
     error: str | None = None
     message_seq: int | None = None
+    limit: Literal["turns", "input_tokens"] | None = None  # which session limit was reached
 
 
 class ClaudeAgentRunner:
@@ -95,6 +102,8 @@ class ClaudeAgentRunner:
         *,
         tool_runner: ToolRunner | None = None,
         max_tool_rounds: int = 8,
+        max_session_turns: int = 40,
+        max_session_input_tokens: int = 2_000_000,
         guard: Guard = _no_guard,
         template: TemplateFallback = _no_template,
         background: bool = True,
@@ -106,6 +115,8 @@ class ClaudeAgentRunner:
         self.tool_runner = ToolRunner(services) if tool_runner is None else tool_runner
         self.tools = tool_definitions()  # fixed for the life of the runner (cache prefix)
         self.max_tool_rounds = max_tool_rounds
+        self.max_session_turns = max_session_turns
+        self.max_session_input_tokens = max_session_input_tokens
         self.guard = guard
         self.template = template
         self.background = background
@@ -179,10 +190,14 @@ class ClaudeAgentRunner:
         kind, ref = job
         started = time.monotonic()
         try:
-            self._append_trigger(session_id, kind, ref)
-            start_seq = self._last_event_seq(session_id)
-            self.store.append_event(session_id, "agent_started", {"trigger": kind})
-            outcome = self._loop(session_id, start_seq)
+            limit = self._session_limit(session_id)
+            if limit is not None:
+                outcome = self._limit_reply(session_id, kind, limit)
+            else:
+                self._append_trigger(session_id, kind, ref)
+                start_seq = self._last_event_seq(session_id)
+                self.store.append_event(session_id, "agent_started", {"trigger": kind})
+                outcome = self._loop(session_id, start_seq)
         except LLMError as error:
             outcome = self._fail(session_id, error.kind, str(error), ERROR_MESSAGE_HE)
         except Exception as error:  # a bug must never take the session down
@@ -208,10 +223,49 @@ class ClaudeAgentRunner:
                     "model": model,
                     "usage": vars(outcome.usage),
                     "cost_usd": None if model is None else outcome.usage.cost_usd(model),
+                    "limit": outcome.limit,
                 },
             )
         except Exception:  # the store itself failed: nothing more we can do safely
             log.exception("could not record agent_finished for session %s", session_id)
+
+    # --- the session safety limit -------------------------------------------------------
+
+    def _session_limit(self, session_id: str) -> Literal["turns", "input_tokens"] | None:
+        """Which limit this session has reached, from its own agent_finished events: the runs
+        that were not limit replies, and the input tokens they used (guard retries included)."""
+        runs = [
+            e.payload
+            for e in self.store.events_after(session_id)
+            if e.type == "agent_finished" and e.payload.get("outcome") != "limit"
+        ]
+        if len(runs) >= self.max_session_turns:
+            return "turns"
+        used = sum(
+            (run.get("usage") or {}).get(key, 0)
+            for run in runs
+            for key in ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
+        )
+        if used >= self.max_session_input_tokens:
+            return "input_tokens"
+        return None
+
+    def _limit_reply(
+        self, session_id: str, kind: str, limit: Literal["turns", "input_tokens"]
+    ) -> RunOutcome:
+        """The fixed reply: no trigger in the transcript, no model call, no guard."""
+        log.info("session %s reached its %s limit; no model call", session_id, limit)
+        self.store.append_event(session_id, "agent_started", {"trigger": kind})
+        reply = LLMResponse(
+            content=[{"type": "text", "text": SESSION_LIMIT_HE}], stop_reason="end_turn"
+        )
+        seq = self._store_assistant(session_id, reply, fabricated=f"limit:{limit}")
+        self.store.append_event(
+            session_id,
+            "assistant_message",
+            {"message_seq": seq, "text": SESSION_LIMIT_HE, "kind": "limit", "comparison_ref": None},
+        )
+        return RunOutcome(text=SESSION_LIMIT_HE, kind="limit", message_seq=seq, limit=limit)
 
     def _append_trigger(self, session_id: str, kind: str, ref: Any) -> None:
         if kind == "employee_turn":

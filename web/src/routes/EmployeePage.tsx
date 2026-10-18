@@ -12,6 +12,7 @@ import { useTurnSelection } from "../judges/useTurnSelection";
 import { demoSuggestions, GENERAL_SUGGESTIONS } from "../employee/suggestions";
 import { clearToken, getToken, setToken } from "../lib/tokens";
 import { useHealth } from "../lib/useHealth";
+import { limitReached } from "../state/session";
 import { useSession } from "../state/useSession";
 import { ConnectionPill, DemoBadge, Header, JudgesToggle } from "../ui/Header";
 import { TokenDialog } from "../ui/TokenDialog";
@@ -127,6 +128,8 @@ export function EmployeePage() {
               suggestions={suggestions}
               failedText={session.sendFailure?.text ?? null}
               onSend={session.send}
+              limitReached={limitReached(state)}
+              onNewSession={session.newSession}
             />
             <div className="flex min-w-0 flex-[999_1_640px] flex-col gap-6">
               {comparison ? (

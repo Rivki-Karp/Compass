@@ -80,7 +80,8 @@ export interface PayloadByType {
   assistant_message: {
     message_seq: number;
     text: string;
-    kind: "reply" | "template" | "error";
+    // "limit": the session safety limit's fixed reply (no model call); the UI offers a new chat
+    kind: "reply" | "template" | "error" | "limit";
     comparison_ref: number | null;
   };
   profile_updated: {
@@ -108,9 +109,10 @@ export interface PayloadByType {
   };
   agent_started: { trigger: "employee_turn" | "rep_answer" };
   agent_finished: {
-    outcome: "reply" | "template" | "error";
+    outcome: "reply" | "template" | "error" | "limit";
     // admin only
     error?: string | null;
+    limit?: "turns" | "input_tokens" | null;
     rounds?: number;
     latency_ms?: number;
     model?: string | null;
