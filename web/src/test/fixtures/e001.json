@@ -106,7 +106,6 @@
     ],
     "unknown": [],
     "warnings": [],
-    "payslip_fields_unknown": [],
     "group": "ג",
     "group_source": "derived",
     "group_budget": "4500"
@@ -274,7 +273,6 @@
     "missing": [],
     "unknown": [],
     "warnings": [],
-    "payslip_fields_unknown": [],
     "group": "ג",
     "group_source": "derived",
     "group_budget": "4500"

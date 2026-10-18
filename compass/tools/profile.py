@@ -41,16 +41,6 @@ REQUIRED_FIELDS: tuple[str, ...] = (
     "study_fund_percent",
     "credit_points",
 )
-# Fields printed on a payslip: when unknown, the UI offers "upload payslip".
-PAYSLIP_FIELDS: tuple[str, ...] = (
-    "base_salary",
-    "commissions",
-    "bonus",
-    "pension_percent",
-    "study_fund_percent",
-    "credit_points",
-)
-
 MAX_SALARY = Decimal(500_000)
 MAX_PERCENT = Decimal(20)
 MAX_CREDIT_POINTS = Decimal(15)

@@ -32,7 +32,6 @@ from compass.state import Slot, SlotUpdate
 from compass.tools.profile import (
     ALTERNATIVE_PARTICIPATION,
     CURRENT_PARTICIPATION,
-    PAYSLIP_FIELDS,
     PROFILE_FIELDS,
     REQUIRED_FIELDS,
     SLOT_OF,
@@ -199,7 +198,6 @@ def save_profile(services: Services, session_id: str, data: SaveProfileInput) ->
         ],
         "warnings": _warnings(services, session_id),
     }
-    summary["payslip_fields_unknown"] = [f for f in PAYSLIP_FIELDS if f in summary["unknown"]]
     # The group in effect and its budget (from the rules), so the agent can state what was
     # derived ("קבוצה ב', תקציב 3,700 ₪") without another tool call.
     group = slots.get("group")

@@ -46,10 +46,10 @@ TOOLS: tuple[Tool, ...] = (
         "List fields they said they don't know in unknown_fields. An occupation in their words "
         "goes in occupation_query; if recognised it also sets the group (unless they stated "
         "one). Returns what was saved, what is still missing, unknown fields, warnings, and "
-        "payslip_fields_unknown (offer a payslip upload for those), and group / group_source / "
-        "group_budget (state the derived group and budget to the employee). Save only what the "
-        "employee actually said: never guess or assume a value (a 'no' to commissions or bonus "
-        "is 0; 'I don't know' goes in unknown_fields). Never ask for an ID number.",
+        "group / group_source / group_budget (state the derived group and budget to the "
+        "employee). Save only what the employee actually said: never guess or assume a value "
+        "(a 'no' to commissions or bonus is 0; 'I don't know' goes in unknown_fields). Never "
+        "ask for an ID number. There is no document upload: never offer one.",
         h.SaveProfileInput,
         h.save_profile,
     ),

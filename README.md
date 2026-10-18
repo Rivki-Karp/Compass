@@ -439,7 +439,7 @@ Tools return numbers **only** from the engine or the data files; none calculates
 
 | Tool | What it does |
 |---|---|
-| `save_profile` | Stores any stated details (percentages in percent: 6.5 → 0.065). `occupation_query` is searched; if confident it also sets the group (source `derived`) unless the employee stated one. Returns `saved`, `missing`, `unknown`, `warnings`, `payslip_fields_unknown` (drives the "upload payslip" button) and the group in effect with its source and budget (`group`, `group_source`, `group_budget`). |
+| `save_profile` | Stores any stated details (percentages in percent: 6.5 → 0.065). `occupation_query` is searched; if confident it also sets the group (source `derived`) unless the employee stated one. Returns `saved`, `missing`, `unknown`, `warnings` and the group in effect with its source and budget (`group`, `group_source`, `group_budget`). |
 | `lookup_occupation` | Search result plus each occupation's group, car_mandatory, waiver_allowed and waiver_maintenance. |
 | `lookup_vehicle` | Search result plus each car's group, drive, value of use, default participation and `in_catalog`. |
 | `set_current_situation` | Today: a company car (catalog id, or a Tax Authority key from `lookup_vehicle`, which needs the participation), a maintenance payment, or none. Returns warnings such as `current_car_above_group` / `current_car_not_in_catalog`. |
