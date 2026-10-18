@@ -57,6 +57,9 @@ export interface SessionState {
   thinking: boolean;
   thinkingSince: string | null;
   comparison: ComparisonState | null;
+  /** The latest comparison of each alternative (alternativeKey), so each one settles on its own:
+   * a rep answering one car of a multi-car ticket settles that car, not the others. */
+  comparisons: Record<string, ComparisonState>;
   openTickets: Ticket[];
   lastError: string | null; // agent_error kind of the latest failed run
   /** Events since the last run finished, outside any run; the next run takes them as `before`. */
@@ -71,10 +74,18 @@ export const initialSession: SessionState = {
   thinking: false,
   thinkingSince: null,
   comparison: null,
+  comparisons: {},
   openTickets: [],
   lastError: null,
   between: [],
 };
+
+/** One alternative's key: "car:CAR-10", "waiver:". */
+export function alternativeKey(
+  view: Pick<ComparisonView, "alternative_kind" | "alternative_car_id">,
+) {
+  return `${view.alternative_kind}:${view.alternative_car_id ?? ""}`;
+}
 
 /** The session reached its safety limit: its latest reply is the server's fixed "limit" one. */
 export function limitReached(state: SessionState): boolean {
@@ -192,23 +203,18 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
 
     case "comparison_ready": {
       const view = event.payload.view;
-      const previous = next.comparison;
-      const sameAlternative =
-        previous !== null &&
-        previous.view.alternative_kind === view.alternative_kind &&
-        previous.view.alternative_car_id === view.alternative_car_id;
-      const settles = sameAlternative && previous.view.pending && !view.pending;
-      const stays = sameAlternative && previous.settled && !view.pending;
-      return {
-        ...next,
-        comparison: {
-          seq: event.seq,
-          view,
-          origin: event.payload.origin === "server" ? "server" : "tool",
-          settled: settles || stays,
-          settledSeq: settles ? event.seq : stays ? previous.settledSeq : null,
-        },
+      const key = alternativeKey(view);
+      const previous = next.comparisons[key]; // this alternative's, whatever came in between
+      const settles = previous !== undefined && previous.view.pending && !view.pending;
+      const stays = previous !== undefined && previous.settled && !view.pending;
+      const comparison: ComparisonState = {
+        seq: event.seq,
+        view,
+        origin: event.payload.origin === "server" ? "server" : "tool",
+        settled: settles || stays,
+        settledSeq: settles ? event.seq : stays ? previous.settledSeq : null,
       };
+      return { ...next, comparison, comparisons: { ...next.comparisons, [key]: comparison } };
     }
 
     case "ticket_opened":
@@ -218,7 +224,10 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       const note = repNote(event.payload.answer);
       return {
         ...next,
-        openTickets: next.openTickets.filter((t) => t.id !== event.payload.ticket_id),
+        // a partial answer leaves the ticket open, its other fields pending
+        openTickets: event.payload.partial
+          ? next.openTickets
+          : next.openTickets.filter((t) => t.id !== event.payload.ticket_id),
         messages: note
           ? [...next.messages, { seq: event.seq, role: "rep", text: note, kind: null, turn: null }]
           : next.messages,

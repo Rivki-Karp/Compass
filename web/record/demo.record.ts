@@ -102,9 +102,9 @@ test("the demo, recorded", async ({ page, context, request }) => {
   await typeToken(rep, "טוקן נציג", REP_TOKEN);
   await pause(rep, 1_000);
   await rep.getByRole("link").last().click();
-  await expect(rep.getByRole("heading", { name: /ATTO 3\?/ })).toBeVisible();
+  await expect(rep.getByRole("heading", { level: 2, name: "השתתפות עצמית · ATTO 3" })).toBeVisible();
   await pause(rep, 2_000);
-  await rep.getByLabel("סכום ההשתתפות החודשית (₪)").click();
+  await rep.getByLabel("סכום ההשתתפות החודשית ב-ATTO 3 (₪)").click();
   await rep.keyboard.type("350", { delay: 250 });
   await pause(rep, 1_000);
   await rep.getByRole("button", { name: "אישור ושליחה לעובד/ת" }).click();

@@ -205,6 +205,7 @@ ERROR_MESSAGES: dict[str, Callable[[Params], str]] = {
     "empty_answer": lambda p: "צריך להזין סכום או תשובה.",
     "unknown_quick_answer": lambda p: "התשובה המהירה לא מוכרת.",
     "not_a_blocking_field": lambda p: "השדה הזה לא שייך לטיקט.",
+    "field_already_answered": lambda p: "כבר נענה על השדה הזה.",
     # field values
     "not_a_number": lambda p: "צריך להזין מספר.",
     "too_many_decimals": lambda p: "עד שתי ספרות אחרי הנקודה.",

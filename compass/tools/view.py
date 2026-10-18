@@ -438,6 +438,12 @@ class TicketFactView(_View):
     value: str  # "קבוצה ב׳"
 
 
+class TicketComparisonView(_View):
+    alternative_title: str
+    display_diff: int
+    pending: bool
+
+
 class TicketFieldView(_View):
     field: str  # the ticket's field, e.g. "alternative_participation:CAR-10"
     title: str  # the section heading, e.g. "השתתפות עצמית" / "אישור חריג לקבוצה"
@@ -452,12 +458,13 @@ class TicketFieldView(_View):
     options: list[TicketOptionView] = []
     # What the representative needs to decide it, as text tiles (group_exception).
     facts: list[TicketFactView] = []
-
-
-class TicketComparisonView(_View):
-    alternative_title: str
-    display_diff: int
-    pending: bool
+    # Answered in an earlier part of a partial answer (the ticket stays open for the rest):
+    # what the representative answered, display-ready (whole ILS, or the chosen option's label).
+    answered: bool = False
+    answer: int | str | None = None
+    # The employee's latest comparison that this field affects: that car's own comparison for a
+    # car's participation; the latest one otherwise. Never another car's.
+    comparison: TicketComparisonView | None = None
 
 
 class TicketView(_View):
@@ -559,20 +566,62 @@ def _ticket_field(services: Services, ticket: Ticket, field: str) -> TicketField
     )
 
 
+def _ticket_comparison(view: Mapping[str, Any] | None) -> TicketComparisonView | None:
+    if view is None:
+        return None
+    return TicketComparisonView(
+        alternative_title=view["alternative_title"],
+        display_diff=view["display_diff"],
+        pending=view["pending"],
+    )
+
+
+def _answer_display(services: Services, field: TicketFieldView, raw: Any) -> int | str | None:
+    if field.options:
+        return next((o.label for o in field.options if o.value == raw), str(raw))
+    if field.unit == "ils":
+        return to_display(Decimal(str(raw).replace(",", "")), services.ctx.rules)
+    return None if raw is None else str(raw)
+
+
+def _ticket_title(fields: list[TicketFieldView]) -> str:
+    """Built from the fields, never from the model's question: "השתתפות עצמית · MG4",
+    "השתתפות עצמית · 3 רכבים", and the other fields' titles, joined with " + "."""
+    cars = [f for f in fields if f.field.startswith(ALTERNATIVE_PARTICIPATION)]
+    parts: list[str] = []
+    for f in fields:
+        if f in cars:
+            if f is cars[0]:
+                what = f.car_name if len(cars) == 1 else f"{len(cars)} רכבים"
+                parts.append(f"{f.title} · {what}")
+        else:
+            parts.append(f"{f.title} · {f.car_name}" if f.car_name else f.title)
+    return " + ".join(parts) if parts else "שאלה מהעובד/ת"
+
+
 def build_ticket_view(services: Services, ticket: Ticket) -> dict[str, Any]:
     """Display-ready facts for one ticket in the representative's inbox, JSON-ready."""
-    fields = [_ticket_field(services, ticket, f) for f in ticket.blocking_fields]
-    titles = [f"{f.title} · {f.car_name}" if f.car_name else f.title for f in fields]
-    title = " + ".join(titles) if titles else "שאלה מהעובד/ת"
-    last = services.store.last_comparison(ticket.session_id)
-    view = (last or {}).get("view")
-    comparison = (
-        None
-        if view is None
-        else TicketComparisonView(
-            alternative_title=view["alternative_title"],
-            display_diff=view["display_diff"],
-            pending=view["pending"],
+    views = [
+        e.payload.get("view")
+        for e in services.store.events_after(ticket.session_id)
+        if e.type == "comparison_ready"
+    ]
+    latest = views[-1] if views else None
+
+    def latest_for(car_id: str) -> Mapping[str, Any] | None:
+        return next((v for v in reversed(views) if v and v["alternative_car_id"] == car_id), None)
+
+    answered: dict[str, Any] = (ticket.answer or {}).get("values") or {}
+    fields = []
+    for name in ticket.blocking_fields:
+        field = _ticket_field(services, ticket, name)
+        car_view = (
+            latest_for(field.car_id) if field.car_id and name != CURRENT_PARTICIPATION else latest
         )
-    )
-    return TicketView(title=title, fields=fields, comparison=comparison).model_dump(mode="json")
+        update: dict[str, Any] = {"comparison": _ticket_comparison(car_view)}
+        if name in answered:
+            update |= {"answered": True, "answer": _answer_display(services, field, answered[name])}
+        fields.append(field.model_copy(update=update))
+    return TicketView(
+        title=_ticket_title(fields), fields=fields, comparison=_ticket_comparison(latest)
+    ).model_dump(mode="json")

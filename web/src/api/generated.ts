@@ -67,6 +67,9 @@ export interface TicketFieldView {
   catalog_default: number | null;
   options: TicketOptionView[];
   facts: TicketFactView[];
+  answered: boolean;
+  answer: number | string | null;
+  comparison: TicketComparisonView | null;
 }
 
 export interface TicketOptionView {

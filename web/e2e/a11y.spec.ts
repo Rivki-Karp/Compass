@@ -61,16 +61,16 @@ test("axe: E-001 pending, /rep with the ticket open, E-001 final", async ({ page
   await axe(rep, "rep-token-dialog", info);
   await enterToken(rep, "טוקן נציג", TOKENS.rep);
   await rep.getByRole("link").last().click();
-  await expect(rep.getByRole("heading", { name: /ATTO 3\?/ })).toBeVisible();
+  await expect(rep.getByRole("heading", { level: 2, name: "השתתפות עצמית · ATTO 3" })).toBeVisible();
   await axe(rep, "rep-ticket", info);
 
   // the server's own error under the input
-  await rep.getByLabel("סכום ההשתתפות החודשית (₪)").fill("-50");
+  await rep.getByLabel("סכום ההשתתפות החודשית ב-ATTO 3 (₪)").fill("-50");
   await rep.getByRole("button", { name: "אישור ושליחה לעובד/ת" }).click();
   await expect(rep.getByRole("alert").first()).toBeVisible();
   await axe(rep, "rep-ticket-error", info);
 
-  await rep.getByLabel("סכום ההשתתפות החודשית (₪)").fill("350");
+  await rep.getByLabel("סכום ההשתתפות החודשית ב-ATTO 3 (₪)").fill("350");
   await rep.getByRole("button", { name: "אישור ושליחה לעובד/ת" }).click();
   await expect(rep.getByText("התשובה נשלחה. החישוב אצל העובד/ת מתעדכן.").first()).toBeVisible();
   await axe(rep, "rep-answered", info);

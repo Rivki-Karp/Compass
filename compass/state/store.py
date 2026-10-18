@@ -30,7 +30,8 @@ TicketStatus = Literal["open", "answered"]
 # Event types (payload in parentheses):
 #   session_created (status) · session_status (status) · user_message (seq, content)
 #   profile_updated (fields) · current_situation_set (scenario) · comparison_ready (comparison)
-#   ticket_opened (ticket) · ticket_answered (ticket_id, answer, fields)
+#   ticket_opened (ticket) · ticket_answered (ticket_id, answer, fields, unknown, partial,
+#   pending): `partial` answers fill some fields and leave the ticket open with `pending` ones
 EVENT_TYPES = frozenset(
     {
         "session_created",
@@ -430,9 +431,15 @@ class Store:
         answer: Any,
         values: Mapping[str, Any],
         unknown: Sequence[str] = (),
+        pending: Sequence[str] = (),
+        part: Any = None,
     ) -> Ticket:
         """Fill the given slots (source representative), mark `unknown` slots unknown (the
-        representative answered without a value), close the ticket, resume the session."""
+        representative answered without a value), and, unless fields are still `pending` (a
+        partial answer: those slots stay pending_rep), close the ticket and resume the session.
+
+        `answer` is stored as the ticket's answer so far (the caller merges earlier parts); the
+        event carries this `part` of it (default: the whole answer) and its slot values."""
         with self._write() as (conn, events):
             ticket = self._ticket(conn, ticket_id)
             if ticket.status != "open":
@@ -440,19 +447,27 @@ class Store:
             filled = {f: SlotUpdate(value=v, source="representative") for f, v in values.items()}
             filled |= {f: SlotUpdate(state="unknown", source="representative") for f in unknown}
             self._upsert_slots(conn, ticket.session_id, filled)
-            conn.execute(
-                "UPDATE tickets SET status = 'answered', answer_json = ?, answered_at = ? "
-                "WHERE id = ?",
-                (_dump(answer), _now(), ticket_id),
-            )
+            if pending:
+                conn.execute(
+                    "UPDATE tickets SET answer_json = ? WHERE id = ?", (_dump(answer), ticket_id)
+                )
+            else:
+                conn.execute(
+                    "UPDATE tickets SET status = 'answered', answer_json = ?, answered_at = ? "
+                    "WHERE id = ?",
+                    (_dump(answer), _now(), ticket_id),
+                )
             payload = {
                 "ticket_id": ticket_id,
-                "answer": answer,
+                "answer": answer if part is None else part,
                 "fields": dict(values),
                 "unknown": list(unknown),
+                "partial": bool(pending),
+                "pending": list(pending),
             }
             self._event(conn, events, ticket.session_id, "ticket_answered", payload)
-            self._set_status(conn, events, ticket.session_id, "active")
+            if not pending:
+                self._set_status(conn, events, ticket.session_id, "active")
             return self._ticket(conn, ticket_id)
 
     @staticmethod

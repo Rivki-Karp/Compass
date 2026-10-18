@@ -58,6 +58,9 @@ def rep_block(event: dict[str, Any]) -> str:
         "effective_from": event.get("effective_from"),
         "unknown_fields": event.get("unknown_fields", []),
     }
+    if event.get("pending_fields"):
+        # a partial answer: the representative has not answered these yet
+        payload["pending_fields"] = event["pending_fields"]
     if event.get("server_comparisons"):
         # compare's own (compact) result, recomputed by the server with the answer
         payload["server_comparisons"] = event["server_comparisons"]

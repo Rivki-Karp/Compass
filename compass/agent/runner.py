@@ -272,8 +272,19 @@ class ClaudeAgentRunner:
             content = {"kind": "employee_turn", "message_seq": ref, "origin": SERVER_ORIGIN}
         else:
             ticket = self.store.ticket(ref)
-            answer = ticket.answer or {}
+            # this answer: the latest part (a partial answer leaves the other fields pending)
+            event = next(
+                (
+                    e.payload
+                    for e in reversed(self.store.events_after(session_id))
+                    if e.type == "ticket_answered" and e.payload.get("ticket_id") == ticket.id
+                ),
+                {},
+            )
+            answer = event.get("answer") or ticket.answer or {}
             values = answer.get("values") or {}
+            pending = event.get("pending") or []
+            so_far = (ticket.answer or {}).get("values") or {}
             content = {
                 "kind": "rep_answer",
                 "origin": SERVER_ORIGIN,
@@ -282,12 +293,16 @@ class ClaudeAgentRunner:
                 "answer_text": answer.get("text"),
                 "values": values,
                 "effective_from": answer.get("effective_from"),
-                "unknown_fields": [f for f in ticket.blocking_fields if f not in values],
+                "unknown_fields": [
+                    f for f in ticket.blocking_fields if f not in so_far and f not in pending
+                ],
             }
+            if pending:
+                content["pending_fields"] = pending
             # The comparisons the server settled with this answer, as compare would have
             # returned them to the model: it may state them without calling compare, and the
             # guard allows their numbers (source "server").
-            settled = settled_compare_results(self.services, session_id, ticket.id)
+            settled = settled_compare_results(self.services, session_id, ticket.id, list(values))
             if settled:
                 content["server_comparisons"] = [
                     json.loads(model_view("compare", result)) for result in settled

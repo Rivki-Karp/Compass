@@ -88,10 +88,10 @@ test("E-001: +661 pending, the rep answers 350 in /rep, then +611 final; judges 
   await enterToken(rep, "טוקן נציג", TOKENS.rep);
   // this run's ticket is the newest (a shared demo database may hold older ones)
   await rep.getByRole("link").last().click();
-  await expect(rep.getByRole("heading", { name: /ATTO 3\?/ })).toBeVisible();
+  await expect(rep.getByRole("heading", { level: 2, name: "השתתפות עצמית · ATTO 3" })).toBeVisible();
   await expect(rep.getByText("+661")).toBeVisible();
   await rep.screenshot({ path: path.join(SCREENSHOTS, "representative.png") });
-  await rep.getByLabel("סכום ההשתתפות החודשית (₪)").fill("350");
+  await rep.getByLabel("סכום ההשתתפות החודשית ב-ATTO 3 (₪)").fill("350");
   await rep.getByRole("button", { name: "אישור ושליחה לעובד/ת" }).click();
   await expect(rep.getByText("התשובה נשלחה. החישוב אצל העובד/ת מתעדכן.").first()).toBeVisible();
 

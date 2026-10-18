@@ -902,10 +902,11 @@ _EVENT_ONLY = frozenset(
 
 
 def settled_compare_results(
-    services: Services, session_id: str, ticket_id: str
+    services: Services, session_id: str, ticket_id: str, fields: list[str] | None = None
 ) -> list[dict[str, Any]]:
-    """The comparisons the server settled when `ticket_id` was answered, each in the exact
-    shape compare returns (what the model would have got by calling compare itself)."""
+    """The comparisons the server settled when `ticket_id` was answered (only those settled by
+    `fields`, one part of a partial answer, when given), each in the exact shape compare
+    returns (what the model would have got by calling compare itself)."""
     return [
         {"ok": True, **{k: v for k, v in e.payload.items() if k not in _EVENT_ONLY}}
         for e in services.store.events_after(session_id)
@@ -913,6 +914,7 @@ def settled_compare_results(
         and e.payload.get("origin") == "server"
         and e.payload.get("ticket_id") == ticket_id
         and "answered_field" in e.payload
+        and (fields is None or e.payload["answered_field"] in fields)
     ]
 
 

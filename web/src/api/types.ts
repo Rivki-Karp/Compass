@@ -103,9 +103,11 @@ export interface PayloadByType {
   ticket_opened: { ticket: Ticket };
   ticket_answered: {
     ticket_id: string;
-    answer: unknown;
+    answer: unknown; // this answer (one part of a partial one)
     fields: Record<string, unknown>;
     unknown: string[];
+    partial?: boolean; // the ticket stays open: `pending` fields still wait for the rep
+    pending?: string[];
   };
   agent_started: { trigger: "employee_turn" | "rep_answer" };
   agent_finished: {

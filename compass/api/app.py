@@ -74,6 +74,14 @@ class TicketAnswer(_Body):
     effective_from: date | None = Field(
         None, description="When a participation amount takes effect (participation fields only)"
     )
+    partial: bool = Field(
+        False,
+        description=(
+            "Answer only the fields given in `values`; the others stay pending and the ticket "
+            "stays open (the answer that fills the last one closes it). Default: the fields "
+            "left out become unknown and the ticket closes."
+        ),
+    )
 
 
 log = logging.getLogger(__name__)
@@ -376,6 +384,7 @@ def create_app(
                 quick_answer_id=body.quick_answer_id,
                 values=body.values,
                 effective_from=body.effective_from,
+                partial=body.partial,
             )
         except TicketAnswerError as error:
             # `detail` as before (English); `errors` adds a code and a Hebrew message per reason.

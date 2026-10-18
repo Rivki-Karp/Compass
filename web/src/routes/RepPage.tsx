@@ -68,7 +68,12 @@ export function RepPage() {
     setParams({ ticket: ticketId }, { replace: true });
   }
 
-  function answered(ticketId: string) {
+  function answered(ticketId: string, stillOpen: boolean) {
+    if (stillOpen) {
+      // a partial answer: the ticket stays, with its other fields pending
+      setNotice("התשובה נשלחה. השדות שלא מולאו ממתינים לתשובה.");
+      return;
+    }
     inbox.answered(ticketId);
     setParams({}, { replace: true });
     setNotice("התשובה נשלחה. החישוב אצל העובד/ת מתעדכן.");

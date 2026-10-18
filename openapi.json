@@ -68,6 +68,12 @@
             "description": "When a participation amount takes effect (participation fields only)",
             "title": "Effective From"
           },
+          "partial": {
+            "default": false,
+            "description": "Answer only the fields given in `values`; the others stay pending and the ticket stays open (the answer that fills the last one closes it). Default: the fields left out become unknown and the ticket closes.",
+            "title": "Partial",
+            "type": "boolean"
+          },
           "quick_answer_id": {
             "anyOf": [
               {

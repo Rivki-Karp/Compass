@@ -1,12 +1,12 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api } from "../api/client";
-import type { TicketFieldView, TicketWithView } from "../api/types";
+import type { Ticket, TicketFieldView, TicketWithView } from "../api/types";
 import { SHEKEL } from "../lib/format";
 import { Amount } from "../ui/Amount";
 import { Button } from "../ui/Button";
 import { answerErrors, NO_ERRORS, type FormErrors } from "./answerErrors";
 
-const CHOOSE_ONE = "צריך לבחור אחת מהאפשרויות.";
+const FILL_ONE = "צריך למלא לפחות שדה אחד.";
 // today's car outside the catalog: no default participation to fall back on
 const NO_DEFAULT = "אין ברירת מחדל בקטלוג";
 
@@ -28,13 +28,74 @@ function contextLine(context: Record<string, unknown>): string {
     .join(" · ");
 }
 
+const isParticipation = (field: TicketFieldView) => field.field.includes("participation");
+const isCar = (field: TicketFieldView) => field.field.startsWith("alternative_participation:");
+
+/** The input's visible label, with the car's name: "סכום ההשתתפות החודשית ב-MG4 (₪)". */
 function fieldLabel(field: TicketFieldView): string {
-  if (field.field.includes("participation")) return `סכום ההשתתפות החודשית (${SHEKEL})`;
+  if (isParticipation(field)) {
+    return field.car_name
+      ? `סכום ההשתתפות החודשית ב-${field.car_name} (${SHEKEL})`
+      : `סכום ההשתתפות החודשית (${SHEKEL})`;
+  }
   return field.unit === "ils" ? `${field.label} (${SHEKEL})` : field.label;
 }
 
-/** One ticket (brief §4.6): the question, then one section per blocking field (its tiles and
- * its input), and one answer for all of them. */
+/** A section's heading: the car and its id for a car's participation, else the field. */
+function FieldHeading({ field, id }: { field: TicketFieldView; id: string }) {
+  const text = isCar(field)
+    ? (field.car_name ?? field.title)
+    : field.car_name
+      ? `${field.title} · ${field.car_name}`
+      : field.title;
+  return (
+    <h3
+      id={id}
+      className="flex flex-wrap items-baseline gap-x-2 text-[17px] font-semibold text-navy"
+    >
+      <span>{text}</span>
+      {field.car_id ? (
+        <code className="font-mono text-[13px] font-normal text-steel">{field.car_id}</code>
+      ) : null}
+    </h3>
+  );
+}
+
+/** The model's question: secondary, three lines at most until "הצג עוד". */
+function Question({ text }: { text: string }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [open, setOpen] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && !open) setOverflows(el.scrollHeight > el.clientHeight + 1);
+  }, [text, open]);
+  return (
+    <div className="mt-2">
+      <p
+        ref={ref}
+        id="ticket-question"
+        className={`text-[15px] whitespace-pre-wrap text-ink ${open ? "" : "line-clamp-3"}`}
+      >
+        {text}
+      </p>
+      {overflows || open ? (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-controls="ticket-question"
+          className="mt-1 min-h-6 text-[13px] font-medium text-royal underline"
+        >
+          {open ? "הצג פחות" : "הצג עוד"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** One ticket (brief §4.6): the title built from its fields, the question, then one section per
+ * blocking field (its own facts and input). Fields can be answered one at a time. */
 export function TicketDetail({
   ticket,
   token,
@@ -43,20 +104,21 @@ export function TicketDetail({
 }: {
   ticket: TicketWithView;
   token: string;
-  onAnswered: (ticketId: string) => void;
+  onAnswered: (ticketId: string, stillOpen: boolean) => void;
   onReauth: () => void;
 }) {
   const context = contextLine(ticket.context);
   return (
     <article
-      aria-labelledby="ticket-question"
+      aria-labelledby="ticket-title"
       className="flex min-w-0 flex-[999_1_560px] flex-col gap-5 rounded-card border border-line bg-surface p-6"
     >
       <div>
-        <h2 id="ticket-question" className="text-[22px] font-bold text-navy">
-          {ticket.question}
+        <h2 id="ticket-title" className="text-[22px] font-bold text-navy">
+          {ticket.view.title}
         </h2>
         {context ? <p className="mt-1 text-muted">{context}</p> : null}
+        <Question text={ticket.question} />
       </div>
 
       <AnswerForm
@@ -80,13 +142,15 @@ function Tile({ label, note, children }: { label: string; note?: string; childre
   );
 }
 
-/** The employee's latest comparison: shown once, in the first section. */
-function DiffTile({ ticket }: { ticket: TicketWithView }) {
-  const comparison = ticket.view.comparison;
+/** The employee's comparison this field affects: that car's own for a car's participation. */
+function DiffTile({ field }: { field: TicketFieldView }) {
+  const comparison = field.comparison;
   return (
     <Tile
       label={
-        comparison ? `ההפרש אצל העובד/ת · ${comparison.alternative_title}` : "ההפרש אצל העובד/ת"
+        comparison && !isCar(field)
+          ? `ההפרש אצל העובד/ת · ${comparison.alternative_title}`
+          : "ההפרש אצל העובד/ת"
       }
       note={comparison?.pending ? "זמני, לפי ברירת המחדל" : undefined}
     >
@@ -95,49 +159,57 @@ function DiffTile({ ticket }: { ticket: TicketWithView }) {
   );
 }
 
-/** What a field's answer depends on: the car and its catalog default, or (a choice such as a
- * group exception) the server's own text tiles. */
-function FieldTiles({ field, diff }: { field: TicketFieldView; diff: ReactNode }) {
-  if (field.options.length) {
-    return (
-      <div className="flex flex-wrap gap-3">
-        {field.facts.map((fact) => (
+/** What a field's answer depends on, for this field only (never another car's numbers). */
+function FieldTiles({ field }: { field: TicketFieldView }) {
+  return (
+    <div className="flex flex-wrap gap-3">
+      {field.options.length ? (
+        field.facts.map((fact) => (
           <Tile key={fact.label} label={fact.label}>
             <bdi>{fact.value}</bdi>
           </Tile>
-        ))}
-        {diff}
-      </div>
-    );
-  }
-  return (
-    <div className="flex flex-wrap gap-3">
-      <Tile label="רכב">
-        <span className="inline-flex flex-wrap items-baseline gap-x-2">
-          <span>{field.car_name ?? "—"}</span>
-          {field.car_id ? (
-            <code className="font-mono text-[13px] font-normal text-steel">{field.car_id}</code>
+        ))
+      ) : (
+        <>
+          {!isCar(field) ? (
+            <Tile label="רכב">
+              <span>{field.car_name ?? "—"}</span>
+            </Tile>
           ) : null}
-        </span>
-      </Tile>
-      <Tile label="ברירת מחדל מהקטלוג">
-        {field.catalog_default != null ? (
-          <Amount value={field.catalog_default} currency />
-        ) : field.unit === "ils" ? (
-          NO_DEFAULT
-        ) : (
-          "—"
-        )}
-      </Tile>
-      {diff}
+          <Tile label="ברירת מחדל מהקטלוג">
+            {field.catalog_default != null ? (
+              <Amount value={field.catalog_default} currency />
+            ) : field.unit === "ils" ? (
+              NO_DEFAULT
+            ) : (
+              "—"
+            )}
+          </Tile>
+        </>
+      )}
+      <DiffTile field={field} />
     </div>
   );
 }
 
+/** An answered field (an earlier part of a partial answer): what the rep answered. */
+function Answered({ field }: { field: TicketFieldView }) {
+  return (
+    <p className="flex items-center gap-2 text-ink">
+      <span className="font-medium text-up">נענה:</span>
+      {typeof field.answer === "number" ? (
+        <Amount value={field.answer} currency />
+      ) : (
+        <span>{field.answer}</span>
+      )}
+    </p>
+  );
+}
+
 /**
- * The answer: one section per blocking field, sent together. A typed value is sent as typed; a
- * choice (a group exception) as the chosen option's value. The server validates (the same rules
- * as the agent's tools) and the form shows its Hebrew messages next to the field.
+ * The answer: one section per blocking field. Only the fields with a value are sent, as a partial
+ * answer: the others stay pending and the ticket stays open for them. The server validates (the
+ * same rules as the agent's tools) and the form shows its Hebrew messages next to the field.
  */
 function AnswerForm({
   ticket,
@@ -147,34 +219,41 @@ function AnswerForm({
 }: {
   ticket: TicketWithView;
   token: string;
-  onAnswered: (ticketId: string) => void;
+  onAnswered: (ticketId: string, stillOpen: boolean) => void;
   onReauth: () => void;
 }) {
   const fields = ticket.view.fields;
-  const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(fields.map((f) => [f.field, ""])),
-  );
+  const [values, setValues] = useState<Record<string, string>>({});
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState<FormErrors>(NO_ERRORS);
   const [sending, setSending] = useState(false);
-  const several = fields.length > 1;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const unchosen = fields.filter((f) => f.options.length && !values[f.field]);
-    if (unchosen.length) {
-      setErrors({
-        ...NO_ERRORS,
-        byField: Object.fromEntries(unchosen.map((f) => [f.field, [CHOOSE_ONE]])),
-      });
+    const sent = Object.fromEntries(
+      fields
+        .filter((f) => !f.answered)
+        .map((f) => [f.field, values[f.field]?.trim() ?? ""] as const)
+        .filter(([, value]) => value !== ""),
+    );
+    if (!Object.keys(sent).length) {
+      setErrors({ ...NO_ERRORS, form: [FILL_ONE] });
       return;
     }
     setSending(true);
     setErrors(NO_ERRORS);
     try {
-      const sent = Object.fromEntries(fields.map((f) => [f.field, values[f.field]?.trim() ?? ""]));
-      await api.answerTicket(token, ticket.id, sent, note.trim() || undefined);
-      onAnswered(ticket.id);
+      const answered = (await api.answerTicket(
+        token,
+        ticket.id,
+        sent,
+        note.trim() || undefined,
+        true,
+      )) as Ticket | null;
+      setValues({});
+      setNote("");
+      setSending(false);
+      onAnswered(ticket.id, answered?.status === "open");
     } catch (error) {
       const mapped = answerErrors(
         error,
@@ -196,17 +275,15 @@ function AnswerForm({
         return (
           <section
             key={field.field}
-            aria-labelledby={several ? `${id}-title` : undefined}
-            className="flex flex-col gap-4"
+            aria-labelledby={`${id}-title`}
+            className="flex flex-col gap-3 border-t border-line-soft pt-4 first:border-t-0 first:pt-0"
           >
-            {several ? (
-              <h3 id={`${id}-title`} className="text-[17px] font-semibold text-navy">
-                {field.car_name ? `${field.title} · ${field.car_name}` : field.title}
-              </h3>
-            ) : null}
-            <FieldTiles field={field} diff={i === 0 ? <DiffTile ticket={ticket} /> : null} />
+            <FieldHeading field={field} id={`${id}-title`} />
+            <FieldTiles field={field} />
             <div className="flex flex-col gap-2 rounded-tile bg-ground p-5">
-              {field.options.length ? (
+              {field.answered ? (
+                <Answered field={field} />
+              ) : field.options.length ? (
                 <fieldset
                   aria-invalid={invalid ? true : undefined}
                   aria-describedby={invalid ? `${id}-error` : undefined}
@@ -232,20 +309,36 @@ function AnswerForm({
                   <label htmlFor={id} className="font-medium text-ink">
                     {fieldLabel(field)}
                   </label>
-                  <input
-                    id={id}
-                    type="text"
-                    inputMode="decimal"
-                    autoComplete="off"
-                    dir="ltr"
-                    value={values[field.field] ?? ""}
-                    onChange={(e) => set(e.target.value)}
-                    aria-invalid={invalid ? true : undefined}
-                    aria-describedby={invalid ? `${id}-error` : undefined}
-                    className={`h-14 max-w-[280px] rounded-tile border-2 bg-surface px-4 text-end text-[22px] font-semibold text-ink ${
-                      invalid ? "border-down" : "border-royal"
-                    }`}
-                  />
+                  <div className="flex flex-wrap items-center gap-3">
+                    <input
+                      id={id}
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      dir="ltr"
+                      value={values[field.field] ?? ""}
+                      onChange={(e) => set(e.target.value)}
+                      aria-invalid={invalid ? true : undefined}
+                      aria-describedby={invalid ? `${id}-error` : undefined}
+                      className={`h-14 max-w-[280px] rounded-tile border-2 bg-surface px-4 text-end text-[22px] font-semibold text-ink ${
+                        invalid ? "border-down" : "border-royal"
+                      }`}
+                    />
+                    {field.catalog_default != null ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => set(String(field.catalog_default))}
+                        aria-label={
+                          field.car_name
+                            ? `השתמש בברירת המחדל ל-${field.car_name}`
+                            : "השתמש בברירת המחדל"
+                        }
+                      >
+                        השתמש בברירת המחדל
+                      </Button>
+                    ) : null}
+                  </div>
                 </>
               )}
               {invalid ? (
@@ -286,7 +379,8 @@ function AnswerForm({
           {sending ? "שולח…" : "אישור ושליחה לעובד/ת"}
         </Button>
         <p className="text-[13px] text-muted">
-          ברגע האישור השרת מחשב מחדש, והכרטיס אצל העובד/ת מתעדכן
+          נשלחים רק השדות שמולאו; השאר ממתינים. ברגע האישור השרת מחשב מחדש, והכרטיס אצל העובד/ת
+          מתעדכן
         </p>
       </div>
     </form>
