@@ -100,6 +100,17 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
+      - name: Playwright test count matches tests/counts.json (the README shows it)
+        working-directory: web
+        run: |
+          listed=$(npx playwright test --list | sed -n 's/^Total: \([0-9]*\) tests\? in.*/\1/p')
+          committed=$(node -p 'require("../tests/counts.json").e2e')
+          if [ "$listed" != "$committed" ]; then
+            echo "playwright lists $listed tests, tests/counts.json says $committed: run uv run python tasks.py test-counts"
+            exit 1
+          fi
+          echo "playwright: $listed tests, as committed"
+
       - name: End to end
         working-directory: web
         run: npm run e2e

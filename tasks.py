@@ -20,6 +20,7 @@ Usage:
     uv run python tasks.py ts-types  # write web/src/api/generated.ts (commit it with view changes)
     uv run python tasks.py test-counts  # write tests/counts.json (judges mode; pytest checks it)
     uv run python tasks.py record-demo  # the backup video -> docs/video/*.webm (demo mode, no key)
+    uv run python tasks.py readme    # regenerate README.md's results block (pytest checks it)
 """
 
 import subprocess
@@ -238,6 +239,10 @@ def demo_reset() -> None:
     print(f"demo-reset: cleared {target} (the next demo run starts with an empty one)")
 
 
+def readme() -> None:
+    run(sys.executable, "-m", "compass.readme_numbers")
+
+
 def record_demo() -> None:
     """The backup demo video, recorded by Playwright at human pace (scripts/record_demo.py)."""
     if _web_build_is_stale():
@@ -286,9 +291,21 @@ def test_counts() -> None:
         check=True,
         cwd=REPO_ROOT / "web",
     )
+    listed = subprocess.run(
+        [npx, "playwright", "test", "--list"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+        cwd=REPO_ROOT / "web",
+    ).stdout
+    e2e = re.search(r"Total: (\d+) tests? in", listed)
+    if e2e is None:
+        sys.exit(f"test-counts: unexpected playwright output:\n{listed[-500:]}")
     counts = {
         "pytest": int(found.group(1)),
         "vitest": json.loads(report.read_text(encoding="utf-8"))["numTotalTests"],
+        "e2e": int(e2e.group(1)),
         "as_of": datetime.date.today().isoformat(),
     }
     path = REPO_ROOT / "tests" / "counts.json"
@@ -312,6 +329,7 @@ TASKS: dict[str, Callable[..., None]] = {
     "ts-types": ts_types,
     "test-counts": test_counts,
     "record-demo": record_demo,
+    "readme": readme,
     "chat": chat,
     "eval": evals,
 }

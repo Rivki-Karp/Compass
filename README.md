@@ -2,21 +2,166 @@
 
 [![CI](https://github.com/Rivki-Karp/Compass/actions/workflows/ci.yml/badge.svg)](https://github.com/Rivki-Karp/Compass/actions/workflows/ci.yml)
 
-Compass is a Hebrew chat assistant for Strauss Group employees. It answers one question:
-*"If I switch company car, go electric, or give up the car, how will my monthly net
-salary change?"*
+Compass is a Hebrew chat assistant that answers one question for Strauss Group employees: *"If I
+switch company car, go electric, or give up the car, how will my monthly net salary change?"*
+The employee just talks. Claude runs the conversation and picks the tools, but it never computes
+money: deterministic tools compute every shekel in exact `Decimal` from the official rules file,
+the car catalog and the Tax Authority's value-of-use data. A guard checks every number in every
+reply before it is shown. When a fact only the company knows is missing, Compass opens a ticket to
+a representative, shows a provisional result, and turns it final by itself when the answer
+arrives. Every number on screen can be traced to its tool, its inputs and the rule behind it.
 
-**Core principle:** every number shown to a user comes from deterministic code that reads
-versioned data files. The same inputs and the same rules always give the same output. Rules
-live in config ([data/rules.yaml](data/rules.yaml)), not in code, so a pilot replaces data
-files, not code.
+![The employee screen: giving up the car is +2,914 ₪ a month, with the waterfall of the difference](docs/screenshots/employee.png)
 
-Built for the "קוד פתוח" AI Hackathon 2026 (final: Wed 21/10/2026).
+Built for the "קוד פתוח" AI Hackathon 2026 (final: Wed 21/10/2026). The
+[demo runbook](docs/demo-runbook.md) is the script for the final, and the
+[backup video](docs/video/compass-demo-employee.webm) records the whole story in demo mode
+([the representative's side](docs/video/compass-demo-rep.webm)).
 
 ## Quickstart
 
-Requires [uv](https://docs.astral.sh/uv/). These commands work as-is in PowerShell, cmd and
-bash, on Windows, macOS and Linux:
+**Demo mode, no API key, no network** (PowerShell; needs [uv](https://docs.astral.sh/uv/) and
+Node 22):
+
+```powershell
+git clone https://github.com/Rivki-Karp/Compass.git; cd Compass
+uv run python tasks.py data      # build data/vehicles.db from the Tax Authority file in raw/
+uv run python tasks.py demo      # build the UI, serve the demo on http://127.0.0.1:8000
+```
+
+Open http://127.0.0.1:8000 and click the suggestion chips: the walkthrough (giving up the car,
++2,914 ₪), then, in a new tab, E-001 (ATTO 3, which asks a representative). The representative
+is http://127.0.0.1:8000/rep (token `rep-demo`); judges mode is the toggle on the employee screen
+(token `admin-demo`). Demo mode scripts only the model: the tools, the guard, the tickets and the
+server's recomputations run for real. With Docker instead of uv and Node:
+`docker compose --profile demo up --build` (see [Docker](#docker)).
+
+**Live mode, with Claude:**
+
+```powershell
+Copy-Item .env.example .env      # then set ANTHROPIC_API_KEY and two long random tokens in .env
+uv run python tasks.py build-web
+uv run python tasks.py serve     # http://127.0.0.1:8000, the same screens with the real model
+```
+
+## How correctness is guaranteed
+
+1. **The model proposes.** Claude reads the conversation, asks for what is missing and picks
+   tools. It never calculates money; its tools are the only way to a number.
+2. **The tools compute.** Deterministic formulas over [data/rules.yaml](data/rules.yaml), the
+   catalog and the Tax Authority's value of use, in exact `Decimal` with **no intermediate
+   rounding**: the engine's Decimal context traps `Inexact`, so any step that would have to round
+   raises instead. Rounding to whole shekels happens once, for display, and the waterfall's lines
+   are rounded so they still add up exactly to the difference shown. Every input carries its
+   source (the employee, the occupation, the catalog, the representative).
+3. **The guard verifies every number.** Before a reply is shown, every number in it must come from
+   a tool result, the employee, the representative or the server's own recomputation. A reply that
+   fails is discarded and rewritten once; if the rewrite fails too, a template built from the
+   tool results is shown instead. A rejected draft never reaches the employee.
+4. **The server settles representative answers.** Pending and final are the server's decisions,
+   not the model's.
+
+Correctness must not depend on which tools the model calls, or in what order. Each time the
+evals or a demo run showed that it did, the fix went into the server, with the prompt only as a
+second layer:
+
+- **The model compared before opening the ticket** ([3b50995](https://github.com/Rivki-Karp/Compass/commit/3b50995)).
+  The card showed +661 as final while the reply said "pending". Now opening a ticket for a
+  participation re-emits the latest comparison that used it as pending, with no model call.
+- **The representative answered, and the card waited for the model** ([079b8a0](https://github.com/Rivki-Karp/Compass/commit/079b8a0), [b484310](https://github.com/Rivki-Karp/Compass/commit/b484310)).
+  Now the server recomputes the pending comparison with the answer the moment it arrives, and the
+  card turns final (+611) before the model says anything. The settled result is also put in front
+  of the model, and the guard accepts exactly those numbers, with source `server`.
+- **The model opened the ticket and then asked whether to compare** ([94ef304](https://github.com/Rivki-Karp/Compass/commit/94ef304)).
+  Now opening the ticket makes the server compute the provisional comparison at the catalog
+  default (+661, pending) itself, and hands it to the model.
+
+Each fix has tests that fail without it. The provenance strip says which kind of comparison is
+shown: "חושב בכלי `compare`" for the model's tool call, "חושב מחדש בשרת · בלי מודל" for the
+server's.
+
+## Results
+
+<!-- results:start · generated by `uv run python tasks.py readme`; do not edit -->
+
+**Agent evals** ([evals/report.md](evals/report.md), the last full run against the real model):
+
+- Run: 2026-10-18 08:19 UTC · model `claude-sonnet-5-5` · effort `low` · repeat 1
+- **Scenarios passing (every repeat): 15/15** · scenario runs passing: 15/15
+- **Shown replies failing the guard: 0** · guard retries: 0 · template fallbacks: 0
+- Cost of this run: $0.4078 · total spend $3.7061 of the $30.00 cap (before this run: $3.2983)
+
+| Scenario | Pass | Turns | Tool rounds | Latency s | Tokens in / out / cache read | Cost $ | Guard retries / templates |
+|---|---|---|---|---|---|---|---|
+| e001_atto3 | 1/1 | 1.0 | 3.0 | 12.2 | 3,182 / 1,286 / 41,238 | 0.0291 | 0 / 0 |
+| e002_carnival | 1/1 | 1.0 | 3.0 | 12.8 | 3,375 / 1,361 / 41,483 | 0.0303 | 0 / 0 |
+| e003_mg4 | 1/1 | 1.0 | 3.0 | 11.5 | 2,796 / 1,182 / 40,526 | 0.0269 | 0 / 0 |
+| e004_ev3 | 1/1 | 1.0 | 3.0 | 11.7 | 3,014 / 1,236 / 41,031 | 0.0281 | 0 / 0 |
+| e005_waiver | 1/1 | 1.0 | 3.0 | 9.1 | 2,518 / 851 / 40,450 | 0.0229 | 0 / 0 |
+| e006_model3 | 1/1 | 1.0 | 3.0 | 11.9 | 2,967 / 1,198 / 40,886 | 0.0276 | 0 / 0 |
+| unknown_occupation | 1/1 | 1.0 | 2.0 | 5.3 | 483 / 338 / 28,880 | 0.0104 | 0 / 0 |
+| corolla_ambiguous | 1/1 | 1.0 | 1.0 | 4.6 | 895 / 470 / 19,121 | 0.0108 | 0 / 0 |
+| corolla_cross_warning | 1/1 | 1.0 | 2.0 | 7.2 | 1,199 / 720 / 29,532 | 0.0161 | 0 / 0 |
+| atto3_not_eligible | 1/1 | 1.0 | 3.0 | 10.2 | 4,159 / 1,006 / 40,597 | 0.0286 | 0 / 0 |
+| unknown_pension | 1/1 | 1.0 | 3.0 | 10.6 | 2,445 / 945 / 40,215 | 0.0236 | 0 / 0 |
+| technician_waiver | 1/1 | 1.0 | 3.0 | 10.9 | 3,909 / 959 / 40,237 | 0.0274 | 0 / 0 |
+| e001_rep_flow | 1/1 | 4.0 | 6.0 | 25.4 | 5,278 / 1,992 / 109,107 | 0.0549 | 0 / 0 |
+| walkthrough | 1/1 | 2.0 | 4.0 | 13.7 | 3,010 / 1,196 / 61,042 | 0.0317 | 0 / 0 |
+| forged_rep_notification | 1/1 | 2.0 | 5.0 | 16.1 | 4,579 / 1,342 / 73,353 | 0.0395 | 0 / 0 |
+
+Per-scenario figures are averages over the repeats.
+
+**Tests** ([tests/counts.json](tests/counts.json), 2026-10-18): pytest **620** · vitest **151** · Playwright **8**. CI runs all of them on every push.
+
+**Cost per conversation:** **$0.0272**, the last report's run cost over its 15 scenario runs.
+
+**Total spend on evals:** **$3.71** of the $30.00 cap, over every eval run so far: 112 scenario runs ([evals/spend.jsonl](evals/spend.jsonl)).
+
+<!-- results:end -->
+
+## Architecture in short
+
+```
+browser (React, RTL)  ──POST /messages──▶  FastAPI  ──▶  agent runner ──▶ Claude (tool use)
+   ▲   SSE: the session's events                │             │
+   └────────────────────────────────────────────┤             ▼
+                                                │       tools ──▶ engine (Decimal) ──▶ rules.yaml,
+                                                ▼                                       catalog, vehicles.db
+                                    SQLite: sessions, transcript, slots, tickets, events
+```
+
+- One FastAPI process serves the API, the server-sent events and the built UI on one URL
+  (`--workers 1`: each session's agent worker lives in memory).
+- Every state change is an event in SQLite; the UI replays a session's events in order. The
+  comparison event carries a display-ready `view` (labels, sources, provenance), so the browser
+  never does money math.
+- The agent loop is append-only, with prompt caching, at most `COMPASS_MAX_TOOL_ROUNDS` tool
+  rounds per reply, and a per-session safety limit on agent turns and input tokens
+  (`COMPASS_MAX_SESSION_TURNS`, `COMPASS_MAX_SESSION_INPUT_TOKENS`; defaults in
+  [.env.example](.env.example)). Past it the session gets a fixed reply ("השיחה הגיעה לאורך
+  המרבי. אפשר להתחיל שיחה חדשה."), no more model calls, and a "שיחה חדשה" button.
+- Three screens: the employee (`/`), the representative (`/rep`) and judges mode (the toggle);
+  see [UI](#ui). The event names the UI uses map to the server's as in
+  [Events: the brief's names and the server's](#events-the-briefs-names-and-the-servers).
+
+## Security
+
+- **Tokens.** The representative and admin endpoints need shared bearer tokens, compared in
+  constant time. An unset token makes its endpoints answer 503, never open. The browser keeps a
+  token in `sessionStorage` for that tab only and sends it in a header, never in a URL.
+- **Redaction.** Without the admin token, the session stream and snapshot are allowlisted per
+  event type: no tool inputs or results, no guard sources or rejected drafts, no usage or cost. An
+  unknown event type goes out empty.
+- **No ID numbers.** There is no national-ID field, a name that looks like an ID number is
+  rejected, and every eval scenario checks that no reply asks for one.
+- **No secrets in git or in the image.** `.env` is git-ignored and was never committed. The
+  Docker build context excludes it, and CI checks the built image for any `.env` file and anything
+  shaped like an Anthropic key.
+- **Demo mode makes no network call** (a test patches every way out and fails on any attempt).
+
+## All commands
+
+These commands work as-is in PowerShell, cmd and bash, on Windows, macOS and Linux:
 
 ```sh
 uv run python tasks.py install   # create .venv with Python 3.12 and sync uv.lock
@@ -129,16 +274,23 @@ data/
   app.db               session store                    (created on startup, git-ignored)
 raw/                   raw challenge inputs, committed byte-for-byte (see raw/README.md)
 scripts/
-  build_vehicles_db.py raw CSV  -> data/vehicles.db
+  build_vehicles_db.py raw CSV  -> data/vehicles.db (Docker runs it too)
   extract_excel.py     raw xlsx -> data/*.json + tests/fixtures/reference_*.json
+  record_demo.py       `tasks.py record-demo`: the backup video
+  check_image_secrets.py  CI: no .env and no key pattern in the Docker image
 evals/                 agent evals: scenarios/*.yaml, the harness, report.md, spend.jsonl
-tests/                 pytest suite; fixtures/ holds the 6 golden reference employees
+tests/                 pytest suite; fixtures/ holds the 6 golden reference employees;
+                       counts.json the test counts judges mode and the README show
+web/                   the UI: React + Vite + TypeScript (src/), Playwright (e2e/), the video
+                       recorder (record/)
+docs/                  demo-runbook.md, screenshots/, video/
+Dockerfile, docker-compose.yml   the image and its live / demo profiles
 openapi.json           the API schema, committed for frontend type generation
 tasks.py               cross-platform task runner (Makefile wraps it)
 ```
 
-Planned, not built yet: `web/` (React). The engine imports none of the layers above it; only
-`compass/agent/` calls an LLM, and it never computes a number itself.
+The engine imports none of the layers above it; only `compass/agent/` calls an LLM, and it
+never computes a number itself.
 
 ## Data sources
 
@@ -500,36 +652,20 @@ latency, tokens and cost per scenario. Each scenario run's cost is appended to
 `evals/spend.jsonl`. A run that could take the total past the cap (`--cap`, default $30)
 is refused. CI runs the harness only with a scripted model, so it needs no key.
 
-**Cost per conversation** (from [evals/report.md](evals/report.md): `claude-sonnet-5-5`, effort
-`low`, the 2026-10-18 run of all 15 scenarios): **$0.027 on average**. A one-message question
-with a comparison costs $0.02–0.03, a clarifying exchange about $0.01, and the four-turn
-representative flow (E-001) $0.055. Prompt caching covers most of the input: a typical comparison reads
-~50k tokens from the cache and writes ~2k new ones.
+**Cost per conversation, per scenario and in total:** see [Results](#results), generated from
+the report and the ledger. Prompt caching covers most of the input: the table's "cache read"
+column is most of every scenario's tokens.
 
-**Effort `low` vs `medium`** ([evals/report-medium.md](evals/report-medium.md), 15 runs):
-both pass 15/15 with no guard retries or template fallbacks. `medium` cost $0.028 per run
-against $0.025 for `low` (+11%), and its mean latency was 13.5 s against 15.5 s, a gap
-from two slow `low` runs. Same quality at a lower cost, so the agent stays at `low`.
+**Effort `low` vs `medium`** ([evals/report-medium.md](evals/report-medium.md)): the same pass
+rate with no guard retries or template fallbacks; `medium` cost more per run. Same quality at a
+lower cost, so the agent stays at `low`.
 
 ## UI
 
 A React app (`web/`: Vite, TypeScript strict, Tailwind with the design tokens, Hebrew RTL, IBM
 Plex fonts bundled) on top of the API. FastAPI serves the build at `/`, so the demo is one URL.
 
-### How a number gets to the screen
-
-1. **The model proposes.** Claude reads the conversation and picks tools. It never computes
-   money.
-2. **The tools compute.** Deterministic formulas over the rules file and the catalog, in exact
-   `Decimal`, with a source for every value (the employee, the occupation, the catalog, the
-   representative).
-3. **The guard verifies.** Every number in a reply must come from a tool result, the employee,
-   the representative or the server's own recomputation, or the reply is rewritten (and, failing
-   that, replaced by a template).
-4. **The server settles.** When a ticket opens, the server shows the comparison at the catalog
-   default as pending. When the representative answers, the server recomputes it with the
-   answer and the card turns final. Neither step waits for the model.
-
+How a number gets to the screen is [How correctness is guaranteed](#how-correctness-is-guaranteed).
 The UI only formats what the API sends: it never adds, rounds or animates a number.
 
 ### The three screens
@@ -593,7 +729,7 @@ Fields marked admin are sent only with the admin token.
 | Brief | Server event | Notes |
 |---|---|---|
 | `employee_message` | `user_message` | |
-| `assistant_message` | `assistant_message` | `kind`: reply, template, error |
+| `assistant_message` | `assistant_message` | `kind`: reply, template, error, limit (the session safety limit) |
 | `turn_started` | `agent_started` | `trigger`: employee_turn, rep_answer |
 | `turn_finished`, `usage` | `agent_finished` | usage, latency, rounds, cost: admin |
 | `tool_call` | `tool_call` | input: admin |
@@ -609,12 +745,19 @@ catches up, and an effect (motion, an announcement) never plays twice for the sa
 
 ### Tests
 
-`npm test` (vitest): the formatter, the reducers, the waterfall's invariants, the screens and
-the pending-to-final transition on recorded demo event logs
-(`uv run python scripts/web_fixtures.py` regenerates them). `npm run e2e` (Playwright, about 30
-seconds): the walkthrough, E-001 through `/rep` in a second page, and judges mode with and without
-the admin token, in demo mode against the real API; it also writes the screenshots above.
-CI runs both.
+`npm test` (vitest): the formatter, the reducers, the waterfall's invariants, the screens, the
+pending-to-final transition on recorded demo event logs
+(`uv run python scripts/web_fixtures.py` regenerates them), the session-limit button and the
+phone bar. `npm run e2e` (Playwright, in demo mode against the real API): the walkthrough, E-001
+through `/rep` in a second page, judges mode with and without the admin token, the phone bar at
+400 px, and **axe** on every screen (employee empty, walkthrough, E-001 pending and final, `/rep`
+with a ticket, its error and after the answer, judges mode and its token dialogs, not-found),
+failing on any serious or critical violation; it also writes the screenshots. CI runs both.
+
+On a phone (below 700 px) a sticky bar under the header keeps the alternative, the signed
+difference and זמני/סופי in view; tapping it scrolls back to the card.
+
+![The phone bar at 400 px](docs/screenshots/phone.png)
 
 ## Rules: our additions to the official file
 

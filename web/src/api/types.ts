@@ -173,7 +173,7 @@ export interface JudgesStats {
     runs_total: number;
   } | null;
   spend: { total_usd: string; calls: number; cap_usd: string | null } | null;
-  tests: { pytest: number; vitest: number; as_of: string } | null;
+  tests: { pytest: number; vitest: number; e2e?: number; as_of: string } | null;
   cost_per_conversation: { usd: string; runs: number } | null;
 }
 
