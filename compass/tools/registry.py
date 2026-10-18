@@ -49,7 +49,7 @@ TOOLS: tuple[Tool, ...] = (
         "group / group_source / group_budget (state the derived group and budget to the "
         "employee). Save only what the employee actually said: never guess or assume a value "
         "(a 'no' to commissions or bonus is 0; 'I don't know' goes in unknown_fields). Never "
-        "ask for an ID number. There is no document upload: never offer one.",
+        "ask for an ID number.",
         h.SaveProfileInput,
         h.save_profile,
     ),

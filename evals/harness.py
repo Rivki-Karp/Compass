@@ -159,6 +159,8 @@ class Harness:
                 trace.comparisons.append(Comparison(turn, source, p))
             elif event.type == "assistant_message":
                 trace.replies.append(Reply(turn, p["text"], p["kind"]))
+            elif event.type == "user_message":
+                trace.employee_messages.append((turn, p["content"]["text"]))
             elif event.type == "guard_check":
                 trace.guard_actions.append(p["action"])
             elif event.type == "agent_error":

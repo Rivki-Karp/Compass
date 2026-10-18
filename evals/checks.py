@@ -23,13 +23,18 @@ Check types (one key per check):
 the actual list, numbers match by value ("18500" == 18500). Turns are 0-based script indices.
 
 Global checks run on every scenario: no agent errors, every shown reply passes the number
-guard (re-checked), and no forbidden phrase (a recommendation, a national ID request).
+guard (re-checked), no forbidden phrase (a recommendation, a national ID request), and no
+"תלוש" in a reply unless an employee message at or before that turn had it.
 """
 
 import re
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from typing import Any
+
+# A word a reply may use only after the employee used it first (the agent never brings up a
+# payslip: there is no upload; if the employee does, the data can simply be typed in).
+ONLY_AFTER_EMPLOYEE_HE = {"payslip": "תלוש"}
 
 FORBIDDEN_HE = {
     "recommendation": r"כדאי לך",
@@ -95,6 +100,7 @@ class Trace:
     # (turn, violations) for every shown reply, re-checked by the guard after the run
     guard_rechecks: list[tuple[int, list[str]]] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)  # e.g. a rep turn with no open ticket
+    employee_messages: list[tuple[int, str]] = field(default_factory=list)  # (turn, text)
 
 
 @dataclass
@@ -270,6 +276,13 @@ def global_checks(trace: Trace) -> list[CheckResult]:
         for name, pattern in FORBIDDEN_HE.items()
         if re.search(pattern, r.text)
     ]
+    unprompted = [
+        f"t{r.turn} {name}"
+        for r in shown
+        for name, word in ONLY_AFTER_EMPLOYEE_HE.items()
+        if word in r.text
+        and not any(word in text for turn, text in trace.employee_messages if turn <= r.turn)
+    ]
     return [
         CheckResult(
             "[global] script ran as written", not trace.problems, "; ".join(trace.problems)
@@ -281,4 +294,9 @@ def global_checks(trace: Trace) -> list[CheckResult]:
         ),
         CheckResult("[global] shown numbers pass the guard", not violations, "; ".join(violations)),
         CheckResult("[global] no forbidden phrases", not forbidden, "; ".join(forbidden)),
+        CheckResult(
+            "[global] no payslip unless the employee mentioned one",
+            not unprompted,
+            "; ".join(unprompted),
+        ),
     ]

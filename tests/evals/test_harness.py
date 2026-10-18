@@ -12,7 +12,7 @@ from compass.agent.llm import ScriptedClient, Usage, text_response, tool_respons
 from compass.api.settings import Settings
 from compass.state import Store
 from compass.tools.services import Services
-from evals.checks import Comparison, Trace, evaluate, matches, parse_check
+from evals.checks import Comparison, Reply, Trace, evaluate, global_checks, matches, parse_check
 from evals.harness import Harness, RunResult
 from evals.report import Ledger, OverBudget, render
 from evals.scenario import FALLBACK_HE, Scenario, load_all
@@ -232,7 +232,35 @@ def test_a_rep_turn_without_a_ticket_is_a_failure(services: Services) -> None:
 def test_a_number_that_slipped_past_the_guard_is_caught() -> None:
     trace = Trace(guard_rechecks=[(0, ["11,700"])])
     results = evaluate(trace, [{"tool_not_called": {"name": "compare"}}])
-    assert [r.passed for r in results] == [True, True, True, False, True]
+    assert [r.passed for r in results] == [True, True, True, False, True, True]
+
+
+def test_a_payslip_only_after_the_employee_mentions_one() -> None:
+    label = "[global] no payslip unless the employee mentioned one"
+
+    def check(trace: Trace) -> tuple[bool, str]:
+        (result,) = [r for r in global_checks(trace) if r.label == label]
+        return result.passed, result.detail
+
+    volunteered = Trace(
+        employee_messages=[(0, "שכר בסיס 18,500")],
+        replies=[Reply(0, "אין אצלי העלאת תלושים, אפשר לכתוב.", "reply")],
+    )
+    assert check(volunteered) == (False, "t0 payslip")
+    asked = Trace(
+        employee_messages=[(0, "שכר בסיס 18,500"), (1, "אפשר לשלוח לך תלוש?")],
+        replies=[
+            Reply(0, "מה הפנסיה?", "reply"),
+            Reply(1, "את נתוני התלוש אפשר פשוט לכתוב כאן.", "reply"),
+        ],
+    )
+    assert check(asked) == (True, "")
+    # an earlier reply, before the employee said it, still counts
+    early = Trace(
+        employee_messages=[(1, "תלוש?")],
+        replies=[Reply(0, "אפשר להעלות תלוש", "reply")],
+    )
+    assert check(early)[0] is False
 
 
 def test_comparison_check_picks_the_last_matching_compare() -> None:
