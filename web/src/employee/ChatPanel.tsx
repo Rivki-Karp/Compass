@@ -3,6 +3,7 @@ import type { ChatMessage, ToolActivity, Turn } from "../state/session";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/icons";
 import { NumberText } from "../ui/NumberText";
+import { ReplyText } from "../ui/ReplyText";
 
 const STILL_WORKING_MS = 8000; // the rep flow can take ~30 s
 
@@ -183,9 +184,9 @@ function MessageItem({ message, tools }: { message: ChatMessage; tools: ToolActi
   }
   return (
     <li className="flex flex-col items-start gap-1.5">
-      <p className="max-w-[85%] rounded-[14px] rounded-es-[4px] border border-bubble-border bg-ground px-4 py-2.5 whitespace-pre-wrap text-ink">
-        <NumberText text={message.text} />
-      </p>
+      <div className="max-w-[85%] rounded-[14px] rounded-es-[4px] border border-bubble-border bg-ground px-4 py-2.5 text-ink">
+        <ReplyText text={message.text} />
+      </div>
       {tools.length ? <ToolRow tools={tools} /> : null}
     </li>
   );
