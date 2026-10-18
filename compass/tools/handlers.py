@@ -5,6 +5,7 @@ from the data files; no handler calculates money. Expected failures raise ToolEr
 runner turns into {"ok": false, "error": {...}}.
 """
 
+import logging
 from collections.abc import Callable, Mapping
 from decimal import Decimal
 from typing import Annotated, Any, Literal
@@ -47,6 +48,8 @@ from compass.tools.profile import (
 )
 from compass.tools.services import Services
 from compass.tools.view import build_view
+
+log = logging.getLogger(__name__)
 
 SCENARIO = TypeAdapter(Scenario)
 
@@ -720,7 +723,60 @@ def ask_representative(
         pending_slots=[slot_name(f) for f in data.blocking_fields],
     )
     _recompute_as_pending(services, session_id, ticket.id, data.blocking_fields)
-    return {"ticket_id": ticket.id, "status": ticket.status, "context": context}
+    provisional = _provisional_comparisons(services, session_id, ticket.id, data.blocking_fields)
+    result: dict[str, Any] = {"ticket_id": ticket.id, "status": ticket.status, "context": context}
+    if provisional:
+        # what compare would have returned: the model may state it (pending) without calling
+        # compare, and the guard allows its numbers (they are in this tool result)
+        result["provisional_comparisons"] = provisional
+    return result
+
+
+def _provisional_comparisons(
+    services: Services, session_id: str, ticket_id: str, fields: list[str]
+) -> list[dict[str, Any]]:
+    """A ticket for a car's participation, and no comparison of that car yet: compute one now
+    (the current profile and situation, the catalog default for the participation, no model
+    call) and emit it as a server comparison_ready, pending. The rep's answer then settles it
+    (settle_answered), whatever the model does in between. Returns each one as compare returns
+    it. Missing inputs: nothing is emitted (logged); the model asks for them as usual."""
+    compared = {
+        e.payload["alternative"].get("car_id")
+        for e in services.store.events_after(session_id)
+        if e.type == "comparison_ready"
+    }
+    results: list[dict[str, Any]] = []
+    for field in fields:
+        if not field.startswith(ALTERNATIVE_PARTICIPATION):
+            continue
+        car_id = field.removeprefix(ALTERNATIVE_PARTICIPATION)
+        if car_id in compared:
+            continue  # shown already: _recompute_as_pending marks it pending if needed
+        try:
+            alternative = _alternative(
+                services, session_id, AlternativeInput(kind="car", car_id=car_id)
+            )
+            scenario, payload = _comparison(services, session_id, alternative, explicit=False)
+        except ToolError as error:
+            log.info("no provisional comparison for %s in %s: %s", car_id, session_id, error)
+            continue
+        if payload["missing"]:
+            log.info(
+                "no provisional comparison for %s in %s: missing %s",
+                car_id,
+                session_id,
+                payload["missing"],
+            )
+            continue
+        kind = _record_comparison(
+            services,
+            session_id,
+            scenario,
+            {**payload, "origin": "server", "ticket_id": ticket_id, "pending_field": field},
+        )
+        compared.add(car_id)
+        results.append({"ok": True, "alternative_kind": kind, **payload})
+    return results
 
 
 def _uses_catalog_default(payload: Mapping[str, Any], field: str) -> bool | None:

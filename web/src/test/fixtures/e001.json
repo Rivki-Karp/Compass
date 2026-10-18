@@ -1,15 +1,15 @@
 [
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 1,
   "type": "session_created",
   "payload": {
    "status": "active"
   },
-  "created_at": "2026-10-16T09:55:15.411+00:00"
+  "created_at": "2026-10-18T08:19:53.701+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 2,
   "type": "user_message",
   "payload": {
@@ -18,19 +18,19 @@
     "text": "אני מנהלת מוצר, שכר בסיס 18,500"
    }
   },
-  "created_at": "2026-10-16T09:55:15.442+00:00"
+  "created_at": "2026-10-18T08:19:53.725+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 3,
   "type": "agent_started",
   "payload": {
    "trigger": "employee_turn"
   },
-  "created_at": "2026-10-16T09:55:15.482+00:00"
+  "created_at": "2026-10-18T08:19:53.754+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 4,
   "type": "tool_call",
   "payload": {
@@ -41,10 +41,10 @@
     "base_salary": 18500
    }
   },
-  "created_at": "2026-10-16T09:55:15.508+00:00"
+  "created_at": "2026-10-18T08:19:53.794+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 5,
   "type": "profile_updated",
   "payload": {
@@ -66,10 +66,10 @@
     }
    }
   },
-  "created_at": "2026-10-16T09:55:15.525+00:00"
+  "created_at": "2026-10-18T08:19:53.812+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 6,
   "type": "tool_result",
   "payload": {
@@ -112,10 +112,10 @@
     "group_budget": "4500"
    }
   },
-  "created_at": "2026-10-16T09:55:15.555+00:00"
+  "created_at": "2026-10-18T08:19:53.842+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 7,
   "type": "guard_check",
   "payload": {
@@ -129,10 +129,10 @@
    },
    "action": "accept"
   },
-  "created_at": "2026-10-16T09:55:15.588+00:00"
+  "created_at": "2026-10-18T08:19:53.876+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 8,
   "type": "assistant_message",
   "payload": {
@@ -141,17 +141,17 @@
    "kind": "reply",
    "comparison_ref": null
   },
-  "created_at": "2026-10-16T09:55:15.621+00:00"
+  "created_at": "2026-10-18T08:19:53.906+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 9,
   "type": "agent_finished",
   "payload": {
    "outcome": "reply",
    "error": null,
    "rounds": 1,
-   "latency_ms": 172,
+   "latency_ms": 157,
    "model": "scripted",
    "usage": {
     "input_tokens": 0,
@@ -161,10 +161,10 @@
    },
    "cost_usd": null
   },
-  "created_at": "2026-10-16T09:55:15.633+00:00"
+  "created_at": "2026-10-18T08:19:53.915+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 10,
   "type": "user_message",
   "payload": {
@@ -173,19 +173,19 @@
     "text": "אין לי עמלות או בונוסים. פנסיה 6%, קרן השתלמות 2.5%, 2.75 נקודות זיכוי, 2 ילדים מתחת לגיל 23. היום יש לי קורולה קרוס 2025 ואני משתתפת ב-300 ₪."
    }
   },
-  "created_at": "2026-10-16T09:55:15.655+00:00"
+  "created_at": "2026-10-18T08:19:53.952+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 11,
   "type": "agent_started",
   "payload": {
    "trigger": "employee_turn"
   },
-  "created_at": "2026-10-16T09:55:15.683+00:00"
+  "created_at": "2026-10-18T08:19:53.979+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 12,
   "type": "tool_call",
   "payload": {
@@ -200,10 +200,10 @@
     "children_under_23": 2
    }
   },
-  "created_at": "2026-10-16T09:55:15.711+00:00"
+  "created_at": "2026-10-18T08:19:53.995+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 13,
   "type": "profile_updated",
   "payload": {
@@ -240,10 +240,10 @@
     }
    }
   },
-  "created_at": "2026-10-16T09:55:15.727+00:00"
+  "created_at": "2026-10-18T08:19:54.013+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 14,
   "type": "tool_result",
   "payload": {
@@ -280,10 +280,10 @@
     "group_budget": "4500"
    }
   },
-  "created_at": "2026-10-16T09:55:15.768+00:00"
+  "created_at": "2026-10-18T08:19:54.043+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 15,
   "type": "tool_call",
   "payload": {
@@ -298,10 +298,10 @@
     }
    }
   },
-  "created_at": "2026-10-16T09:55:15.794+00:00"
+  "created_at": "2026-10-18T08:19:54.060+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 16,
   "type": "current_situation_set",
   "payload": {
@@ -321,10 +321,10 @@
     "label": "COROLLA CROSS"
    }
   },
-  "created_at": "2026-10-16T09:55:15.808+00:00"
+  "created_at": "2026-10-18T08:19:54.079+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 17,
   "type": "tool_result",
   "payload": {
@@ -352,10 +352,10 @@
     "warnings": []
    }
   },
-  "created_at": "2026-10-16T09:55:15.820+00:00"
+  "created_at": "2026-10-18T08:19:54.115+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 18,
   "type": "guard_check",
   "payload": {
@@ -369,10 +369,10 @@
    },
    "action": "accept"
   },
-  "created_at": "2026-10-16T09:55:15.859+00:00"
+  "created_at": "2026-10-18T08:19:54.162+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 19,
   "type": "assistant_message",
   "payload": {
@@ -381,10 +381,10 @@
    "kind": "reply",
    "comparison_ref": null
   },
-  "created_at": "2026-10-16T09:55:15.911+00:00"
+  "created_at": "2026-10-18T08:19:54.197+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 20,
   "type": "agent_finished",
   "payload": {
@@ -401,10 +401,10 @@
    },
    "cost_usd": null
   },
-  "created_at": "2026-10-16T09:55:15.919+00:00"
+  "created_at": "2026-10-18T08:19:54.207+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 21,
   "type": "user_message",
   "payload": {
@@ -413,19 +413,19 @@
     "text": "מה יקרה לנטו אם אעבור ל-ATTO 3? אני לא יודעת מה תהיה ההשתתפות שלי בו, אפשר לשאול את הנציג?"
    }
   },
-  "created_at": "2026-10-16T09:55:15.949+00:00"
+  "created_at": "2026-10-18T08:19:54.238+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 22,
   "type": "agent_started",
   "payload": {
    "trigger": "employee_turn"
   },
-  "created_at": "2026-10-16T09:55:15.973+00:00"
+  "created_at": "2026-10-18T08:19:54.269+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 23,
   "type": "tool_call",
   "payload": {
@@ -438,16 +438,16 @@
     ]
    }
   },
-  "created_at": "2026-10-16T09:55:15.995+00:00"
+  "created_at": "2026-10-18T08:19:54.300+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 24,
   "type": "ticket_opened",
   "payload": {
    "ticket": {
-    "id": "5f66103cb490479bbf963c4c38ec84c5",
-    "session_id": "65f7076476454d83a81e0d897da0738e",
+    "id": "282126f9fbcd4e87aa6680e74f4be9f4",
+    "session_id": "1e4585851d9740228c77f7a8fc0a6896",
     "question": "מה גובה ההשתתפות העצמית החודשית ב-ATTO 3?",
     "context": {
      "display_name": null,
@@ -462,24 +462,501 @@
     "quick_answers": [],
     "status": "open",
     "answer": null,
-    "created_at": "2026-10-16T09:55:16.016+00:00",
+    "created_at": "2026-10-18T08:19:54.316+00:00",
     "answered_at": null
    }
   },
-  "created_at": "2026-10-16T09:55:16.021+00:00"
+  "created_at": "2026-10-18T08:19:54.316+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 25,
   "type": "session_status",
   "payload": {
    "status": "waiting_for_rep"
   },
-  "created_at": "2026-10-16T09:55:16.021+00:00"
+  "created_at": "2026-10-18T08:19:54.316+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
   "seq": 26,
+  "type": "comparison_ready",
+  "payload": {
+   "alternative_kind": "alternative:1",
+   "alternative": {
+    "participation": null,
+    "participation_source": null,
+    "kind": "company_car",
+    "car_id": "CAR-10"
+   },
+   "comparison": {
+    "today": {
+     "scenario": {
+      "participation": "300",
+      "participation_source": "employee_input",
+      "kind": "company_car",
+      "car_id": "CAR-09"
+     },
+     "car_id": "CAR-09",
+     "vehicle_key": null,
+     "exact": {
+      "cash_income": "18500",
+      "value_of_use": "4070",
+      "maintenance": "0",
+      "electric_gross": "0",
+      "taxable_income": "22570",
+      "income_tax_before_credits": "4341.40",
+      "credit_points_value": "665.50",
+      "pension_credit": "232.7500",
+      "income_tax": "3443.1500",
+      "national_insurance": "1131.5888",
+      "health": "1020.9422",
+      "employee_pension": "1110.00",
+      "employee_study": "462.500",
+      "participation": "300",
+      "family_employee_share": "0",
+      "net": "11031.8190"
+     },
+     "display": {
+      "cash_income": 18500,
+      "value_of_use": 4070,
+      "maintenance": 0,
+      "electric_gross": 0,
+      "taxable_income": 22570,
+      "income_tax_before_credits": 4341,
+      "credit_points_value": 666,
+      "pension_credit": 233,
+      "income_tax": 3443,
+      "national_insurance": 1132,
+      "health": 1021,
+      "employee_pension": 1110,
+      "employee_study": 463,
+      "participation": 300,
+      "family_employee_share": 0,
+      "net": 11032
+     },
+     "metadata": {
+      "rules_version": "mock-2026-10-12",
+      "tax_tables_year": 2025,
+      "value_of_use_year": 2026,
+      "participation_source": "employee_input",
+      "maintenance_source": null,
+      "electric_method": null
+     }
+    },
+    "alternative": {
+     "scenario": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-10"
+     },
+     "car_id": "CAR-10",
+     "vehicle_key": null,
+     "exact": {
+      "cash_income": "18500",
+      "value_of_use": "3130",
+      "maintenance": "0",
+      "electric_gross": "439.90849903220130231486229011039768010959960520267486572265625",
+      "taxable_income": "22069.90849903220130231486229011039768010959960520267486572265625",
+      "income_tax_before_credits": "4181.1716346999824037176073099342232808339758776128292083740234375",
+      "credit_points_value": "665.50",
+      "pension_credit": "232.7500",
+      "income_tax": "3282.9216346999824037176073099342232808339758776128292083740234375",
+      "national_insurance": "1096.5823949322540911620403603077278376076719723641872406005859375",
+      "health": "995.087469399964807329678380398707560061666299588978290557861328125",
+      "employee_pension": "1110.00",
+      "employee_study": "462.500",
+      "participation": "300",
+      "family_employee_share": "0",
+      "net": "11692.817000000000000105536239469739001606285455636680126190185546875"
+     },
+     "display": {
+      "cash_income": 18500,
+      "value_of_use": 3130,
+      "maintenance": 0,
+      "electric_gross": 440,
+      "taxable_income": 22070,
+      "income_tax_before_credits": 4181,
+      "credit_points_value": 666,
+      "pension_credit": 233,
+      "income_tax": 3283,
+      "national_insurance": 1097,
+      "health": 995,
+      "employee_pension": 1110,
+      "employee_study": 463,
+      "participation": 300,
+      "family_employee_share": 0,
+      "net": 11693
+     },
+     "metadata": {
+      "rules_version": "mock-2026-10-12",
+      "tax_tables_year": 2025,
+      "value_of_use_year": 2026,
+      "participation_source": "catalog_default",
+      "maintenance_source": null,
+      "electric_method": "gross_up"
+     }
+    },
+    "diff": "660.998000000000000105536239469739001606285455636680126190185546875",
+    "display_diff": 661,
+    "delta_lines": [
+     {
+      "line": "cash_income",
+      "net_effect": "0"
+     },
+     {
+      "line": "maintenance",
+      "net_effect": "0"
+     },
+     {
+      "line": "electric_gross",
+      "net_effect": "439.90849903220130231486229011039768010959960520267486572265625"
+     },
+     {
+      "line": "income_tax",
+      "net_effect": "160.2283653000175962823926900657767191660241223871707916259765625"
+     },
+     {
+      "line": "national_insurance",
+      "net_effect": "35.0064050677459088379596396922721623923280276358127593994140625"
+     },
+     {
+      "line": "health",
+      "net_effect": "25.854730600035192670321619601292439938333700411021709442138671875"
+     },
+     {
+      "line": "employee_pension",
+      "net_effect": "0.00"
+     },
+     {
+      "line": "employee_study",
+      "net_effect": "0.000"
+     },
+     {
+      "line": "participation",
+      "net_effect": "0"
+     },
+     {
+      "line": "family_employee_share",
+      "net_effect": "0"
+     }
+    ],
+    "display_delta_lines": [
+     {
+      "line": "cash_income",
+      "net_effect": 0
+     },
+     {
+      "line": "maintenance",
+      "net_effect": 0
+     },
+     {
+      "line": "electric_gross",
+      "net_effect": 440
+     },
+     {
+      "line": "income_tax",
+      "net_effect": 160
+     },
+     {
+      "line": "national_insurance",
+      "net_effect": 35
+     },
+     {
+      "line": "health",
+      "net_effect": 26
+     },
+     {
+      "line": "employee_pension",
+      "net_effect": 0
+     },
+     {
+      "line": "employee_study",
+      "net_effect": 0
+     },
+     {
+      "line": "participation",
+      "net_effect": 0
+     },
+     {
+      "line": "family_employee_share",
+      "net_effect": 0
+     }
+    ],
+    "explanation_facts": [
+     {
+      "kind": "value_of_use_change",
+      "from": 4070,
+      "to": 3130
+     },
+     {
+      "kind": "electric_bonus",
+      "method": "gross_up",
+      "net": 250,
+      "gross": 440
+     },
+     {
+      "kind": "participation_change",
+      "from": 300,
+      "to": 300,
+      "source": "catalog_default"
+     }
+    ],
+    "warnings": [],
+    "missing": [],
+    "partial": false
+   },
+   "eligibility": {
+    "status": "eligible",
+    "reason": "car_group_within",
+    "facts": {
+     "car_id": "CAR-10",
+     "car_group": "ג",
+     "employee_group": "ג"
+    },
+    "warnings": []
+   },
+   "hypothetical": false,
+   "missing": [],
+   "participation_source": "catalog_default",
+   "pending_rep": true,
+   "participation_effective_from": null,
+   "today_participation": {
+    "source": "employee_input",
+    "pending_rep": false,
+    "effective_from": null
+   },
+   "origin": "server",
+   "ticket_id": "282126f9fbcd4e87aa6680e74f4be9f4",
+   "pending_field": "alternative_participation:CAR-10",
+   "view": {
+    "version": 1,
+    "today_title": "COROLLA CROSS 2025",
+    "alternative_title": "ATTO 3",
+    "alternative_kind": "company_car",
+    "alternative_car_id": "CAR-10",
+    "alternative_details": "חשמלי · קבוצה ג׳",
+    "group": "ג",
+    "group_label": "קבוצה ג׳",
+    "group_budget": 4500,
+    "today_net": 11032,
+    "alternative_net": 11693,
+    "display_diff": 661,
+    "direction": "up",
+    "breakdown": [
+     {
+      "key": "electric_gross",
+      "label": "החזר חשמל מגולם",
+      "net_effect": 440,
+      "inputs": [
+       "alternative_car",
+       "today_car"
+      ],
+      "rules": [
+       {
+        "key": "electric_reimbursement",
+        "label": "החזר חשמל לרכב חשמלי"
+       },
+       {
+        "key": "income_tax_brackets",
+        "label": "מדרגות מס הכנסה"
+       }
+      ]
+     },
+     {
+      "key": "income_tax",
+      "label": "מס הכנסה",
+      "net_effect": 160,
+      "inputs": [
+       "credit_points",
+       "pension_percent",
+       "base_salary",
+       "today_car",
+       "alternative_car"
+      ],
+      "rules": [
+       {
+        "key": "income_tax_brackets",
+        "label": "מדרגות מס הכנסה"
+       },
+       {
+        "key": "credit_point_value",
+        "label": "שווי נקודת זיכוי"
+       },
+       {
+        "key": "pension_credit",
+        "label": "זיכוי על הפרשה לפנסיה"
+       },
+       {
+        "key": "value_of_use",
+        "label": "שווי שימוש (טבלת רשות המסים)"
+       }
+      ]
+     },
+     {
+      "key": "national_insurance",
+      "label": "ביטוח לאומי",
+      "net_effect": 35,
+      "inputs": [
+       "base_salary",
+       "today_car",
+       "alternative_car"
+      ],
+      "rules": [
+       {
+        "key": "national_insurance_brackets",
+        "label": "מדרגות ביטוח לאומי"
+       },
+       {
+        "key": "value_of_use",
+        "label": "שווי שימוש (טבלת רשות המסים)"
+       }
+      ]
+     },
+     {
+      "key": "health",
+      "label": "מס בריאות",
+      "net_effect": 26,
+      "inputs": [
+       "base_salary",
+       "today_car",
+       "alternative_car"
+      ],
+      "rules": [
+       {
+        "key": "health_brackets",
+        "label": "מדרגות מס בריאות"
+       },
+       {
+        "key": "value_of_use",
+        "label": "שווי שימוש (טבלת רשות המסים)"
+       }
+      ]
+     }
+    ],
+    "inputs": [
+     {
+      "id": "occupation",
+      "label": "עיסוק",
+      "value": "מנהל/ת מוצר",
+      "unit": "text",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "group",
+      "label": "קבוצת רכב",
+      "value": "ג׳",
+      "unit": "text",
+      "source": "occupation",
+      "ticket_field": null
+     },
+     {
+      "id": "base_salary",
+      "label": "שכר בסיס",
+      "value": 18500,
+      "unit": "ils",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "commissions",
+      "label": "עמלות",
+      "value": 0,
+      "unit": "ils",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "bonus",
+      "label": "בונוס",
+      "value": 0,
+      "unit": "ils",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "pension_percent",
+      "label": "הפרשת עובד לפנסיה",
+      "value": "6",
+      "unit": "percent",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "study_fund_percent",
+      "label": "הפרשת עובד לקרן השתלמות",
+      "value": "2.5",
+      "unit": "percent",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "credit_points",
+      "label": "נקודות זיכוי",
+      "value": "2.75",
+      "unit": "points",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "children_under_23",
+      "label": "ילדים מתחת לגיל 23",
+      "value": "2",
+      "unit": "count",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "today_car",
+      "label": "הרכב היום",
+      "value": "COROLLA CROSS 2025",
+      "unit": "text",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "today_participation",
+      "label": "השתתפות היום",
+      "value": 300,
+      "unit": "ils",
+      "source": "employee_input",
+      "ticket_field": "current_participation"
+     },
+     {
+      "id": "alternative_car",
+      "label": "הרכב בחלופה",
+      "value": "ATTO 3",
+      "unit": "text",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "alternative_participation",
+      "label": "השתתפות בחלופה",
+      "value": 300,
+      "unit": "ils",
+      "source": "pending_rep",
+      "ticket_field": "alternative_participation:CAR-10"
+     }
+    ],
+    "pending": true,
+    "pending_fields": [
+     "alternative_participation:CAR-10"
+    ],
+    "partial": false,
+    "missing": [],
+    "warnings": [],
+    "hypothetical": false,
+    "rules_version": "mock-2026-10-12"
+   }
+  },
+  "created_at": "2026-10-18T08:19:54.332+00:00"
+ },
+ {
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 27,
   "type": "tool_result",
   "payload": {
    "tool_use_id": "toolu_ask_representative_9",
@@ -488,7 +965,7 @@
    "summary": {},
    "result": {
     "ok": true,
-    "ticket_id": "5f66103cb490479bbf963c4c38ec84c5",
+    "ticket_id": "282126f9fbcd4e87aa6680e74f4be9f4",
     "status": "open",
     "context": {
      "display_name": null,
@@ -496,14 +973,258 @@
      "group": "ג",
      "current_situation": "COROLLA CROSS",
      "requested_alternative": null
-    }
+    },
+    "provisional_comparisons": [
+     {
+      "ok": true,
+      "alternative_kind": "alternative:1",
+      "comparison": {
+       "today": {
+        "scenario": {
+         "participation": "300",
+         "participation_source": "employee_input",
+         "kind": "company_car",
+         "car_id": "CAR-09"
+        },
+        "car_id": "CAR-09",
+        "vehicle_key": null,
+        "exact": {
+         "cash_income": "18500",
+         "value_of_use": "4070",
+         "maintenance": "0",
+         "electric_gross": "0",
+         "taxable_income": "22570",
+         "income_tax_before_credits": "4341.40",
+         "credit_points_value": "665.50",
+         "pension_credit": "232.7500",
+         "income_tax": "3443.1500",
+         "national_insurance": "1131.5888",
+         "health": "1020.9422",
+         "employee_pension": "1110.00",
+         "employee_study": "462.500",
+         "participation": "300",
+         "family_employee_share": "0",
+         "net": "11031.8190"
+        },
+        "display": {
+         "cash_income": 18500,
+         "value_of_use": 4070,
+         "maintenance": 0,
+         "electric_gross": 0,
+         "taxable_income": 22570,
+         "income_tax_before_credits": 4341,
+         "credit_points_value": 666,
+         "pension_credit": 233,
+         "income_tax": 3443,
+         "national_insurance": 1132,
+         "health": 1021,
+         "employee_pension": 1110,
+         "employee_study": 463,
+         "participation": 300,
+         "family_employee_share": 0,
+         "net": 11032
+        },
+        "metadata": {
+         "rules_version": "mock-2026-10-12",
+         "tax_tables_year": 2025,
+         "value_of_use_year": 2026,
+         "participation_source": "employee_input",
+         "maintenance_source": null,
+         "electric_method": null
+        }
+       },
+       "alternative": {
+        "scenario": {
+         "participation": null,
+         "participation_source": null,
+         "kind": "company_car",
+         "car_id": "CAR-10"
+        },
+        "car_id": "CAR-10",
+        "vehicle_key": null,
+        "exact": {
+         "cash_income": "18500",
+         "value_of_use": "3130",
+         "maintenance": "0",
+         "electric_gross": "439.90849903220130231486229011039768010959960520267486572265625",
+         "taxable_income": "22069.90849903220130231486229011039768010959960520267486572265625",
+         "income_tax_before_credits": "4181.1716346999824037176073099342232808339758776128292083740234375",
+         "credit_points_value": "665.50",
+         "pension_credit": "232.7500",
+         "income_tax": "3282.9216346999824037176073099342232808339758776128292083740234375",
+         "national_insurance": "1096.5823949322540911620403603077278376076719723641872406005859375",
+         "health": "995.087469399964807329678380398707560061666299588978290557861328125",
+         "employee_pension": "1110.00",
+         "employee_study": "462.500",
+         "participation": "300",
+         "family_employee_share": "0",
+         "net": "11692.817000000000000105536239469739001606285455636680126190185546875"
+        },
+        "display": {
+         "cash_income": 18500,
+         "value_of_use": 3130,
+         "maintenance": 0,
+         "electric_gross": 440,
+         "taxable_income": 22070,
+         "income_tax_before_credits": 4181,
+         "credit_points_value": 666,
+         "pension_credit": 233,
+         "income_tax": 3283,
+         "national_insurance": 1097,
+         "health": 995,
+         "employee_pension": 1110,
+         "employee_study": 463,
+         "participation": 300,
+         "family_employee_share": 0,
+         "net": 11693
+        },
+        "metadata": {
+         "rules_version": "mock-2026-10-12",
+         "tax_tables_year": 2025,
+         "value_of_use_year": 2026,
+         "participation_source": "catalog_default",
+         "maintenance_source": null,
+         "electric_method": "gross_up"
+        }
+       },
+       "diff": "660.998000000000000105536239469739001606285455636680126190185546875",
+       "display_diff": 661,
+       "delta_lines": [
+        {
+         "line": "cash_income",
+         "net_effect": "0"
+        },
+        {
+         "line": "maintenance",
+         "net_effect": "0"
+        },
+        {
+         "line": "electric_gross",
+         "net_effect": "439.90849903220130231486229011039768010959960520267486572265625"
+        },
+        {
+         "line": "income_tax",
+         "net_effect": "160.2283653000175962823926900657767191660241223871707916259765625"
+        },
+        {
+         "line": "national_insurance",
+         "net_effect": "35.0064050677459088379596396922721623923280276358127593994140625"
+        },
+        {
+         "line": "health",
+         "net_effect": "25.854730600035192670321619601292439938333700411021709442138671875"
+        },
+        {
+         "line": "employee_pension",
+         "net_effect": "0.00"
+        },
+        {
+         "line": "employee_study",
+         "net_effect": "0.000"
+        },
+        {
+         "line": "participation",
+         "net_effect": "0"
+        },
+        {
+         "line": "family_employee_share",
+         "net_effect": "0"
+        }
+       ],
+       "display_delta_lines": [
+        {
+         "line": "cash_income",
+         "net_effect": 0
+        },
+        {
+         "line": "maintenance",
+         "net_effect": 0
+        },
+        {
+         "line": "electric_gross",
+         "net_effect": 440
+        },
+        {
+         "line": "income_tax",
+         "net_effect": 160
+        },
+        {
+         "line": "national_insurance",
+         "net_effect": 35
+        },
+        {
+         "line": "health",
+         "net_effect": 26
+        },
+        {
+         "line": "employee_pension",
+         "net_effect": 0
+        },
+        {
+         "line": "employee_study",
+         "net_effect": 0
+        },
+        {
+         "line": "participation",
+         "net_effect": 0
+        },
+        {
+         "line": "family_employee_share",
+         "net_effect": 0
+        }
+       ],
+       "explanation_facts": [
+        {
+         "kind": "value_of_use_change",
+         "from": 4070,
+         "to": 3130
+        },
+        {
+         "kind": "electric_bonus",
+         "method": "gross_up",
+         "net": 250,
+         "gross": 440
+        },
+        {
+         "kind": "participation_change",
+         "from": 300,
+         "to": 300,
+         "source": "catalog_default"
+        }
+       ],
+       "warnings": [],
+       "missing": [],
+       "partial": false
+      },
+      "eligibility": {
+       "status": "eligible",
+       "reason": "car_group_within",
+       "facts": {
+        "car_id": "CAR-10",
+        "car_group": "ג",
+        "employee_group": "ג"
+       },
+       "warnings": []
+      },
+      "hypothetical": false,
+      "missing": [],
+      "participation_source": "catalog_default",
+      "pending_rep": true,
+      "participation_effective_from": null,
+      "today_participation": {
+       "source": "employee_input",
+       "pending_rep": false,
+       "effective_from": null
+      }
+     }
+    ]
    }
   },
-  "created_at": "2026-10-16T09:55:16.058+00:00"
+  "created_at": "2026-10-18T08:19:54.348+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 27,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 28,
   "type": "tool_call",
   "payload": {
    "tool_use_id": "toolu_compare_10",
@@ -515,11 +1236,11 @@
     }
    }
   },
-  "created_at": "2026-10-16T09:55:16.398+00:00"
+  "created_at": "2026-10-18T08:19:54.399+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 28,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 29,
   "type": "comparison_ready",
   "payload": {
    "alternative_kind": "alternative:1",
@@ -989,11 +1710,11 @@
     "rules_version": "mock-2026-10-12"
    }
   },
-  "created_at": "2026-10-16T09:55:16.435+00:00"
+  "created_at": "2026-10-18T08:19:54.424+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 29,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 30,
   "type": "tool_result",
   "payload": {
    "tool_use_id": "toolu_compare_10",
@@ -1248,11 +1969,11 @@
     }
    }
   },
-  "created_at": "2026-10-16T09:55:16.505+00:00"
+  "created_at": "2026-10-18T08:19:54.449+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 30,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 31,
   "type": "guard_check",
   "payload": {
    "passed": true,
@@ -1265,33 +1986,33 @@
    "sources": {
     "3": "employee",
     "300": "employee",
-    "661": "compare"
+    "661": "ask_representative"
    },
    "action": "accept"
   },
-  "created_at": "2026-10-16T09:55:16.543+00:00"
+  "created_at": "2026-10-18T08:19:54.486+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 31,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 32,
   "type": "assistant_message",
   "payload": {
    "message_seq": 17,
    "text": "פתחתי פנייה לנציג לגבי ההשתתפות ב-ATTO 3. בינתיים, לפי ההשתתפות שבקטלוג (300 ₪), הנטו המשוער עולה ב-661 ₪ בחודש. זה מספר זמני: אעדכן ברגע שהנציג יענה.",
    "kind": "reply",
-   "comparison_ref": 28
+   "comparison_ref": 29
   },
-  "created_at": "2026-10-16T09:55:16.605+00:00"
+  "created_at": "2026-10-18T08:19:54.528+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 32,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 33,
   "type": "agent_finished",
   "payload": {
    "outcome": "reply",
    "error": null,
    "rounds": 2,
-   "latency_ms": 688,
+   "latency_ms": 281,
    "model": "scripted",
    "usage": {
     "input_tokens": 0,
@@ -1301,14 +2022,14 @@
    },
    "cost_usd": null
   },
-  "created_at": "2026-10-16T09:55:16.658+00:00"
+  "created_at": "2026-10-18T08:19:54.544+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 33,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 34,
   "type": "ticket_answered",
   "payload": {
-   "ticket_id": "5f66103cb490479bbf963c4c38ec84c5",
+   "ticket_id": "282126f9fbcd4e87aa6680e74f4be9f4",
    "answer": {
     "text": null,
     "quick_answer_id": null,
@@ -1325,20 +2046,20 @@
    },
    "unknown": []
   },
-  "created_at": "2026-10-16T09:55:16.710+00:00"
+  "created_at": "2026-10-18T08:19:54.593+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 34,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 35,
   "type": "session_status",
   "payload": {
    "status": "active"
   },
-  "created_at": "2026-10-16T09:55:16.710+00:00"
+  "created_at": "2026-10-18T08:19:54.593+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 35,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 36,
   "type": "comparison_ready",
   "payload": {
    "alternative_kind": "alternative:2",
@@ -1587,8 +2308,8 @@
     "effective_from": null
    },
    "origin": "server",
-   "recomputed_from": 28,
-   "ticket_id": "5f66103cb490479bbf963c4c38ec84c5",
+   "recomputed_from": 29,
+   "ticket_id": "282126f9fbcd4e87aa6680e74f4be9f4",
    "answered_field": "alternative_participation:CAR-10",
    "view": {
     "version": 1,
@@ -1820,20 +2541,20 @@
     "rules_version": "mock-2026-10-12"
    }
   },
-  "created_at": "2026-10-16T09:55:16.774+00:00"
+  "created_at": "2026-10-18T08:19:54.644+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 36,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 37,
   "type": "agent_started",
   "payload": {
    "trigger": "rep_answer"
   },
-  "created_at": "2026-10-16T09:55:16.847+00:00"
+  "created_at": "2026-10-18T08:19:54.707+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 37,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 38,
   "type": "tool_call",
   "payload": {
    "tool_use_id": "toolu_compare_11",
@@ -1845,11 +2566,11 @@
     }
    }
   },
-  "created_at": "2026-10-16T09:55:16.966+00:00"
+  "created_at": "2026-10-18T08:19:54.769+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 38,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 39,
   "type": "comparison_ready",
   "payload": {
    "alternative_kind": "alternative:2",
@@ -2327,11 +3048,11 @@
     "rules_version": "mock-2026-10-12"
    }
   },
-  "created_at": "2026-10-16T09:55:16.988+00:00"
+  "created_at": "2026-10-18T08:19:54.797+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 39,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 40,
   "type": "tool_result",
   "payload": {
    "tool_use_id": "toolu_compare_11",
@@ -2586,11 +3307,11 @@
     }
    }
   },
-  "created_at": "2026-10-16T09:55:17.028+00:00"
+  "created_at": "2026-10-18T08:19:54.823+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 40,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 41,
   "type": "guard_check",
   "payload": {
    "passed": true,
@@ -2605,35 +3326,35 @@
    "sources": {
     "350": "representative",
     "3": "employee",
-    "11,032": "compare",
-    "11,643": "compare",
-    "+611": "compare"
+    "11,032": "ask_representative",
+    "11,643": "server",
+    "+611": "server"
    },
    "action": "accept"
   },
-  "created_at": "2026-10-16T09:55:17.072+00:00"
+  "created_at": "2026-10-18T08:19:54.860+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 41,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 42,
   "type": "assistant_message",
   "payload": {
    "message_seq": 21,
    "text": "הנציג אישר השתתפות של 350 ₪ ב-ATTO 3. החישוב הסופי: הנטו המשוער עולה מ-11,032 ₪ ל-11,643 ₪, כלומר +611 ₪ בחודש.",
    "kind": "reply",
-   "comparison_ref": 38
+   "comparison_ref": 39
   },
-  "created_at": "2026-10-16T09:55:17.101+00:00"
+  "created_at": "2026-10-18T08:19:54.903+00:00"
  },
  {
-  "session_id": "65f7076476454d83a81e0d897da0738e",
-  "seq": 42,
+  "session_id": "1e4585851d9740228c77f7a8fc0a6896",
+  "seq": 43,
   "type": "agent_finished",
   "payload": {
    "outcome": "reply",
    "error": null,
    "rounds": 1,
-   "latency_ms": 297,
+   "latency_ms": 235,
    "model": "scripted",
    "usage": {
     "input_tokens": 0,
@@ -2643,6 +3364,6 @@
    },
    "cost_usd": null
   },
-  "created_at": "2026-10-16T09:55:17.113+00:00"
+  "created_at": "2026-10-18T08:19:54.913+00:00"
  }
 ]

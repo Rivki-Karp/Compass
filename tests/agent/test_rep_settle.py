@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from compass.agent.guard import make_guard
-from compass.agent.llm import ScriptedClient, text_response
+from compass.agent.llm import ScriptedClient, text_response, tool_response
 from compass.agent.runner import ClaudeAgentRunner
 from compass.agent.transcript import REP_TAG, model_view
 from compass.state import Store
@@ -126,12 +126,61 @@ def test_no_settle_no_server_comparisons(services: Services) -> None:
     ok(tools.run(sid, "save_profile", NOA))
     ok(tools.run(sid, "set_current_situation", TODAY))
     ok(tools.run(sid, "compare", ATTO_3))
-    other = "alternative_participation:CAR-11"
-    ticket = ok(tools.run(sid, "ask_representative", {"question": "?", "blocking_fields": [other]}))
-    answer_ticket(services, ticket["ticket_id"], values={other: 500})
-    runner, llm = _runner(services, [text_response("הנציג ענה: 500 ₪.")])
+    ticket = ok(
+        tools.run(sid, "ask_representative", {"question": "?", "blocking_fields": ["bonus"]})
+    )
+    answer_ticket(services, ticket["ticket_id"], values={"bonus": 0})  # not a participation
+    runner, llm = _runner(services, [text_response("הנציג ענה: אין בונוס.")])
     runner.on_ticket_answered(sid, ticket["ticket_id"])
     assert "server_comparisons" not in _notification(llm)
     # and +611 is not allowed in that session
     allowed = make_guard(services.store)("+611 ₪", sid)
     assert allowed.violations == ["+611"]
+
+
+def test_ask_then_answer_without_any_compare_passes_the_guard(services: Services) -> None:
+    """8b: ask_representative returns the provisional comparison (compact), so the model can
+    state +661 at once; the rep's answer settles it (6b), so it can state +611. No compare."""
+    tools = ToolRunner(services)
+    sid = services.store.create_session()
+    ok(tools.run(sid, "save_profile", NOA))
+    ok(tools.run(sid, "set_current_situation", TODAY))
+    pending = "פתחתי פנייה לנציג. בינתיים, לפי ברירת המחדל: +661 ₪ בחודש (11,032 ← 11,693)."
+    runner, llm = _runner(
+        services,
+        [
+            tool_response(("ask_representative", {"question": "?", "blocking_fields": [ATTO]})),
+            text_response(pending),
+            text_response(SETTLED),
+        ],
+    )
+    seq = services.store.add_message(sid, "user", {"text": "מה אם אעבור ל-ATTO 3?"})
+    runner.on_user_message(sid, seq)
+
+    # what the model read back from ask_representative: the compact provisional comparison
+    tool_message = llm.calls[1].messages[-1]["content"][0]
+    shown = json.loads(tool_message["content"])
+    (provisional,) = shown["provisional_comparisons"]
+    assert provisional["comparison"]["display_diff"] == 661
+    assert provisional["pending_rep"] is True
+    assert set(provisional["comparison"]) == {
+        "today",
+        "alternative",
+        "display_diff",
+        "display_delta_lines",
+        "explanation_facts",
+        "warnings",
+        "missing",
+        "partial",
+    }  # the same compact shape compare returns
+
+    (ticket,) = services.store.tickets(status="open")
+    answer_ticket(services, ticket.id, values={ATTO: 350})
+    runner.on_ticket_answered(sid, ticket.id)
+
+    checks = _guard_checks(services, sid)
+    assert [c["action"] for c in checks] == ["accept", "accept"]
+    assert checks[0]["sources"]["+661"] == "ask_representative"
+    assert checks[1]["sources"]["+611"] == "server"
+    calls = [e.payload["name"] for e in services.store.events_after(sid) if e.type == "tool_call"]
+    assert calls == ["ask_representative"]

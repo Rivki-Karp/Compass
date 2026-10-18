@@ -79,7 +79,10 @@ def test_ask_then_compare_needs_no_recompute(services: Services, runner: ToolRun
     _ask(runner, sid, ATTO)
     result = ok(runner.run(sid, "compare", ATTO_3))
     assert result["pending_rep"] is True and result["comparison"]["display_diff"] == 661
-    assert [c.get("origin") for c in _comparisons(services, sid)] == [None]
+    # the ticket's provisional comparison (8b), then compare's own: no recompute of either
+    provisional, compared = _comparisons(services, sid)
+    assert (provisional["origin"], compared.get("origin")) == ("server", None)
+    assert provisional["comparison"] == compared["comparison"]
 
 
 def test_the_representatives_answer_then_gives_611(services: Services, runner: ToolRunner) -> None:
@@ -99,7 +102,10 @@ def test_fields_the_comparison_did_not_use_do_not_recompute(
     ok(runner.run(sid, "compare", ATTO_3))
     _ask(runner, sid, "alternative_participation:CAR-11")  # another car
     _ask(runner, sid, "bonus")  # not a participation
-    assert len(_comparisons(services, sid)) == 1
+    first, *rest = _comparisons(services, sid)
+    # CAR-10's comparison is not recomputed; CAR-11 gets its own provisional one (8b)
+    assert [c["alternative"]["car_id"] for c in rest] == ["CAR-11"]
+    assert rest[0]["pending_field"] == "alternative_participation:CAR-11"
 
 
 def test_a_stated_participation_does_not_recompute(services: Services, runner: ToolRunner) -> None:
@@ -195,7 +201,10 @@ def test_a_field_the_comparison_did_not_use_settles_nothing(
     other = _ask(runner, sid, "alternative_participation:CAR-11")  # another car
     before = len(_comparisons(services, sid))
     answer_ticket(services, other, values={"alternative_participation:CAR-11": 500})
-    assert len(_comparisons(services, sid)) == before
+    # only CAR-11's provisional comparison settles; CAR-10's is left alone
+    (settled,) = _comparisons(services, sid)[before:]
+    assert settled["alternative"]["car_id"] == "CAR-11"
+    assert settled["answered_field"] == "alternative_participation:CAR-11"
 
 
 def test_a_non_participation_answer_settles_nothing(services: Services, runner: ToolRunner) -> None:

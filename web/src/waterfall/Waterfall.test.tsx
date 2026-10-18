@@ -7,7 +7,11 @@ import { must, views, viewWith } from "../test/views";
 import { Waterfall } from "./Waterfall";
 
 const [walkthrough] = views(walkthroughLog);
-const [e001Pending, e001Final] = views(e001Log);
+// E-001's views: pending (the ticket's provisional one, then compare's), then final (the
+// server's settle, then compare's): the first pending and the last final
+const e001Views = views(e001Log);
+const e001Pending = e001Views.find((v) => v.pending);
+const e001Final = [...e001Views].reverse().find((v) => !v.pending);
 
 const bars = () => within(screen.getByRole("group", { name: "פירוט ההפרש לפי שורות" })).getAllByRole("button");
 const selectedKey = () =>
