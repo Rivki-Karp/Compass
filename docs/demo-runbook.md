@@ -2,7 +2,11 @@
 
 Seven minutes, two browser windows, one laptop. The live run uses the real model; if the
 network or the API fails at any point, switch to demo mode (section 5): the screens and the
-numbers are the same, with no key and no network.
+numbers are the same, with no key and no network. If the laptop itself can't run the app, play
+the backup video (section 6).
+
+Fallbacks in order: live (section 3) → demo mode with `tasks.py demo` (5a) → demo mode in Docker
+(5b) → the backup video (6).
 
 ## 1. Before you go on stage
 
@@ -17,6 +21,19 @@ uv run python tasks.py test          # optional sanity check
 
 Check `.env` has `ANTHROPIC_API_KEY`, `COMPASS_REP_TOKEN` and `COMPASS_ADMIN_TOKEN`, and write
 the two tokens on a card: you'll type them on stage.
+
+Build the Docker image too, while there is network (it downloads npm and PyPI packages; on
+stage, `up` without `--build` needs no network). On a NetFree connection, point the build at its
+CA first:
+
+```powershell
+$env:COMPASS_BUILD_CA="C:\ProgramData\NetFree\CA\netfree-ca-list.crt"   # NetFree only
+docker compose --profile demo build
+```
+
+Check the backup video plays: open `docs\video\compass-demo-employee.webm` in Chrome (drag the
+file onto a tab). It is 1:31, the whole story in demo mode; `compass-demo-rep.webm` is the
+representative's 10 seconds.
 
 Do one full dry run of section 3 in live mode and one in demo mode (section 5).
 
@@ -105,6 +122,9 @@ Back to **Window A** (within a second, before the model has said anything):
 
 - The card turns **+611 ₪, "סופי"**, with a green border for 2 seconds. The waterfall gains a
   **−50** bar (the participation). The participation row reads 350 ₪ "אושר על ידי נציג".
+- The strip under the waterfall says **"חושב מחדש בשרת · בלי מודל"**. If the model then calls
+  `compare` itself (demo mode's script does), it changes to "חושב בכלי compare" with the same
+  numbers.
 - Say: *the server recomputed it the moment the representative answered; it didn't wait for
   the model.*
 - Then the model's message: the representative confirmed 350 ₪, net 11,032 → 11,643, +611 ₪.
@@ -124,10 +144,14 @@ Back to **Window A** (within a second, before the model has said anything):
 - **The card doesn't change after the rep answers:** check Window B said "התשובה נשלחה". If the
   pill in Window A says "מתחבר מחדש…", wait 2–3 seconds; it reconnects by itself and catches up.
 - **A token is rejected:** the dialog says "הטוקן שגוי."; retype it from the card.
+- **The reply is "השיחה הגיעה לאורך המרבי. אפשר להתחיל שיחה חדשה."** The session hit its safety
+  limit (it won't happen in a seven-minute demo). Click **שיחה חדשה** and continue.
 - **Anything slower than 30 seconds, an error message, or no network:** go to section 5. Don't
   debug on stage.
 
 ## 5. Fallback: demo mode (no network, no key)
+
+### 5a. With `tasks.py demo`
 
 In the PowerShell window: stop the live server (Ctrl+C), then:
 
@@ -150,8 +174,36 @@ prints the URLs and where the tokens come from. Then:
 Say it plainly: *this is demo mode: the model is scripted, everything else (the tools, the
 guard, the tickets, the server's recomputation) runs for real.*
 
-## 6. After the demo
+### 5b. In Docker (if `uv` or the Python environment misbehaves)
 
-- Stop the server (Ctrl+C).
+Stop whatever is on port 8000, then, with the image built the day before (section 1):
+
+```powershell
+docker compose --profile demo up
+```
+
+The same URLs and the same tokens (`rep-demo` / `admin-demo`, unless `.env` sets others); the
+health check turns "healthy" within a few seconds. Then continue as in 5a. Ctrl+C stops it. To
+start from an empty demo database: `docker compose --profile demo down -v`, then `up` again.
+
+## 6. Last resort: the backup video
+
+If no server can run, play the recording: `docs\video\compass-demo-employee.webm` in Chrome,
+full screen (F11). It shows, in demo mode at human pace: the empty state, the walkthrough to
+**+2,914** with the **+802** strip, E-001 to **+661** pending, the representative's answer (350;
+the representative's own screen is `compass-demo-rep.webm`), **+611** final, then judges mode on
+the walkthrough (the compare call opened, the guard 3 of 3) and on a guard rejection (a **+2,915**
+draft struck through, "✕ אין מקור", then "נשלח אחרי ניסוח מחדש"). Narrate it as you would
+section 3.
+
+To re-record it (demo mode, no key; about two minutes):
+
+```powershell
+uv run python tasks.py record-demo
+```
+
+## 7. After the demo
+
+- Stop the server (Ctrl+C), or `docker compose --profile demo down`.
 - `data\final.db` and `data\demo.db` hold only the demo's sessions; delete them if you like.
-  `data\app.db` was not touched.
+  `data\app.db` was not touched. Docker's sessions live in its own volumes.
