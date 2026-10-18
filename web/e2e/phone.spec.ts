@@ -24,9 +24,30 @@ test("phone: the summary bar stays in view and taps back to the hero", async ({ 
   expect((await bar.boundingBox())?.y).toBe(0);
   await page.screenshot({ path: path.join(SCREENSHOTS, "phone.png") });
 
+  // a comfortable tap target: at least 44 x 44 px
+  const box = await bar.boundingBox();
+  expect(box?.height).toBeGreaterThanOrEqual(44);
+  expect(box?.width).toBeGreaterThanOrEqual(44);
+
   await bar.tap();
   await expect(hero).toBeInViewport();
   await expect(hero).toBeFocused();
+  await expect(bar).toBeHidden(); // the hero is on screen: the bar steps aside
+  // The tap scrolls smoothly: check the page only once the scroll has come to rest, with the
+  // hero just below the bar (its scroll margin), so nothing interactive is under the bar.
+  // Checked mid-scroll, the chat input is still passing under the bar (the old flake).
+  const barBottom = (box?.y ?? 0) + (box?.height ?? 0);
+  await expect
+    .poll(
+      async () => {
+        const before = (await hero.boundingBox())?.y;
+        await page.waitForTimeout(150);
+        const after = (await hero.boundingBox())?.y;
+        return before !== undefined && before === after && after >= barBottom;
+      },
+      { timeout: 5000 },
+    )
+    .toBe(true);
 
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"])

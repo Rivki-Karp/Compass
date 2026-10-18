@@ -8,9 +8,19 @@ const TONE = { up: "text-up", down: "text-down", flat: "text-ink" } as const;
 /**
  * The phone summary bar (Day 5 Stage 4): sticky under the header, the alternative's title, the
  * signed difference and the pending/final chip, all from the same `view` as the hero. Tapping it
- * scrolls to the hero card and moves focus there.
+ * scrolls to the hero card and moves focus there. `hidden` while the hero itself is on screen:
+ * the bar would only repeat it, and would cover whatever scrolls under it (the chat input).
+ * Hidden by visibility, so the layout never shifts.
  */
-export function PhoneBar({ comparison, heroId }: { comparison: ComparisonState; heroId: string }) {
+export function PhoneBar({
+  comparison,
+  heroId,
+  hidden = false,
+}: {
+  comparison: ComparisonState;
+  heroId: string;
+  hidden?: boolean;
+}) {
   const { view } = comparison;
   const state = view.pending ? "זמני" : comparison.settled ? "סופי" : null;
   function toHero() {
@@ -26,7 +36,7 @@ export function PhoneBar({ comparison, heroId }: { comparison: ComparisonState; 
       data-testid="phone-bar"
       onClick={toHero}
       aria-label={`${view.alternative_title}: ${spokenSigned(view.display_diff)}${state ? `, ${state}` : ""}. מעבר לכרטיס התוצאה`}
-      className="sticky top-0 z-20 flex min-h-12 w-full items-center gap-3 border-b border-line bg-surface/95 px-4 py-2 text-start shadow-sm backdrop-blur"
+      className={`${hidden ? "invisible" : ""} sticky top-0 z-20 flex min-h-12 w-full items-center gap-3 border-b border-line bg-surface/95 px-4 py-2 text-start shadow-sm backdrop-blur`}
     >
       <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-navy">
         {view.alternative_title}

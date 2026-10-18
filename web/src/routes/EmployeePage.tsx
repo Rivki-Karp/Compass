@@ -15,6 +15,7 @@ import { useTurnSelection } from "../judges/useTurnSelection";
 import { demoSuggestions, GENERAL_SUGGESTIONS } from "../employee/suggestions";
 import { clearToken, getToken, setToken } from "../lib/tokens";
 import { useHealth } from "../lib/useHealth";
+import { useInView } from "../lib/useInView";
 import { limitReached } from "../state/session";
 import { useSession } from "../state/useSession";
 import { ConnectionPill, DemoBadge, Header, JudgesToggle } from "../ui/Header";
@@ -59,6 +60,8 @@ export function EmployeePage() {
   const stats = useJudgesStats(judges ? adminToken : null);
   const [turn, setTurn] = useTurnSelection(state.turns.length);
   const phone = useMediaQuery(PHONE_QUERY);
+  // the phone bar steps aside while the hero is on screen, below the bar's own 48 px
+  const heroInView = useInView(HERO_ID, phone && !judges, 48, state.comparison !== null);
 
   // A stored admin token the server no longer accepts: forget it, leave judges mode.
   useEffect(() => {
@@ -102,7 +105,7 @@ export function EmployeePage() {
           <JudgesToggle on={judges} onToggle={toggleJudges} />
         </Header>
         {comparison && phoneBarVisible({ narrow: phone, comparison, judges }) ? (
-          <PhoneBar comparison={comparison} heroId={HERO_ID} />
+          <PhoneBar comparison={comparison} heroId={HERO_ID} hidden={heroInView} />
         ) : null}
         <TokenDialog
           open={asking}
