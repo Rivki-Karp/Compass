@@ -55,6 +55,37 @@ cp .env.example .env                 # bash / macOS / Linux
 Copy-Item .env.example .env          # PowerShell
 ```
 
+### Docker
+
+One image: a Node stage builds the UI, a Python stage installs from `uv.lock` and rebuilds
+`data/vehicles.db` from `raw/`, and the runtime runs one uvicorn process (`--workers 1`) on port
+8000 as a non-root user, with a health check on `/api/health`. From the repo root in PowerShell:
+
+```powershell
+docker compose --profile demo up --build    # demo mode: scripted model, no API key, no .env needed
+docker compose --profile live up --build    # Claude: .env is passed to the container at run time
+```
+
+Then http://127.0.0.1:8000 (employee), http://127.0.0.1:8000/rep (representative) and
+http://127.0.0.1:8000/docs (API). The demo's tokens are `rep-demo` / `admin-demo` unless `.env`
+sets `COMPASS_REP_TOKEN` / `COMPASS_ADMIN_TOKEN`. Ctrl+C stops it; `docker compose --profile demo
+down` removes the container (add `-v` to also delete the demo's session database).
+
+- **No secret in the image.** `.dockerignore` keeps every `.env*` (except `.env.example`) and
+  every database out of the build context. `live` reads `.env` only when the container starts.
+  CI builds the image (never pushes it) and runs `scripts/check_image_secrets.py`: no `.env` file
+  anywhere in it, nothing shaped like an Anthropic key.
+- **Sessions on a volume.** Each profile has its own named volume at `/data` (`app.db` or
+  `demo.db`). It holds only sessions: the rules, catalog and vehicles database stay in the image,
+  so a rebuild always ships the current ones.
+- **Port 8000 on 127.0.0.1 only.** Stop `tasks.py demo` first if it is running.
+- **Behind a TLS-inspecting filter** (NetFree, a corporate proxy), the build can't download npm and
+  PyPI packages until it trusts that CA. Set `COMPASS_BUILD_CA` to the CA file, in `.env` or the
+  shell, e.g. `$env:COMPASS_BUILD_CA="C:\ProgramData\NetFree\CA\netfree-ca-list.crt"`. It is a
+  build secret: used for the downloads only, never stored in the image.
+- `npm run e2e` from `web/` with `$env:E2E_BASE_URL="http://127.0.0.1:8000"` runs the end-to-end
+  tests against a running container (demo mode, tokens `rep-e2e` / `admin-e2e`).
+
 The raw challenge files (public hackathon material, about 20 MB) are committed in `raw/`
 byte-for-byte; [raw/README.md](raw/README.md) lists them with their SHA-256.
 `tasks.py data` is idempotent: it rebuilds `data/vehicles.db`

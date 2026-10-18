@@ -1,0 +1,49 @@
+# The build context: only what the image needs. Secrets never enter it.
+
+# Secrets: every .env variant except the template
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+
+# Databases: sessions are runtime state (a volume); vehicles.db is rebuilt from raw/ in the image
+data/*.db
+data/*.db-*
+data/*.db.tmp
+**/*.db-wal
+**/*.db-shm
+
+# Dependencies and builds (rebuilt inside the image)
+.venv/
+**/node_modules/
+web/dist/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Tooling, test output, scratch
+.git/
+.github/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/coverage/
+**/scratch/
+**/scratchpad/
+**/*.log
+evals/runs/
+
+# Not needed at runtime or to build
+docs/
+briefs/
+tests/
+!tests/counts.json
+Dockerfile
+docker-compose.yml
+.dockerignore

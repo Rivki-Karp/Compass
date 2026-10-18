@@ -1,0 +1,57 @@
+# Compass with Docker. Pick a profile (PowerShell, from the repo root):
+#
+#   docker compose --profile demo up --build    # demo mode: scripted model, no API key
+#   docker compose --profile live up --build    # Claude: reads .env at run time
+#
+# Then http://127.0.0.1:8000 (employee), /rep (representative), /docs (API). Ctrl+C stops it.
+# The port is bound to 127.0.0.1 only. Secrets are never in the image: `live` passes .env to the
+# container when it starts. Each profile has its own volume for the session database.
+#
+# Behind a TLS-inspecting filter or proxy (the build downloads npm and PyPI packages), point
+# COMPASS_BUILD_CA at its CA certificates, in .env or the shell, e.g.
+#   $env:COMPASS_BUILD_CA="C:\ProgramData\NetFree\CA\netfree-ca-list.crt"
+# It is a build secret: used for the downloads only, never stored in the image.
+
+x-build: &build
+  context: .
+  secrets: [build_ca]
+
+services:
+  live:
+    profiles: [live]
+    build: *build
+    image: compass:latest
+    env_file: .env # ANTHROPIC_API_KEY, COMPASS_REP_TOKEN, COMPASS_ADMIN_TOKEN, ...
+    environment:
+      COMPASS_LLM: anthropic
+      COMPASS_APP_DB: /data/app.db
+      COMPASS_WEB_DIST: /app/web/dist
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - compass-live-data:/data
+    restart: unless-stopped
+
+  demo:
+    profiles: [demo]
+    build: *build
+    image: compass:latest
+    environment:
+      COMPASS_LLM: scripted
+      COMPASS_DEMO_DB: /data/demo.db
+      COMPASS_WEB_DIST: /app/web/dist
+      # demo placeholders, like `tasks.py demo`; a value in .env or the shell wins
+      COMPASS_REP_TOKEN: ${COMPASS_REP_TOKEN:-rep-demo}
+      COMPASS_ADMIN_TOKEN: ${COMPASS_ADMIN_TOKEN:-admin-demo}
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - compass-demo-data:/data
+
+volumes:
+  compass-live-data:
+  compass-demo-data:
+
+secrets:
+  build_ca:
+    file: ${COMPASS_BUILD_CA:-./docker/no-build-ca.pem}
