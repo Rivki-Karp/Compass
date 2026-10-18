@@ -189,3 +189,5 @@ uv run python tasks.py readme                    # refresh the README's results 
 - The single unexplained e2e failure (see "Tests and CI").
 - After review: `git checkout main; git merge --no-ff day5/polish`, `git tag v1.0`,
   `git push origin main v1.0`.
+
+Released v1.0 at 81abaa3.
