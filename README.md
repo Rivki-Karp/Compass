@@ -112,7 +112,7 @@ server's.
 
 Per-scenario figures are averages over the repeats.
 
-**Tests** ([tests/counts.json](tests/counts.json), 2026-10-18): pytest **666** · vitest **182** · Playwright **8**. CI runs all of them on every push.
+**Tests** ([tests/counts.json](tests/counts.json), 2026-10-18): pytest **675** · vitest **182** · Playwright **8**. CI runs all of them on every push.
 
 **Cost per conversation:** **$0.0287**, the last report's run cost over its 16 scenario runs.
 
@@ -159,6 +159,12 @@ browser (React, RTL)  ──POST /messages──▶  FastAPI  ──▶  agent r
   Docker build context excludes it, and CI checks the built image for any `.env` file and anything
   shaped like an Anthropic key.
 - **Demo mode makes no network call** (a test patches every way out and fails on any attempt).
+- **Live mode refuses weak tokens:** an empty, demo or placeholder rep / admin token stops the
+  server at startup, naming the variable (never its value).
+- **Cost and abuse limits (live mode):** a daily spend cap on every model call
+  (`COMPASS_DAILY_SPEND_CAP_USD`, default $5, then a fixed reply until midnight UTC) and a per-IP
+  limit on sending messages (`COMPASS_MESSAGE_RATE_PER_MINUTE`, default 20). The container reads
+  configuration from the environment only (`COMPASS_ENV_ONLY=1`). See the runbook, section 8.
 
 ## All commands
 

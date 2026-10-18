@@ -218,3 +218,23 @@ uv run python tasks.py record-demo
 - Stop the server (Ctrl+C), or `docker compose --profile demo down`.
 - `data\final.db` and `data\demo.db` hold only the demo's sessions; delete them if you like.
   `data\app.db` was not touched. Docker's sessions live in its own volumes.
+
+## 8. Before a public deployment (live mode)
+
+Not deployed anywhere yet; the host is a separate decision. What the single container already does:
+
+- **Configuration from the environment only.** The image sets `COMPASS_ENV_ONLY=1`: no `.env`
+  file is read, and none is in the image (`scripts/check_image_secrets.py`, run in CI). Set
+  every variable on the host: `ANTHROPIC_API_KEY`, `COMPASS_REP_TOKEN`, `COMPASS_ADMIN_TOKEN`,
+  and optionally the two below.
+- **Tokens.** A live server refuses to start while either token is empty or a demo / placeholder
+  value (section 1).
+- **A daily spend cap.** `COMPASS_DAILY_SPEND_CAP_USD` (default 5): every model call on the
+  server, summed per UTC day in the session database, is checked before the next call. At the
+  cap every conversation gets "השירות הגיע למכסת השימוש היומית שלו. אפשר לנסות שוב מחר." until
+  midnight UTC. It is kept on the `/data` volume, so a restart doesn't reset it.
+- **A per-IP rate limit** on sending messages: `COMPASS_MESSAGE_RATE_PER_MINUTE` (default 20;
+  429 with `Retry-After` beyond it). It counts the client IP the server sees: behind a reverse
+  proxy or load balancer, set `FORWARDED_ALLOW_IPS` to the proxy's address so uvicorn takes the
+  employee's IP from `X-Forwarded-For` (otherwise every employee shares the proxy's limit). The
+  count is per process, which is fine: the server runs one worker.

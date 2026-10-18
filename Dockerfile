@@ -79,7 +79,7 @@ ENV PATH=/app/.venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     COMPASS_APP_DB=/data/app.db \
     COMPASS_DEMO_DB=/data/demo.db \
-    COMPASS_WEB_DIST=/app/web/dist
+    COMPASS_WEB_DIST=/app/web/dist     COMPASS_ENV_ONLY=1
 USER compass
 EXPOSE 8000
 VOLUME ["/data"]

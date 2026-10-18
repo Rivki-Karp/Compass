@@ -38,6 +38,10 @@ DEFAULT_MAX_TOOL_ROUNDS = 8
 # turns) used about 114k input tokens, so 2M is about 17 times that (roughly $1 at its rate).
 DEFAULT_MAX_SESSION_TURNS = 40
 DEFAULT_MAX_SESSION_INPUT_TOKENS = 2_000_000
+# Live mode (round 2, item 6): all model calls on the server, per UTC day; then a fixed reply.
+DEFAULT_DAILY_SPEND_CAP_USD = 5.0
+# POST /api/sessions/{id}/messages per client IP per minute.
+DEFAULT_MESSAGE_RATE_PER_MINUTE = 20
 
 
 class SettingsError(ValueError):
@@ -53,6 +57,18 @@ def _positive_int(value: str | None, name: str, default: int) -> int:
         raise SettingsError(f"{name} must be a whole number (got {value!r})") from None
     if number < 1:
         raise SettingsError(f"{name} must be at least 1 (got {number})")
+    return number
+
+
+def _positive_float(value: str | None, name: str, default: float) -> float:
+    if not value:
+        return default
+    try:
+        number = float(value)
+    except ValueError:
+        raise SettingsError(f"{name} must be a number (got {value!r})") from None
+    if not number > 0:
+        raise SettingsError(f"{name} must be above 0 (got {number})")
     return number
 
 
@@ -73,6 +89,9 @@ DEFAULT_CORS_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")  # Vit
 
 
 def _env(env_file: Path | None) -> dict[str, str]:
+    # COMPASS_ENV_ONLY=1 (the container image sets it): the environment only, never a file.
+    if os.environ.get("COMPASS_ENV_ONLY") == "1":
+        env_file = None
     file_values = {} if env_file is None or not env_file.is_file() else dotenv_values(env_file)
     # The real environment wins; an empty variable counts as unset (so `KEY=` in a shell
     # doesn't hide the value in .env).
@@ -164,6 +183,9 @@ class Settings:
     max_session_input_tokens: int = DEFAULT_MAX_SESSION_INPUT_TOKENS
     # "anthropic" or "scripted" (demo mode: compass/agent/demo_llm.py).
     llm: str = "anthropic"
+    # Live mode only: the server's model spend per UTC day, USD; then a fixed reply until tomorrow.
+    daily_spend_cap_usd: float = DEFAULT_DAILY_SPEND_CAP_USD
+    message_rate_per_minute: int = DEFAULT_MESSAGE_RATE_PER_MINUTE
 
     def __post_init__(self) -> None:
         # Demo mode has its own database (data/demo.db, wiped by `tasks.py demo-reset`); it
@@ -206,6 +228,16 @@ class Settings:
                 env.get("COMPASS_MAX_SESSION_INPUT_TOKENS"),
                 "COMPASS_MAX_SESSION_INPUT_TOKENS",
                 DEFAULT_MAX_SESSION_INPUT_TOKENS,
+            ),
+            daily_spend_cap_usd=_positive_float(
+                env.get("COMPASS_DAILY_SPEND_CAP_USD"),
+                "COMPASS_DAILY_SPEND_CAP_USD",
+                DEFAULT_DAILY_SPEND_CAP_USD,
+            ),
+            message_rate_per_minute=_positive_int(
+                env.get("COMPASS_MESSAGE_RATE_PER_MINUTE"),
+                "COMPASS_MESSAGE_RATE_PER_MINUTE",
+                DEFAULT_MESSAGE_RATE_PER_MINUTE,
             ),
             cors_origins=tuple(o.strip() for o in origins.split(","))
             if origins

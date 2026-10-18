@@ -34,6 +34,7 @@ from starlette.concurrency import run_in_threadpool
 
 from compass.api.agent import AgentRunner
 from compass.api.broker import TICKETS, Broker
+from compass.api.ratelimit import RateLimiter
 from compass.api.redact import public_message, public_payload
 from compass.api.settings import Settings, token_warnings
 from compass.api.spa import mount_spa
@@ -201,6 +202,7 @@ def create_app(
     app.state.runner = runner
     app.state.agent = agent
     api = APIRouter(prefix="/api")
+    messages_limiter = RateLimiter(settings.message_rate_per_minute)
     rep_only = Depends(
         _token_guard(
             settings.rep_token,
@@ -256,9 +258,18 @@ def create_app(
         status_code=202,
         response_model=MessageAccepted,
         tags=["sessions"],
+        responses={429: {"description": "Too many messages from this IP (Retry-After)"}},
     )
-    def post_message(session_id: str, body: UserMessage) -> MessageAccepted:
-        """Store the message and hand it to the agent (a no-op until Day 3)."""
+    def post_message(session_id: str, body: UserMessage, request: Request) -> MessageAccepted:
+        """Store the message and hand it to the agent. At most COMPASS_MESSAGE_RATE_PER_MINUTE
+        per client IP (429 with Retry-After beyond that)."""
+        wait = messages_limiter.check(request.client.host if request.client else "unknown")
+        if wait is not None:
+            raise HTTPException(
+                429,
+                "too many messages; try again shortly",
+                headers={"Retry-After": str(wait)},
+            )
         require_session(session_id)
         seq = store.add_message(session_id, "user", {"text": body.text})
         agent.on_user_message(session_id, seq)

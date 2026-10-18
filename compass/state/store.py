@@ -385,6 +385,24 @@ class Store:
             self._event(conn, events, session_id, "comparison_ready", payload)
         return kind
 
+    # --- spend ------------------------------------------------------------------------------
+
+    def add_spend(self, day: str, usd: float) -> None:
+        """Add one model call's cost to `day` (YYYY-MM-DD, UTC)."""
+        micro = round(usd * 1_000_000)
+        with self._write() as (conn, _events):
+            conn.execute(
+                "INSERT INTO daily_spend (day, micro_usd) VALUES (?, ?) "
+                "ON CONFLICT (day) DO UPDATE SET micro_usd = micro_usd + excluded.micro_usd",
+                (day, micro),
+            )
+
+    def spend_on(self, day: str) -> float:
+        """The model spend recorded for `day`, USD."""
+        with self._read() as conn:
+            row = conn.execute("SELECT micro_usd FROM daily_spend WHERE day = ?", (day,)).fetchone()
+        return 0.0 if row is None else row[0] / 1_000_000
+
     # --- tickets ----------------------------------------------------------------------------
 
     def open_ticket(

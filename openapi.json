@@ -475,7 +475,7 @@
     },
     "/api/sessions/{session_id}/messages": {
       "post": {
-        "description": "Store the message and hand it to the agent (a no-op until Day 3).",
+        "description": "Store the message and hand it to the agent. At most COMPASS_MESSAGE_RATE_PER_MINUTE\nper client IP (429 with Retry-After beyond that).",
         "operationId": "post_message_api_sessions__session_id__messages_post",
         "parameters": [
           {
@@ -518,6 +518,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "429": {
+            "description": "Too many messages from this IP (Retry-After)"
           }
         },
         "summary": "Post Message",
