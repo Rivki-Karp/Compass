@@ -700,6 +700,7 @@ def ask_representative(
             "or alternative_participation:<catalog car id>",
             fields=bad,
         )
+    _check_ticket_cars(services, session_id, data.blocking_fields)
     ids = [qa.id for qa in data.quick_answers]
     if len(ids) != len(set(ids)):
         raise ToolError("invalid_input", "quick answer ids must be unique")
@@ -750,6 +751,49 @@ def ask_representative(
         # compare, and the guard allows its numbers (they are in this tool result)
         result["provisional_comparisons"] = provisional
     return result
+
+
+MAX_TICKET_CARS = 3
+
+
+def _check_ticket_cars(services: Services, session_id: str, fields: list[str]) -> None:
+    """A ticket asks about the cars the employee is actually considering: at most
+    MAX_TICKET_CARS alternative participations, each for a car this session compared or the
+    employee named in a message."""
+    cars = [
+        f.removeprefix(ALTERNATIVE_PARTICIPATION)
+        for f in fields
+        if f.startswith(ALTERNATIVE_PARTICIPATION)
+    ]
+    if len(cars) > MAX_TICKET_CARS:
+        raise ToolError(
+            "invalid_input",
+            f"a ticket may ask about at most {MAX_TICKET_CARS} cars' participation (got "
+            f"{len(cars)}); ask the representative only about the cars the employee is "
+            "actually considering, or ask the employee which ones they mean",
+            max_cars=MAX_TICKET_CARS,
+            fields=[alternative_participation(c) for c in cars],
+        )
+    store = services.store
+    compared = {
+        e.payload["alternative"].get("car_id")
+        for e in store.events_after(session_id)
+        if e.type == "comparison_ready"
+    }
+    named: set[str] = set()
+    for message in store.messages(session_id):
+        if message.role == "user":
+            named |= services.searcher.cars_named_in(message.content.get("text", ""))
+    unknown = [c for c in cars if c not in compared and c not in named]
+    if unknown:
+        names = ", ".join(f"{c} ({services.ctx.catalog[c].commercial_name})" for c in unknown)
+        raise ToolError(
+            "invalid_input",
+            f"participation can be asked only for cars the employee named or that were "
+            f"compared in this conversation; not for {names}. Ask the representative only "
+            "about the cars the employee is actually considering, or ask the employee first",
+            fields=[alternative_participation(c) for c in unknown],
+        )
 
 
 def _provisional_comparisons(

@@ -77,7 +77,9 @@ def test_rep_with_field_values_and_date(services: Services) -> None:
         text_response("פניתי."),
         text_response("התקבל."),
     ]
-    chat, out = _chat(services, steps, ["?", "/rep", "1", f"{FIELD}=350", "2026-11-01", "/quit"])
+    chat, out = _chat(
+        services, steps, ["ומה עם ATTO 3?", "/rep", "1", f"{FIELD}=350", "2026-11-01", "/quit"]
+    )
     chat.run()
     slot = services.store.slots(chat.session_id)[FIELD]
     assert slot.value == {"amount": "350", "effective_from": "2026-11-01"}
@@ -96,7 +98,9 @@ def test_bad_rep_answer_is_reported(services: Services) -> None:
         tool_response(("ask_representative", {"question": "?", "blocking_fields": [FIELD]})),
         text_response("פניתי."),
     ]
-    chat, out = _chat(services, steps, ["?", "/rep", "1", f"{FIELD}=99999", "", "/quit"])
+    chat, out = _chat(
+        services, steps, ["ומה עם ATTO 3?", "/rep", "1", f"{FIELD}=99999", "", "/quit"]
+    )
     chat.run()
     assert any("must be 0-20,000" in line for line in out)
 

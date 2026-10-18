@@ -35,6 +35,7 @@ def tool(client: TestClient | httpx.Client, sid: str, name: str, payload: dict[s
 
 def _noa(client: TestClient | httpx.Client) -> str:
     sid = client.post("/api/sessions").json()["id"]
+    client.post(f"/api/sessions/{sid}/messages", json={"text": "ומה עם ATTO 3?"})
     assert tool(client, sid, "save_profile", NOA)["ok"]
     assert tool(client, sid, "set_current_situation", COROLLA_CROSS)["ok"]
     return sid
@@ -110,6 +111,7 @@ def test_the_brief_flow(make_settings: Callable[..., Settings]) -> None:
 
 def test_current_participation_from_the_representative(client: TestClient) -> None:
     sid = client.post("/api/sessions").json()["id"]
+    client.post(f"/api/sessions/{sid}/messages", json={"text": "ומה עם ATTO 3?"})
     tool(client, sid, "save_profile", NOA)
     tool(
         client, sid, "set_current_situation", {"today": {"kind": "company_car", "car_id": "CAR-09"}}

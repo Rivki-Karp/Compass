@@ -112,7 +112,7 @@ server's.
 
 Per-scenario figures are averages over the repeats.
 
-**Tests** ([tests/counts.json](tests/counts.json), 2026-10-18): pytest **646** · vitest **165** · Playwright **8**. CI runs all of them on every push.
+**Tests** ([tests/counts.json](tests/counts.json), 2026-10-18): pytest **656** · vitest **165** · Playwright **8**. CI runs all of them on every push.
 
 **Cost per conversation:** **$0.0287**, the last report's run cost over its 16 scenario runs.
 
@@ -448,7 +448,7 @@ Tools return numbers **only** from the engine or the data files; none calculates
 | `compare` | Engine comparison of today vs an alternative (`to_api_dict`), stored as the session's last comparison (`comparison_ready`). Ineligible alternatives are still calculated and marked `hypothetical`; unknown contribution rates give a partial result. Also returns the alternative's `participation_source` and `pending_rep` (see below). |
 | `list_options` | Every catalog car and the waiver (if allowed) with eligibility and diff vs today. Each car's participation is resolved exactly as in `compare` (optional `participation: {car_id: amount}` for amounts the employee stated), so an option and a single comparison of it always show the same numbers. Each option also carries the car's `commercial_name`, `group` and `drive`. |
 | `get_rule` | A whitelisted rule (`budgets`, `choose_from`, `unused_budget`, `electric_bonus`, `family_track`, `waiver`, `participation`, `value_of_use`, `tax_tables_year`): value + the official Hebrew note. |
-| `ask_representative` | Opens a ticket with a context snapshot; its blocking fields (profile fields, `current_participation`, `group_exception` or `alternative_participation:<car_id>`) become `pending_rep` and the session `waiting_for_rep`. One ticket may carry several. `group_exception` is answered with an approved group (stored as the group, source `representative`; eligibility, warnings and the waiting comparison are recomputed by the server) or `not_approved`; nothing else can change a group a representative approved. |
+| `ask_representative` | Opens a ticket with a context snapshot; its blocking fields (profile fields, `current_participation`, `group_exception` or `alternative_participation:<car_id>`) become `pending_rep` and the session `waiting_for_rep`. One ticket may carry several, but at most 3 `alternative_participation` fields, each for a car the employee named or the conversation compared (else `invalid_input`). `group_exception` is answered with an approved group (stored as the group, source `representative`; eligibility, warnings and the waiting comparison are recomputed by the server) or `not_approved`; nothing else can change a group a representative approved. |
 
 Profile slots hold a value, a state (`filled`, `unknown`, `pending_rep`) and a source
 (`employee`, `payslip`, `representative`, `derived`). Only filled slots reach the engine;

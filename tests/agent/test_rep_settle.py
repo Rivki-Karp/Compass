@@ -46,6 +46,8 @@ def _pending_e001(services: Services) -> tuple[str, str]:
     """E-001 compared at the catalog default with a ticket open (the demo's state)."""
     tools = ToolRunner(services)
     sid = services.store.create_session()
+    # the employee names the car (a ticket may ask only about such cars)
+    services.store.add_message(sid, "user", {"text": "מה יקרה לנטו אם אעבור ל-ATTO 3?"})
     ok(tools.run(sid, "save_profile", NOA))
     ok(tools.run(sid, "set_current_situation", TODAY))
     ticket = ok(tools.run(sid, "ask_representative", {"question": "?", "blocking_fields": [ATTO]}))
@@ -123,6 +125,8 @@ def test_the_notification_carries_what_compare_would_return(services: Services) 
 def test_no_settle_no_server_comparisons(services: Services) -> None:
     tools = ToolRunner(services)
     sid = services.store.create_session()
+    # the employee names the car (a ticket may ask only about such cars)
+    services.store.add_message(sid, "user", {"text": "מה יקרה לנטו אם אעבור ל-ATTO 3?"})
     ok(tools.run(sid, "save_profile", NOA))
     ok(tools.run(sid, "set_current_situation", TODAY))
     ok(tools.run(sid, "compare", ATTO_3))
@@ -143,6 +147,8 @@ def test_ask_then_answer_without_any_compare_passes_the_guard(services: Services
     state +661 at once; the rep's answer settles it (6b), so it can state +611. No compare."""
     tools = ToolRunner(services)
     sid = services.store.create_session()
+    # the employee names the car (a ticket may ask only about such cars)
+    services.store.add_message(sid, "user", {"text": "מה יקרה לנטו אם אעבור ל-ATTO 3?"})
     ok(tools.run(sid, "save_profile", NOA))
     ok(tools.run(sid, "set_current_situation", TODAY))
     pending = "פתחתי פנייה לנציג. בינתיים, לפי ברירת המחדל: +661 ₪ בחודש (11,032 ← 11,693)."

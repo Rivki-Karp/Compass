@@ -61,6 +61,8 @@ def ok(result: dict[str, Any]) -> dict[str, Any]:
 
 def _session(services: Services, runner: ToolRunner, profile: dict[str, Any]) -> str:
     sid = services.store.create_session()
+    # the employee names the car (a ticket may ask only about such cars)
+    services.store.add_message(sid, "user", {"text": "מה יקרה לנטו אם אעבור ל-ATTO 3?"})
     ok(runner.run(sid, "save_profile", profile))
     ok(runner.run(sid, "set_current_situation", COROLLA_CROSS))
     return sid
@@ -256,6 +258,8 @@ def test_unstated_commissions_are_never_assumed_zero(
     """Zero commissions/bonus reach the view only when saved (the employee said "no"): an
     unstated one stays missing, so compare refuses and no view with a made-up 0 exists."""
     sid = services.store.create_session()
+    # the employee names the car (a ticket may ask only about such cars)
+    services.store.add_message(sid, "user", {"text": "מה יקרה לנטו אם אעבור ל-ATTO 3?"})
     unstated = {k: v for k, v in DEVELOPER.items() if k not in ("commissions", "bonus")}
     ok(runner.run(sid, "save_profile", unstated))
     ok(runner.run(sid, "set_current_situation", COROLLA_CROSS))
@@ -305,6 +309,8 @@ def test_warning_messages_use_the_pill_group_label() -> None:
 
 def test_today_title_has_the_year_only_when_given(services: Services, runner: ToolRunner) -> None:
     sid = services.store.create_session()
+    # the employee names the car (a ticket may ask only about such cars)
+    services.store.add_message(sid, "user", {"text": "מה יקרה לנטו אם אעבור ל-ATTO 3?"})
     ok(runner.run(sid, "save_profile", DEVELOPER))
     no_year = {"today": {"kind": "company_car", "car_id": "CAR-09", "participation": 300}}
     ok(runner.run(sid, "set_current_situation", no_year))

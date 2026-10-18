@@ -61,6 +61,7 @@ def test_inbox_updates_live(make_settings: Callable[..., Settings]) -> None:
         assert _until(inbox, lambda tickets: tickets == []) == []
 
         sid = http.post("/api/sessions").json()["id"]
+        http.post(f"/api/sessions/{sid}/messages", json={"text": "ומה עם ATTO 3?"})
         _tool(http, sid, "save_profile", NOA)
         _tool(http, sid, "set_current_situation", TODAY)
         _tool(http, sid, "ask_representative", {"question": "?", "blocking_fields": [ATTO]})
@@ -108,6 +109,7 @@ def test_ticket_list_carries_the_view(make_settings: Callable[..., Settings]) ->
     app = create_app(make_settings())
     with live_server(app) as base, httpx.Client(base_url=base, timeout=10) as http:
         sid = http.post("/api/sessions").json()["id"]
+        http.post(f"/api/sessions/{sid}/messages", json={"text": "ומה עם ATTO 3?"})
         _tool(http, sid, "save_profile", NOA)
         _tool(
             http,

@@ -27,6 +27,8 @@ def test_every_error_code_has_a_hebrew_message() -> None:
 def ticket(tmp_path: Any) -> tuple[Services, str]:
     services = Services(Store(tmp_path / "app.db"))
     sid = services.store.create_session()
+    # the employee names the car (a ticket may ask only about such cars)
+    services.store.add_message(sid, "user", {"text": "מה יקרה לנטו אם אעבור ל-ATTO 3?"})
     result = ToolRunner(services).run(
         sid, "ask_representative", {"question": "?", "blocking_fields": [ATTO]}
     )
@@ -63,6 +65,7 @@ def test_api_returns_hebrew_next_to_the_english_detail(tmp_path: Any) -> None:
     settings = Settings(app_db=tmp_path / "a.db", dev_tools=True, rep_token="r")
     with TestClient(create_app(settings)) as client:
         sid = client.post("/api/sessions").json()["id"]
+        client.post(f"/api/sessions/{sid}/messages", json={"text": "ומה עם ATTO 3?"})
         client.post(
             f"/api/sessions/{sid}/tools/ask_representative",
             json={"question": "?", "blocking_fields": [ATTO]},
