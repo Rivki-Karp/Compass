@@ -32,6 +32,7 @@ from compass.state import Slot, SlotUpdate
 from compass.tools.profile import (
     ALTERNATIVE_PARTICIPATION,
     CURRENT_PARTICIPATION,
+    GROUP_EXCEPTION,
     PROFILE_FIELDS,
     REQUIRED_FIELDS,
     SLOT_OF,
@@ -146,6 +147,8 @@ def save_profile(services: Services, session_id: str, data: SaveProfileInput) ->
     both = sorted(set(given) & set(data.unknown_fields))
     if both:
         raise ToolError("invalid_input", "a field cannot be both given and unknown", fields=both)
+    if "group" in given or "group" in data.unknown_fields:
+        _require_group_not_with_rep(slots)
 
     updates: dict[str, SlotUpdate] = {}
     errors = []
@@ -209,6 +212,25 @@ def save_profile(services: Services, session_id: str, data: SaveProfileInput) ->
         occupation_error.details["partial_result"] = summary
         raise occupation_error
     return summary
+
+
+def _require_group_not_with_rep(slots: Mapping[str, Slot]) -> None:
+    """Only a representative's ticket answer changes a group the representative approved, or
+    one a group-exception ticket is waiting on: never the employee's words (a claimed approval
+    included)."""
+    group, exception = slots.get("group"), slots.get(GROUP_EXCEPTION)
+    if group is not None and group.state == "filled" and group.source == "representative":
+        raise ToolError(
+            "invalid_input",
+            "the group was approved by a representative; only a representative can change it",
+            field="group",
+        )
+    if exception is not None and exception.state == "pending_rep":
+        raise ToolError(
+            "invalid_input",
+            "a representative is reviewing the group (group_exception); wait for the answer",
+            field="group",
+        )
 
 
 # --- 2. lookup_occupation ---------------------------------------------------------------------
@@ -674,8 +696,8 @@ def ask_representative(
     if bad:
         raise ToolError(
             "invalid_input",
-            "blocking_fields must be profile fields, current_participation or "
-            "alternative_participation:<catalog car id>",
+            "blocking_fields must be profile fields, current_participation, group_exception "
+            "or alternative_participation:<catalog car id>",
             fields=bad,
         )
     ids = [qa.id for qa in data.quick_answers]
@@ -778,7 +800,10 @@ def _provisional_comparisons(
 
 
 def _uses_catalog_default(payload: Mapping[str, Any], field: str) -> bool | None:
-    """Whether this comparison used `field` at the catalog default (None: it didn't use it)."""
+    """Whether this comparison used `field` at the catalog default (None: it didn't use it).
+    A group exception: every comparison used the group in effect (eligibility, warnings)."""
+    if field == GROUP_EXCEPTION:
+        return True
     if field == CURRENT_PARTICIPATION:
         return payload["today_participation"]["source"] == "catalog_default"
     if payload["alternative"].get("car_id") != field.removeprefix(ALTERNATIVE_PARTICIPATION):
@@ -800,6 +825,8 @@ def _recompute_as_pending(
 
 def _uses_pending(payload: Mapping[str, Any], field: str) -> bool | None:
     """Whether this comparison waited for `field` (None: it didn't use it)."""
+    if field == GROUP_EXCEPTION:
+        return GROUP_EXCEPTION in payload.get("view", {}).get("pending_fields", [])
     if field == CURRENT_PARTICIPATION:
         return bool(payload["today_participation"]["pending_rep"])
     if payload["alternative"].get("car_id") != field.removeprefix(ALTERNATIVE_PARTICIPATION):
@@ -858,7 +885,7 @@ def _recompute_latest(
     ]
     targets: dict[int, str] = {}  # event seq -> the field it concerns
     for field in fields:
-        if not is_participation(field):
+        if not (is_participation(field) or field == GROUP_EXCEPTION):
             continue
         for event in reversed(comparisons):  # the latest comparison that used the field
             used = needs_recompute(event.payload, field)

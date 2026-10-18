@@ -55,6 +55,13 @@ CURRENT_PARTICIPATION = "current_participation"
 ALTERNATIVE_PARTICIPATION = "alternative_participation:"  # + catalog car id
 
 
+# A representative's answer to a group exception (a ticket blocking field, its own slot): the
+# group the employee is approved for (above the occupation's group), or NOT_APPROVED. An approved
+# group also becomes the group slot (source representative): only a ticket answer sets it.
+GROUP_EXCEPTION = "group_exception"
+NOT_APPROVED = "not_approved"
+
+
 def alternative_participation(car_id: str) -> str:
     return f"{ALTERNATIVE_PARTICIPATION}{car_id}"
 
@@ -65,7 +72,7 @@ def is_participation(field: str) -> bool:
 
 def is_fillable(field: str, ctx: EngineContext) -> bool:
     """A field a ticket may block on and a representative may fill."""
-    if field in SLOT_OF or field == CURRENT_PARTICIPATION:
+    if field in SLOT_OF or field in (CURRENT_PARTICIPATION, GROUP_EXCEPTION):
         return True
     return (
         field.startswith(ALTERNATIVE_PARTICIPATION)
@@ -147,6 +154,16 @@ def to_slot_value(
             "effective_from applies to participation fields only",
             "effective_from_not_participation",
         )
+    if field == GROUP_EXCEPTION:
+        if raw != NOT_APPROVED and raw not in ctx.rules.group_order:
+            raise FieldError(
+                field,
+                f"an approved group {list(ctx.rules.group_order)} or {NOT_APPROVED!r} "
+                f"(got {raw!r})",
+                "unknown_group",
+                groups=list(ctx.rules.group_order),
+            )
+        return raw
     if field not in SLOT_OF:
         raise FieldError(field, "unknown profile field", "unknown_field")
     if field == "display_name":
@@ -241,6 +258,9 @@ def profile_from_slots(slots: Mapping[str, Slot]) -> EmployeeProfile:
         if slot is None or slot.state != "filled" or slot_field == "display_name":
             continue
         values[slot_field] = Decimal(slot.value) if slot_field in decimals else slot.value
+    group = slots.get("group")
+    if group is not None and group.state == "filled" and group.source == "representative":
+        values["group_approved"] = True
     return EmployeeProfile(**values)
 
 

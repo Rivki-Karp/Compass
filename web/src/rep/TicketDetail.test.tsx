@@ -84,6 +84,100 @@ describe("TicketDetail: the E-001 ticket from the real inbox", () => {
   });
 });
 
+/** One ticket for today's participation and a group approval (as build_ticket_view writes it). */
+const twoFields: TicketWithView = {
+  ...ticket,
+  blocking_fields: ["current_participation", "group_exception"],
+  view: {
+    ...ticket.view,
+    title: "השתתפות עצמית ברכב של היום + אישור חריג לקבוצה",
+    fields: [
+      {
+        field: "current_participation",
+        title: "השתתפות עצמית ברכב של היום",
+        label: "השתתפות היום",
+        unit: "ils",
+        car_id: "CAR-09",
+        car_name: "COROLLA CROSS 2025",
+        catalog_default: 300,
+        options: [],
+        facts: [],
+      },
+      {
+        field: "group_exception",
+        title: "אישור חריג לקבוצה",
+        label: "אישור חריג לקבוצה",
+        unit: "text",
+        car_id: null,
+        car_name: null,
+        catalog_default: null,
+        options: [
+          { value: "ג", label: "מאושר לקבוצה ג׳" },
+          { value: "not_approved", label: "לא מאושר" },
+        ],
+        facts: [
+          { label: "קבוצה לפי העיסוק", value: "קבוצה ב׳" },
+          { label: "הרכב היום", value: "COROLLA CROSS 2025 · קבוצה ג׳" },
+        ],
+      },
+    ],
+  },
+};
+
+describe("TicketDetail: one ticket, two fields", () => {
+  function renderTwo(onAnswered = vi.fn()) {
+    render(
+      <TicketDetail ticket={twoFields} token="rep" onAnswered={onAnswered} onReauth={vi.fn()} />,
+    );
+    return onAnswered;
+  }
+
+  it("shows one section per field: the amount and the group approval", () => {
+    renderTwo();
+    expect(
+      screen.getByRole("heading", {
+        level: 3,
+        name: "השתתפות עצמית ברכב של היום · COROLLA CROSS 2025",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 3, name: "אישור חריג לקבוצה" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("סכום ההשתתפות החודשית (₪)")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "מאושר לקבוצה ג׳" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "לא מאושר" })).toBeInTheDocument();
+    expect(screen.getByText("קבוצה ב׳")).toBeInTheDocument();
+    expect(screen.getByText("COROLLA CROSS 2025 · קבוצה ג׳")).toBeInTheDocument();
+    expect(screen.getAllByText("+661")).toHaveLength(1); // the diff tile, once
+  });
+
+  it("asks for a choice before sending", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    renderTwo();
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("סכום ההשתתפות החודשית (₪)"), "350");
+    await user.click(screen.getByRole("button", { name: "אישור ושליחה לעובד/ת" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("צריך לבחור אחת מהאפשרויות.");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("sends both values in one answer", async () => {
+    const fetchMock = respond(200, { ...twoFields, status: "answered" });
+    vi.stubGlobal("fetch", fetchMock);
+    const onAnswered = renderTwo();
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("סכום ההשתתפות החודשית (₪)"), "350");
+    await user.click(screen.getByRole("radio", { name: "מאושר לקבוצה ג׳" }));
+    await user.click(screen.getByRole("button", { name: "אישור ושליחה לעובד/ת" }));
+    await vi.waitFor(() => expect(onAnswered).toHaveBeenCalledWith(twoFields.id));
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      values: { current_participation: "350", group_exception: "ג" },
+    });
+  });
+});
+
 describe("TicketList", () => {
   const now = Date.parse(ticket.created_at) + 2 * 60_000;
 

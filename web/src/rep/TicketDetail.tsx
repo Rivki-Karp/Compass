@@ -6,6 +6,8 @@ import { Amount } from "../ui/Amount";
 import { Button } from "../ui/Button";
 import { answerErrors, NO_ERRORS, type FormErrors } from "./answerErrors";
 
+const CHOOSE_ONE = "צריך לבחור אחת מהאפשרויות.";
+
 /** The context line: "מנהל/ת מוצר · קבוצה ג׳ · היום: COROLLA CROSS". */
 function contextLine(context: Record<string, unknown>): string {
   const text = (key: string) => {
@@ -29,7 +31,8 @@ function fieldLabel(field: TicketFieldView): string {
   return field.unit === "ils" ? `${field.label} (${SHEKEL})` : field.label;
 }
 
-/** One ticket (brief §4.6): the question, three info tiles, and the answer form. */
+/** One ticket (brief §4.6): the question, then one section per blocking field (its tiles and
+ * its input), and one answer for all of them. */
 export function TicketDetail({
   ticket,
   token,
@@ -41,8 +44,6 @@ export function TicketDetail({
   onAnswered: (ticketId: string) => void;
   onReauth: () => void;
 }) {
-  const { view } = ticket;
-  const first = view.fields[0];
   const context = contextLine(ticket.context);
   return (
     <article
@@ -54,34 +55,6 @@ export function TicketDetail({
           {ticket.question}
         </h2>
         {context ? <p className="mt-1 text-muted">{context}</p> : null}
-      </div>
-
-      <div className="flex flex-wrap gap-3">
-        <Tile label="רכב">
-          <span className="inline-flex flex-wrap items-baseline gap-x-2">
-            <span>{first?.car_name ?? "—"}</span>
-            {first?.car_id ? (
-              <code className="font-mono text-[13px] font-normal text-steel">{first.car_id}</code>
-            ) : null}
-          </span>
-        </Tile>
-        <Tile label="ברירת מחדל מהקטלוג">
-          {first?.catalog_default != null ? <Amount value={first.catalog_default} currency /> : "—"}
-        </Tile>
-        <Tile
-          label={
-            view.comparison
-              ? `ההפרש אצל העובד/ת · ${view.comparison.alternative_title}`
-              : "ההפרש אצל העובד/ת"
-          }
-          note={view.comparison?.pending ? "זמני, לפי ברירת המחדל" : undefined}
-        >
-          {view.comparison ? (
-            <Amount value={view.comparison.display_diff} signed currency />
-          ) : (
-            "עדיין אין חישוב"
-          )}
-        </Tile>
       </div>
 
       <AnswerForm
@@ -105,9 +78,58 @@ function Tile({ label, note, children }: { label: string; note?: string; childre
   );
 }
 
+/** The employee's latest comparison: shown once, in the first section. */
+function DiffTile({ ticket }: { ticket: TicketWithView }) {
+  const comparison = ticket.view.comparison;
+  return (
+    <Tile
+      label={
+        comparison ? `ההפרש אצל העובד/ת · ${comparison.alternative_title}` : "ההפרש אצל העובד/ת"
+      }
+      note={comparison?.pending ? "זמני, לפי ברירת המחדל" : undefined}
+    >
+      {comparison ? <Amount value={comparison.display_diff} signed currency /> : "עדיין אין חישוב"}
+    </Tile>
+  );
+}
+
+/** What a field's answer depends on: the car and its catalog default, or (a choice such as a
+ * group exception) the server's own text tiles. */
+function FieldTiles({ field, diff }: { field: TicketFieldView; diff: ReactNode }) {
+  if (field.options.length) {
+    return (
+      <div className="flex flex-wrap gap-3">
+        {field.facts.map((fact) => (
+          <Tile key={fact.label} label={fact.label}>
+            <bdi>{fact.value}</bdi>
+          </Tile>
+        ))}
+        {diff}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-wrap gap-3">
+      <Tile label="רכב">
+        <span className="inline-flex flex-wrap items-baseline gap-x-2">
+          <span>{field.car_name ?? "—"}</span>
+          {field.car_id ? (
+            <code className="font-mono text-[13px] font-normal text-steel">{field.car_id}</code>
+          ) : null}
+        </span>
+      </Tile>
+      <Tile label="ברירת מחדל מהקטלוג">
+        {field.catalog_default != null ? <Amount value={field.catalog_default} currency /> : "—"}
+      </Tile>
+      {diff}
+    </div>
+  );
+}
+
 /**
- * The answer: one input per blocking field, sent as typed. The server validates (the same
- * rules as the agent's tools) and the form shows its Hebrew messages next to the field.
+ * The answer: one section per blocking field, sent together. A typed value is sent as typed; a
+ * choice (a group exception) as the chosen option's value. The server validates (the same rules
+ * as the agent's tools) and the form shows its Hebrew messages next to the field.
  */
 function AnswerForm({
   ticket,
@@ -126,9 +148,18 @@ function AnswerForm({
   );
   const [errors, setErrors] = useState<FormErrors>(NO_ERRORS);
   const [sending, setSending] = useState(false);
+  const several = fields.length > 1;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    const unchosen = fields.filter((f) => f.options.length && !values[f.field]);
+    if (unchosen.length) {
+      setErrors({
+        ...NO_ERRORS,
+        byField: Object.fromEntries(unchosen.map((f) => [f.field, [CHOOSE_ONE]])),
+      });
+      return;
+    }
     setSending(true);
     setErrors(NO_ERRORS);
     try {
@@ -147,40 +178,74 @@ function AnswerForm({
   }
 
   return (
-    <form
-      onSubmit={submit}
-      noValidate
-      aria-label="תשובה לעובד/ת"
-      className="flex flex-col gap-4 rounded-tile bg-ground p-5"
-    >
+    <form onSubmit={submit} noValidate aria-label="תשובה לעובד/ת" className="flex flex-col gap-5">
       {fields.map((field, i) => {
         const id = `answer-${i}`;
         const messages = errors.byField[field.field] ?? [];
+        const invalid = messages.length > 0;
+        const set = (value: string) => setValues((v) => ({ ...v, [field.field]: value }));
         return (
-          <div key={field.field} className="flex flex-col gap-2">
-            <label htmlFor={id} className="font-medium text-ink">
-              {fieldLabel(field)}
-            </label>
-            <input
-              id={id}
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              dir="ltr"
-              value={values[field.field] ?? ""}
-              onChange={(e) => setValues((v) => ({ ...v, [field.field]: e.target.value }))}
-              aria-invalid={messages.length ? true : undefined}
-              aria-describedby={messages.length ? `${id}-error` : undefined}
-              className={`h-14 max-w-[280px] rounded-tile border-2 bg-surface px-4 text-end text-[22px] font-semibold text-ink ${
-                messages.length ? "border-down" : "border-royal"
-              }`}
-            />
-            {messages.length ? (
-              <p id={`${id}-error`} role="alert" className="text-[13px] font-medium text-down">
-                {messages.join(" ")}
-              </p>
+          <section
+            key={field.field}
+            aria-labelledby={several ? `${id}-title` : undefined}
+            className="flex flex-col gap-4"
+          >
+            {several ? (
+              <h3 id={`${id}-title`} className="text-[17px] font-semibold text-navy">
+                {field.car_name ? `${field.title} · ${field.car_name}` : field.title}
+              </h3>
             ) : null}
-          </div>
+            <FieldTiles field={field} diff={i === 0 ? <DiffTile ticket={ticket} /> : null} />
+            <div className="flex flex-col gap-2 rounded-tile bg-ground p-5">
+              {field.options.length ? (
+                <fieldset
+                  aria-invalid={invalid ? true : undefined}
+                  aria-describedby={invalid ? `${id}-error` : undefined}
+                  className="flex flex-col gap-2"
+                >
+                  <legend className="mb-1 font-medium text-ink">{fieldLabel(field)}</legend>
+                  {field.options.map((option) => (
+                    <label key={option.value} className="flex items-center gap-2 text-ink">
+                      <input
+                        type="radio"
+                        name={id}
+                        value={option.value}
+                        checked={values[field.field] === option.value}
+                        onChange={() => set(option.value)}
+                        className="h-4 w-4 accent-royal"
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+                </fieldset>
+              ) : (
+                <>
+                  <label htmlFor={id} className="font-medium text-ink">
+                    {fieldLabel(field)}
+                  </label>
+                  <input
+                    id={id}
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    dir="ltr"
+                    value={values[field.field] ?? ""}
+                    onChange={(e) => set(e.target.value)}
+                    aria-invalid={invalid ? true : undefined}
+                    aria-describedby={invalid ? `${id}-error` : undefined}
+                    className={`h-14 max-w-[280px] rounded-tile border-2 bg-surface px-4 text-end text-[22px] font-semibold text-ink ${
+                      invalid ? "border-down" : "border-royal"
+                    }`}
+                  />
+                </>
+              )}
+              {invalid ? (
+                <p id={`${id}-error`} role="alert" className="text-[13px] font-medium text-down">
+                  {messages.join(" ")}
+                </p>
+              ) : null}
+            </div>
+          </section>
         );
       })}
       {errors.form.length ? (

@@ -52,13 +52,26 @@ export interface TicketComparisonView {
   pending: boolean;
 }
 
+export interface TicketFactView {
+  label: string;
+  value: string;
+}
+
 export interface TicketFieldView {
   field: string;
+  title: string;
   label: string;
   unit: "ils" | "percent" | "points" | "count" | "text";
   car_id: string | null;
   car_name: string | null;
   catalog_default: number | null;
+  options: TicketOptionView[];
+  facts: TicketFactView[];
+}
+
+export interface TicketOptionView {
+  value: string;
+  label: string;
 }
 
 export interface TicketView {

@@ -16,6 +16,8 @@ export function announcement(comparison: ComparisonState | null): string {
   const confirmed = comparison.view.inputs.filter((i) => i.source === "representative");
   const what = confirmed.some((i) => i.id.includes("participation"))
     ? "ההשתתפות אושרה על ידי נציג."
-    : "הנתונים אושרו על ידי נציג.";
+    : confirmed.some((i) => i.id === "group")
+      ? "הקבוצה אושרה על ידי נציג."
+      : "הנתונים אושרו על ידי נציג.";
   return `${what} ${diff}`;
 }

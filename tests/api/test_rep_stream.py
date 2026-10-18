@@ -69,11 +69,14 @@ def test_inbox_updates_live(make_settings: Callable[..., Settings]) -> None:
         assert opened["view"]["fields"] == [
             {
                 "field": ATTO,
+                "title": "השתתפות עצמית",
                 "label": "השתתפות בחלופה",
                 "unit": "ils",
                 "car_id": "CAR-10",
                 "car_name": "ATTO 3",
                 "catalog_default": 300,
+                "options": [],
+                "facts": [],
             }
         ]
         # Since 8b opening the ticket also emits the server's provisional comparison. A snapshot

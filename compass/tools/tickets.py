@@ -13,6 +13,8 @@ from compass.engine.serialize import plain_json
 from compass.state import NotFound, StateError, Ticket
 from compass.tools.handlers import settle_answered
 from compass.tools.profile import (
+    GROUP_EXCEPTION,
+    NOT_APPROVED,
     FieldError,
     is_fillable,
     is_participation,
@@ -114,6 +116,11 @@ def answer_ticket(
             [AnswerError("effective_from_not_participation")],
         )
 
+    approved = slot_values.get(GROUP_EXCEPTION)
+    if approved is not None and approved != NOT_APPROVED:
+        # the approved group becomes the group in effect (source representative); eligibility
+        # and the warnings follow from it in every later calculation
+        slot_values["group"] = approved
     unknown = [slot_name(f) for f in ticket.blocking_fields if f not in merged]
     answer = {
         "text": answer_text,
