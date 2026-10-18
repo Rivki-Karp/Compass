@@ -125,7 +125,13 @@ describe("reduce: every event kind", () => {
       ev("session_status", { status: "closed" }),
     ];
     const kinds = new Set(events.map((e) => e.type));
-    const covered = new Set([...kinds, "comparison_ready", "ticket_opened", "ticket_answered"]);
+    const covered = new Set([
+      ...kinds,
+      "comparison_ready",
+      "comparison_set_ready", // options.test.tsx replays a real one
+      "ticket_opened",
+      "ticket_answered",
+    ]);
     expect([...EVENT_TYPES].every((t) => covered.has(t))).toBe(true); // the rest: fixtures above
 
     const state = replay(events);

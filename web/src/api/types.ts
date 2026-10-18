@@ -100,6 +100,12 @@ export interface PayloadByType {
     answered_field?: string; // the server settled it when the rep answered this field
     [key: string]: unknown;
   };
+  comparison_set_ready: {
+    origin: "server";
+    tool: "list_options";
+    // every eligible alternative, best first, each with the view compare would give it
+    options: { alternative: Record<string, unknown>; view: ComparisonView }[];
+  };
   ticket_opened: { ticket: Ticket };
   ticket_answered: {
     ticket_id: string;

@@ -628,7 +628,33 @@ def list_options(services: Services, session_id: str, data: ListOptionsInput) ->
         data_out["commercial_name"] = None if car is None else car.commercial_name
         data_out["group"] = None if car is None else car.group
         data_out["drive"] = None if car is None else car.drive
+    _emit_option_set(services, session_id, options, set(data.participation))
     return {"options": listed}
+
+
+def _emit_option_set(services: Services, session_id: str, options: Any, stated: set[str]) -> None:
+    """Every eligible alternative, on screen: one comparison_set_ready event with each one's
+    display-ready `view`, computed exactly as compare computes it (the same participation
+    resolution, so pending is marked per car; the same view builder and invariants), by the
+    server, with no model call. Best first. Nothing is stored as a comparison: the model's own
+    compare stays the record of what it compared."""
+    entries = []
+    for option in options:
+        if option.eligibility.status != "eligible":
+            continue
+        car_id = getattr(option.scenario, "car_id", None)
+        scenario, payload = _comparison(
+            services, session_id, option.scenario, explicit=car_id in stated
+        )
+        alternative = scenario.model_dump(mode="json")
+        view = build_view(services, session_id, alternative, {**payload, "origin": "server"})
+        entries.append({"alternative": alternative, "view": view})
+    entries.sort(key=lambda e: -e["view"]["display_diff"])
+    services.store.append_event(
+        session_id,
+        "comparison_set_ready",
+        {"origin": "server", "tool": "list_options", "options": entries},
+    )
 
 
 # --- 8. get_rule ------------------------------------------------------------------------------

@@ -6,6 +6,8 @@ import { type EffectsMemory, EffectsMemoryContext } from "../employee/effects";
 import { EmptyComparison } from "../employee/EmptyComparison";
 import { HeroAnnouncement, HeroCard } from "../employee/HeroCard";
 import { InputsCard } from "../employee/InputsCard";
+import { useOptionSelection } from "../employee/options";
+import { OptionsSelector } from "../employee/OptionsSelector";
 import { PhoneBar } from "../employee/PhoneBar";
 import { PHONE_QUERY, phoneBarVisible } from "../employee/phoneBarRules";
 import { useMediaQuery } from "../lib/useMediaQuery";
@@ -93,7 +95,13 @@ export function EmployeePage() {
     return tokenCheck(response.status, [401]);
   }
 
-  const comparison = state.comparison;
+  // Every alternative on screen (list_options) and the one shown: the employee's pick, until
+  // the agent compares something new; by default the one the agent compared last, else the best.
+  const { options, comparison, selected, select } = useOptionSelection(state);
+  const selector =
+    selected && options.length > 1 ? (
+      <OptionsSelector options={options} selected={selected} onSelect={select} />
+    ) : null;
   return (
     <EffectsMemoryContext.Provider value={effects}>
       <div className="min-h-screen bg-ground">
@@ -145,6 +153,7 @@ export function EmployeePage() {
               onNewSession={session.newSession}
             />
             <div className="flex min-w-0 flex-[999_1_640px] flex-col gap-6">
+              {selector}
               {comparison ? (
                 <>
                   <HeroCard comparison={comparison} id={HERO_ID} />

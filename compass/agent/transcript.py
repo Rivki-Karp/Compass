@@ -175,10 +175,13 @@ def model_view(name: str, result: dict[str, Any]) -> str:
                     "reason": option["eligibility"]["reason"],
                 },
                 "display_diff": option["comparison"]["display_diff"],
+                "net": option["comparison"]["alternative"]["display"]["net"],
                 "partial": option["comparison"]["partial"],
                 "participation_source": option.get("participation_source"),
                 "pending_rep": option.get("pending_rep"),
             }
             for option in result["options"]
         ]
+        if result["options"]:  # today's net is the same in every option
+            view["today_net"] = result["options"][0]["comparison"]["today"]["display"]["net"]
     return json.dumps(view, ensure_ascii=False, separators=(",", ":"), sort_keys=True)

@@ -68,6 +68,27 @@ test("walkthrough: +2,914, five steps and the total, the provenance of the selec
   await expect(strip.getByRole("list", { name: "נתונים" })).toBeVisible();
 
   await page.screenshot({ path: path.join(SCREENSHOTS, "employee.png") });
+
+  // Every alternative on screen: list_options (run through the dev tools endpoint, as the model
+  // would call it) puts them above the hero; selecting the second one switches every panel.
+  const sid = await page.evaluate(() => sessionStorage.getItem("compass.session"));
+  const listed = await request.post(`/api/sessions/${sid}/tools/list_options`, { data: {} });
+  expect((await listed.json()).ok).toBe(true);
+  const options = page.getByRole("radiogroup", { name: /כל החלופות שלך/ });
+  const waiver = options.getByRole("radio", { name: /^ויתור על הרכב/ });
+  await expect(waiver).toHaveAttribute("aria-checked", "true"); // the one the agent compared
+  const second = options.getByRole("radio").nth(1);
+  await expect(second).toHaveAccessibleName(/^MG4/);
+  await waiver.focus();
+  await page.keyboard.press("ArrowDown"); // a radio group: the arrow selects the next option
+  await expect(second).toHaveAttribute("aria-checked", "true");
+  await expect(second).toBeFocused();
+  await expect(hero).toContainText("MG4 לעומת היום");
+  await expect(hero).toContainText("+1,013");
+  await expect(strip).toContainText("חושב מחדש בשרת · בלי מודל");
+  await expect(page.getByRole("region", { name: "על מה החישוב מבוסס" })).toContainText(
+    "הרכב בחלופה · MG4",
+  );
 });
 
 test("E-001: +661 pending, the rep answers 350 in /rep, then +611 final; judges on and off do not re-announce", async ({

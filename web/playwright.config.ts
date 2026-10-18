@@ -48,6 +48,8 @@ export default defineConfig({
     timeout: 180_000,
     env: {
       COMPASS_LLM: "scripted",
+      // the e2e server only: lets a test run list_options the way the model would
+      COMPASS_DEV_TOOLS: "1",
       COMPASS_DEMO_DB: DEMO_DB,
       COMPASS_REP_TOKEN: TOKENS.rep,
       COMPASS_ADMIN_TOKEN: TOKENS.admin,

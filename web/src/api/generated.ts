@@ -7,6 +7,7 @@ export const EVENT_TYPES = [
   "agent_started",
   "assistant_message",
   "comparison_ready",
+  "comparison_set_ready",
   "current_situation_set",
   "guard_check",
   "profile_updated",

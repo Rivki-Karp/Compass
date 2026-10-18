@@ -41,6 +41,8 @@ EVENT_TYPES = frozenset(
         "profile_updated",
         "current_situation_set",
         "comparison_ready",
+        # every eligible alternative's view at once (list_options; origin server)
+        "comparison_set_ready",
         "ticket_opened",
         "ticket_answered",
         # The agent (Day 3): live progress for the UI and judges mode.

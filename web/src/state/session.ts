@@ -60,6 +60,8 @@ export interface SessionState {
   /** The latest comparison of each alternative (alternativeKey), so each one settles on its own:
    * a rep answering one car of a multi-car ticket settles that car, not the others. */
   comparisons: Record<string, ComparisonState>;
+  /** The alternatives the server put on screen at once (comparison_set_ready), best first. */
+  optionKeys: string[];
   openTickets: Ticket[];
   lastError: string | null; // agent_error kind of the latest failed run
   /** Events since the last run finished, outside any run; the next run takes them as `before`. */
@@ -75,6 +77,7 @@ export const initialSession: SessionState = {
   thinkingSince: null,
   comparison: null,
   comparisons: {},
+  optionKeys: [],
   openTickets: [],
   lastError: null,
   between: [],
@@ -98,6 +101,25 @@ export function repNote(answer: unknown): string | null {
   if (typeof answer !== "object" || answer === null) return null;
   const text = (answer as { text?: unknown }).text;
   return typeof text === "string" && text.trim() ? text.trim() : null;
+}
+
+/** An alternative's new comparison; it settles when its own previous one was pending. */
+function nextComparison(
+  state: Pick<SessionState, "comparisons">,
+  seq: number,
+  view: ComparisonView,
+  origin: string | undefined,
+): ComparisonState {
+  const previous = state.comparisons[alternativeKey(view)]; // whatever came in between
+  const settles = previous !== undefined && previous.view.pending && !view.pending;
+  const stays = previous !== undefined && previous.settled && !view.pending;
+  return {
+    seq,
+    view,
+    origin: origin === "server" ? "server" : "tool",
+    settled: settles || stays,
+    settledSeq: settles ? seq : stays ? (previous.settledSeq ?? null) : null,
+  };
 }
 
 function currentTurn(state: SessionState): Turn | null {
@@ -202,19 +224,21 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       }));
 
     case "comparison_ready": {
-      const view = event.payload.view;
-      const key = alternativeKey(view);
-      const previous = next.comparisons[key]; // this alternative's, whatever came in between
-      const settles = previous !== undefined && previous.view.pending && !view.pending;
-      const stays = previous !== undefined && previous.settled && !view.pending;
-      const comparison: ComparisonState = {
-        seq: event.seq,
-        view,
-        origin: event.payload.origin === "server" ? "server" : "tool",
-        settled: settles || stays,
-        settledSeq: settles ? event.seq : stays ? previous.settledSeq : null,
-      };
+      const comparison = nextComparison(next, event.seq, event.payload.view, event.payload.origin);
+      const key = alternativeKey(comparison.view);
       return { ...next, comparison, comparisons: { ...next.comparisons, [key]: comparison } };
+    }
+
+    case "comparison_set_ready": {
+      // every option at once: each alternative's latest view, the hero left as it is
+      const comparisons = { ...next.comparisons };
+      const optionKeys: string[] = [];
+      for (const option of event.payload.options) {
+        const key = alternativeKey(option.view);
+        comparisons[key] = nextComparison({ comparisons }, event.seq, option.view, "server");
+        optionKeys.push(key);
+      }
+      return { ...next, comparisons, optionKeys };
     }
 
     case "ticket_opened":
