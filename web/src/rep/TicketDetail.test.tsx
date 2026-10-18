@@ -178,6 +178,36 @@ describe("TicketDetail: one ticket, two fields", () => {
   });
 });
 
+describe("TicketDetail: today's participation", () => {
+  const today = must(twoFields.view.fields[0]);
+  const only = (field: typeof today): TicketWithView => ({
+    ...twoFields,
+    view: { ...twoFields.view, fields: [field] },
+  });
+
+  it("shows today's car with its year and the catalog default", () => {
+    render(
+      <TicketDetail ticket={only(today)} token="rep" onAnswered={vi.fn()} onReauth={vi.fn()} />,
+    );
+    expect(screen.getByText("COROLLA CROSS 2025")).toBeInTheDocument();
+    expect(screen.getByText("300")).toBeInTheDocument();
+  });
+
+  it("a car outside the catalog: no default, said in words", () => {
+    const external = {
+      ...today,
+      car_id: null,
+      car_name: "COROLLA CROSS 2023",
+      catalog_default: null,
+    };
+    render(
+      <TicketDetail ticket={only(external)} token="rep" onAnswered={vi.fn()} onReauth={vi.fn()} />,
+    );
+    expect(screen.getByText("COROLLA CROSS 2023")).toBeInTheDocument();
+    expect(screen.getByText("אין ברירת מחדל בקטלוג")).toBeInTheDocument();
+  });
+});
+
 describe("TicketDetail: the note to the employee", () => {
   it("is optional and goes out as answer_text with the values", async () => {
     const fetchMock = respond(200, { ...ticket, status: "answered" });

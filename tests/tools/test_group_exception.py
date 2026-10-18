@@ -281,3 +281,36 @@ def test_a_note_alone_answers_without_values(services: Services, tools: ToolRunn
     slots = services.store.slots(sid)
     assert slots["group_exception"].state == "unknown"  # answered, but not with a value
     assert (slots["group"].value, slots["group"].source) == ("ב", "derived")
+
+
+# --- today's participation on the ticket (rehearsal item 5) -----------------------------------
+
+
+def test_todays_car_with_its_year_and_catalog_default(
+    services: Services, tools: ToolRunner
+) -> None:
+    sid = _session(services, tools)  # CAR-09 without a stated year: the catalog's year
+    view = build_ticket_view(services, services.store.ticket(_ask(tools, sid, BOTH)))
+    field = view["fields"][0]
+    assert (field["car_name"], field["car_id"], field["catalog_default"]) == (
+        "COROLLA CROSS 2025",
+        "CAR-09",
+        300,
+    )
+    assert view["title"] == "השתתפות עצמית ברכב של היום · COROLLA CROSS 2025 + אישור חריג לקבוצה"
+
+
+def test_todays_car_outside_the_catalog_has_no_default(
+    services: Services, tools: ToolRunner
+) -> None:
+    sid = services.store.create_session()
+    ok(tools.run(sid, "save_profile", DEVELOPER))
+    query = {"query": "corolla cross", "registration_year": 2023}  # not the catalog's 2025
+    key = ok(tools.run(sid, "lookup_vehicle", query))["candidates"][0]["id"]
+    today = {"kind": "company_car", "car_id": key, "participation": 400}
+    ok(tools.run(sid, "set_current_situation", {"today": today}))
+    field = build_ticket_view(
+        services, services.store.ticket(_ask(tools, sid, ["current_participation"]))
+    )["fields"][0]
+    assert field["car_id"] is None and field["catalog_default"] is None
+    assert field["car_name"] and "2023" in field["car_name"]

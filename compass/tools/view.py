@@ -445,7 +445,9 @@ class TicketFieldView(_View):
     unit: Unit
     car_id: str | None
     car_name: str | None
-    catalog_default: int | None  # the participation the comparison uses until answered
+    # the participation the comparison uses until answered; None: today's car is not in the
+    # catalog (the screen says so)
+    catalog_default: int | None
     # A field answered by a choice (group_exception: radio buttons); empty for a typed value.
     options: list[TicketOptionView] = []
     # What the representative needs to decide it, as text tiles (group_exception).
@@ -511,9 +513,33 @@ def _group_exception_field(services: Services, session_id: str) -> TicketFieldVi
     )
 
 
+def _current_car_field(services: Services, session_id: str) -> TicketFieldView:
+    """Today's participation: today's car with its registration year ("COROLLA CROSS 2025"),
+    and the catalog default when today's car is a catalog car (None otherwise)."""
+    stored = services.store.scenarios(session_id).get("today") or {}
+    scenario = stored.get("scenario") or {}
+    car = services.ctx.catalog.get(scenario.get("car_id") or "")
+    name = _today_title(stored) if scenario.get("kind") != "current_maintenance" else None
+    if car is not None and name == car.commercial_name:  # no year given: the catalog's
+        name = f"{name} {car.registration_year}"
+    return TicketFieldView(
+        field=CURRENT_PARTICIPATION,
+        title=ticket_field_title(CURRENT_PARTICIPATION),
+        label=field_label(CURRENT_PARTICIPATION),
+        unit="ils",
+        car_id=None if car is None else car.id,
+        car_name=name or None,
+        catalog_default=None
+        if car is None
+        else to_display(car.default_employee_participation, services.ctx.rules),
+    )
+
+
 def _ticket_field(services: Services, ticket: Ticket, field: str) -> TicketFieldView:
     if field == GROUP_EXCEPTION:
         return _group_exception_field(services, ticket.session_id)
+    if field == CURRENT_PARTICIPATION:
+        return _current_car_field(services, ticket.session_id)
     car_id: str | None = None
     if field.startswith(ALTERNATIVE_PARTICIPATION):
         car_id = field.removeprefix(ALTERNATIVE_PARTICIPATION)

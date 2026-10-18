@@ -7,6 +7,8 @@ import { Button } from "../ui/Button";
 import { answerErrors, NO_ERRORS, type FormErrors } from "./answerErrors";
 
 const CHOOSE_ONE = "צריך לבחור אחת מהאפשרויות.";
+// today's car outside the catalog: no default participation to fall back on
+const NO_DEFAULT = "אין ברירת מחדל בקטלוג";
 
 /** The context line: "מנהל/ת מוצר · קבוצה ג׳ · היום: COROLLA CROSS". */
 function contextLine(context: Record<string, unknown>): string {
@@ -119,7 +121,13 @@ function FieldTiles({ field, diff }: { field: TicketFieldView; diff: ReactNode }
         </span>
       </Tile>
       <Tile label="ברירת מחדל מהקטלוג">
-        {field.catalog_default != null ? <Amount value={field.catalog_default} currency /> : "—"}
+        {field.catalog_default != null ? (
+          <Amount value={field.catalog_default} currency />
+        ) : field.unit === "ils" ? (
+          NO_DEFAULT
+        ) : (
+          "—"
+        )}
       </Tile>
       {diff}
     </div>
