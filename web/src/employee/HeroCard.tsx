@@ -63,8 +63,11 @@ function useSettledFlash(comparison: ComparisonState, fresh: boolean): boolean {
 export function HeroCard({
   comparison,
   compact = false,
+  id,
 }: {
   comparison: ComparisonState;
+  /** The phone summary bar scrolls to (and focuses) the card by this id. */
+  id?: string;
   /** Judges mode's summary column: the number at 52px (brief §4.5). */
   compact?: boolean;
 }) {
@@ -76,8 +79,10 @@ export function HeroCard({
   const flash = useSettledFlash(comparison, isFresh(comparison.settledSeq));
   return (
     <article
+      id={id}
+      tabIndex={id ? -1 : undefined}
       aria-label="תוצאת ההשוואה"
-      className="relative rounded-card border border-line bg-surface p-6"
+      className="relative scroll-mt-16 rounded-card border border-line bg-surface p-6"
     >
       <span
         key={`ring-${comparison.seq}`}
@@ -168,7 +173,7 @@ export function HeroCard({
   );
 }
 
-function FinalChip() {
+export function FinalChip() {
   return (
     <span className="inline-flex items-center gap-1 rounded-chip bg-up-bg px-2.5 py-0.5 text-[12px] leading-5 font-semibold text-up">
       <Icon name="check" size={13} />
@@ -177,7 +182,7 @@ function FinalChip() {
   );
 }
 
-function Tag({ children }: { children: React.ReactNode }) {
+export function Tag({ children }: { children: React.ReactNode }) {
   return (
     <span className="self-center rounded-chip bg-chip-pending-bg px-2.5 py-0.5 text-[13px] font-semibold text-chip-pending">
       {children}
