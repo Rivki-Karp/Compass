@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict
 from compass.engine.decimal_math import to_display
 from compass.engine.models import DeltaLineName
 from compass.labels import (
+    COMPUTED_BY_LABELS,
     DELTA_LABELS,
     RULE_LABELS,
     alternative_title,
@@ -107,6 +108,12 @@ class ViewWarning(_View):
     message: str
 
 
+class ViewComputedBy(_View):
+    origin: Literal["tool", "server"]
+    label: str  # "חושב בכלי" / "חושב מחדש בשרת · בלי מודל"
+    tool: str | None  # "compare" when the model called the tool; None for the server
+
+
 class ComparisonView(_View):
     version: int = VIEW_VERSION
     today_title: str
@@ -132,6 +139,7 @@ class ComparisonView(_View):
     warnings: list[ViewWarning]
     hypothetical: bool
     rules_version: str
+    computed_by: ViewComputedBy
 
 
 class ViewInvariantError(AssertionError):
@@ -377,8 +385,16 @@ def build_view(
         ],
         hypothetical=payload["hypothetical"],
         rules_version=comparison["alternative"]["metadata"]["rules_version"],
+        computed_by=_computed_by(payload),
     )
     return view.model_dump(mode="json")
+
+
+def _computed_by(payload: Mapping[str, Any]) -> ViewComputedBy:
+    """The model's `compare` call, or the server's own run of it (`origin: "server"`)."""
+    if payload.get("origin") == "server":
+        return ViewComputedBy(origin="server", label=COMPUTED_BY_LABELS["server"], tool=None)
+    return ViewComputedBy(origin="tool", label=COMPUTED_BY_LABELS["tool"], tool="compare")
 
 
 # --- the representative's inbox ---------------------------------------------------------------

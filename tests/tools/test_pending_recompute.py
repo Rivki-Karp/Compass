@@ -189,7 +189,11 @@ def test_answer_then_the_agents_compare_gives_the_same_view(
     ok(runner.run(sid, "compare", ATTO_3))  # the model compares again, as in the demo script
     *_, settled, agents = _comparisons(services, sid)
     assert settled["origin"] == "server" and "origin" not in agents
-    assert agents["view"] == settled["view"]
+    # the same view, except who computed it (Day 5 Stage 1)
+    agents_view, settled_view = dict(agents["view"]), dict(settled["view"])
+    assert agents_view.pop("computed_by")["origin"] == "tool"
+    assert settled_view.pop("computed_by")["origin"] == "server"
+    assert agents_view == settled_view
     assert agents["comparison"] == settled["comparison"]
 
 
