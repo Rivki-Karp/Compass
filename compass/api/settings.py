@@ -97,6 +97,37 @@ def token_warnings(rep_token: str | None, admin_token: str | None) -> list[str]:
     ]
 
 
+# Demo mode's well-known tokens (tasks.py demo, docker compose --profile demo) and the
+# .env.example placeholders: fine for a local demo, never for a live server.
+KNOWN_TOKENS = frozenset({"rep-demo", "admin-demo", "rep-demo-change-me", "admin-demo-change-me"})
+
+
+def live_token_errors(settings: "Settings") -> list[str]:
+    """Why a live server (COMPASS_LLM=anthropic) must not start: an empty token, or a demo /
+    placeholder one. Demo mode (scripted) has none. Never includes a token's value."""
+    if settings.llm == "scripted":
+        return []
+    given = {"COMPASS_REP_TOKEN": settings.rep_token, "COMPASS_ADMIN_TOKEN": settings.admin_token}
+    errors = []
+    for name, value in given.items():
+        if not value:
+            errors.append(f"{name} is empty")
+        elif value in KNOWN_TOKENS:
+            errors.append(f"{name} is a demo or placeholder value")
+    return errors
+
+
+def live_token_message(errors: list[str]) -> str:
+    lines = "\n".join(f"  - {e}" for e in errors)
+    return (
+        "Compass will not start in live mode:\n"
+        f"{lines}\n"
+        "Generate a token for each (PowerShell: [guid]::NewGuid().ToString()), set it in .env or "
+        "the environment, and start again. See docs/demo-runbook.md, section 1. "
+        "(Demo mode, `tasks.py demo`, needs neither.)"
+    )
+
+
 def token_warnings_from_env(env_file: Path | None = ENV_FILE) -> list[str]:
     env = _env(env_file)
     return token_warnings(env.get("COMPASS_REP_TOKEN"), env.get("COMPASS_ADMIN_TOKEN"))

@@ -148,6 +148,11 @@ def _print_token_warnings() -> None:
 
 
 def serve() -> None:
+    from compass.api.settings import Settings, live_token_errors, live_token_message
+
+    errors = live_token_errors(Settings.from_env(REPO_ROOT / ".env"))
+    if errors:  # the server would refuse anyway; say it before uvicorn's reloader starts
+        sys.exit(live_token_message(errors))
     _print_token_warnings()
     # One process: the agent's per-session workers and locks live in memory.
     run(

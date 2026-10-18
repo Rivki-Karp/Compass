@@ -82,15 +82,38 @@ def test_demo_prints_the_urls_and_never_a_token_from_env(
     assert os.environ["COMPASS_ADMIN_TOKEN"] == "admin-demo"
 
 
-def test_serve_warns_about_an_empty_token_and_never_prints_a_value(
+def _env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, text: str) -> None:
+    (tmp_path / ".env").write_text(text, encoding="utf-8")
+    monkeypatch.setattr(tasks, "REPO_ROOT", tmp_path)
+    for name in ("COMPASS_REP_TOKEN", "COMPASS_ADMIN_TOKEN", "COMPASS_LLM", "COMPASS_DEMO_DB"):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_serve_live_refuses_an_empty_or_demo_token_and_never_prints_a_value(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _env_file(tmp_path, monkeypatch, "COMPASS_REP_TOKEN=\nCOMPASS_ADMIN_TOKEN=admin-demo\n")
+    calls: list[Any] = []
+    monkeypatch.setattr(tasks, "run", lambda *args: calls.append(args))
+    with pytest.raises(SystemExit) as stopped:
+        tasks.serve()
+    message = str(stopped.value.code)
+    assert "Compass will not start in live mode" in message
+    assert "COMPASS_REP_TOKEN is empty" in message
+    assert "COMPASS_ADMIN_TOKEN is a demo or placeholder value" in message
+    assert "admin-demo" not in message.replace("COMPASS_ADMIN_TOKEN", "")
+    assert calls == []  # uvicorn never started
+
+
+def test_serve_in_demo_mode_warns_about_an_empty_token(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    (tmp_path / ".env").write_text(
-        "COMPASS_REP_TOKEN=\nCOMPASS_ADMIN_TOKEN=secret-admin-value\n", encoding="utf-8"
+    _env_file(
+        tmp_path,
+        monkeypatch,
+        f"COMPASS_LLM=scripted\nCOMPASS_DEMO_DB={tmp_path / 'demo.db'}\n"
+        "COMPASS_REP_TOKEN=\nCOMPASS_ADMIN_TOKEN=secret-admin-value\n",
     )
-    monkeypatch.setattr(tasks, "REPO_ROOT", tmp_path)
-    monkeypatch.delenv("COMPASS_REP_TOKEN", raising=False)
-    monkeypatch.delenv("COMPASS_ADMIN_TOKEN", raising=False)
     calls: list[Any] = []
     monkeypatch.setattr(tasks, "run", lambda *args: calls.append(args))
     tasks.serve()

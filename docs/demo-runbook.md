@@ -28,7 +28,9 @@ this in PowerShell once per token and paste the output after the `=` in `.env`:
 [guid]::NewGuid().ToString()
 ```
 
-Restart the server after changing `.env`. Write the two tokens on a card: you'll type them on
+Restart the server after changing `.env`. In live mode the server refuses to start while either
+token is empty or a demo / placeholder value (`rep-demo`, `admin-demo`, or the `.env.example`
+placeholders), and says which one; demo mode (5a, 5b) keeps its `rep-demo` / `admin-demo`. Write the two tokens on a card: you'll type them on
 stage.
 
 Build the Docker image too, while there is network (it downloads npm and PyPI packages; on
