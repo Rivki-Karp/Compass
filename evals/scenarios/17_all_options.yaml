@@ -1,0 +1,22 @@
+name: all_options
+description: 'E-001 asks for all her options: list_options puts them on screen; the reply lists the
+  top two or three as a short list (no table) and points to the screen'
+turns:
+- employee: אני מנהלת מוצר, שכר בסיס 18,500, אין לי עמלות או בונוסים. פנסיה 6%, קרן השתלמות 2.5%, 2.75
+    נקודות זיכוי, 2 ילדים מתחת לגיל 23. היום יש לי קורולה קרוס 2025 ואני משתתפת ב-300 ₪. מה כל האפשרויות
+    שלי?
+checks:
+- tool_called:
+    name: list_options
+    ok: true
+- reply:
+    matches:
+    # the best ones: the waiver (+3,199) or MG4 (+1,013)
+    - ויתור|MG4
+    not_matches:
+    # a short list, not a table or headings
+    - \|
+    - (?m)^#
+    # not every option: the worst ones stay on screen
+    - TUCSON
+    - MAZDA 3
