@@ -1,6 +1,7 @@
-# Handoff — Day 4 (the UI), checkpoint after Stage 8
+# Handoff — Day 4 (the UI), after Stage 9
 
-Written 2026-10-16 from the real repo state (git log, a full test run). The brief is
+Written 2026-10-16, updated 2026-10-18 and checked against git (`git log main..day4/ui`, every
+hash below) and a full test run. The brief is
 `briefs/day4-ui.md`; the decisions approved during review are listed below.
 
 ## Git state
@@ -8,7 +9,7 @@ Written 2026-10-16 from the real repo state (git log, a full test run). The brie
 | Ref | Commit | Notes |
 |---|---|---|
 | `main` | `e319ec7` | identical to `origin/main`; nothing from Day 4 is merged |
-| `day4/ui` | `600557e` + this handoff | pushed to `origin/day4/ui`; rebased on `main` before Stage 1 |
+| `day4/ui` | the Stage 9 commit (docs, this handoff) on `94ef304` | pushed to `origin/day4/ui`; `main` is its ancestor (rebased on `main` before Stage 1); **not merged: waiting for the review of the final report** |
 
 ## Stages
 
@@ -37,16 +38,20 @@ Written 2026-10-16 from the real repo state (git log, a full test run). The brie
 | docs | `75dc17b` | handoff, checkpoint after Stage 7 |
 | 7b | `72d8f1f` | silent replays, `tasks.py demo`, offline test, not-found page, relaxed rep-flow check |
 | 8 | `600557e` | Playwright end to end in demo mode, README screenshots, CI e2e job |
+| docs | `d9187df` | handoff, checkpoint after Stage 8 |
+| 8b | `94ef304` | provisional comparison when a ticket opens, prompt nudge, harness mapping, evals |
+| 9 | the commit after `94ef304` | README UI section, `docs/demo-runbook.md`, this handoff, the final report |
 
-Remaining: 9 (docs, final report).
+All stages are done. Remaining: the review of the final report, then the merge to `main`.
 
 ## Tests and CI
 
-- `pytest`: **591 passed** (581 after Stage 7). `ruff check` and `ruff format --check` clean.
-- `web/`: `npm run lint`, `npm run typecheck` clean; `npm test` (vitest) **136 passed** (127
-  after Stage 7); `npm run build` ok; `npm audit` 0 vulnerabilities.
-- Playwright (`web/e2e/`, `npm run e2e` from `web/`): **3 passed in 24–26 s** (about 28 s with
-  the build and the server start), on Windows.
+- `pytest`: **600 passed** (503 at the start of Day 4). `ruff check` and `ruff format --check`
+  clean.
+- `web/`: `npm run lint`, `npm run typecheck` clean; `npm test` (vitest) **136 passed** (none
+  at the start of Day 4); `npm run build` ok; `npm audit` 0 vulnerabilities.
+- Playwright (`web/e2e/`, `npm run e2e` from `web/`): **3 passed**, 24–35 s including the build
+  and the server start, on Windows (34.7 s on the last run, after 8b).
 - CI (GitHub Actions) has three jobs: `test` (Python: data build, lint, pytest), `web` (npm ci,
   lint, typecheck, vitest, a check that the vitest count equals `tests/counts.json`, build) and
   `e2e` (Python and data, npm ci, Chromium, `npm run e2e`; the report is uploaded on failure).
@@ -60,7 +65,7 @@ Remaining: 9 (docs, final report).
 ## Decisions approved in review
 
 - Event names: the server's existing ones; the brief-to-server mapping is documented in
-  `web/src/api/types.ts` (and goes into the README UI section in Stage 9).
+  `web/src/api/types.ts` and in the README's UI section.
 - Provenance: on the server, inside `view` (`PROVENANCE` in `compass/tools/view.py`); a test
   requires a mapping for every delta line.
 - The session stream and snapshot are redacted without the admin bearer (allowlist per event
@@ -78,6 +83,11 @@ Remaining: 9 (docs, final report).
 - Stage 4 approved as built: custom SVG, rule chips "· קובץ הכללים", no hover tooltip, the list
   fallback. The column-width transition when a step is added is left for polish day.
 - Stage 5 approved, including no auto-select after an answer and the token-dialog fix.
+- 5b, 6, 6b, 7, 7b and 8 approved: the separate demo database, the stats endpoint, the
+  guard-rejection fixture, the settle in front of the model, the replay fix (verified by a test
+  that fails without it). `/docs` stays where it is.
+- A model that asks instead of computing is a correctness gap, not variance: fixed on the
+  server (8b), with the prompt as a second layer, like 3b50995 and 5b.
 - Rules file (checked 2026-10-16, no change needed): the server loads `data/rules.yaml`, converted
   from the updated official `raw/strauss-rules.json` (SHA-256 `3ca0ac97…3eec`, commit `ea304c3`).
   `/api/health` reports the YAML's own SHA-256 (`48a4b8a7…a268`), not the JSON's. The "mock"
@@ -117,6 +127,9 @@ uv run python tasks.py demo-reset   # optional: start from an empty demo databas
 uv run python tasks.py build-web    # web/dist (npm ci first if web/node_modules is missing)
 uv run python tasks.py serve        # http://127.0.0.1:8000: the UI, /rep, the API, /docs
 ```
+
+The step-by-step script for the final (live first, demo mode as the fallback) is
+[docs/demo-runbook.md](../docs/demo-runbook.md).
 
 Open http://127.0.0.1:8000 and click the suggestion chips; the representative is
 http://127.0.0.1:8000/rep in a second tab (token `rep-demo`); judges mode takes `admin-demo`.
@@ -206,8 +219,9 @@ Regenerating committed artifacts:
   shifts; it fades only when reduced motion is off) and the "סופי" chip (`up` on `up-bg`, check
   icon). The input chip "אושר על ידי נציג" comes from the API. The live region says
   "ההשתתפות אושרה על ידי נציג. ההפרש עודכן: פלוס 611 שקלים".
-- In the real E-001 log, the final comparison is the agent's `compare` call in the `rep_answer`
-  run (seq 37). The server-origin `comparison_ready` is the pending recompute when a ticket opens.
+- In the real E-001 log *at the time*, the final comparison was the agent's `compare` call in
+  the `rep_answer` run (seq 37); since 5b the server settles first, and since 8b it also computes
+  the provisional one. The server-origin `comparison_ready` is the pending recompute when a ticket opens.
   The UI treats a comparison as final when it replaces a pending one for the same alternative and
   is not pending, so it works whichever event brings the final result.
 - Bug found while taking the screenshots: after the rep entered a token, the page showed "צריך
@@ -231,8 +245,10 @@ Regenerating committed artifacts:
   new slot value (same alternative, no model call) and appends `comparison_ready` with
   `origin: "server"`, `recomputed_from`, `ticket_id`, `answered_field`, and the payload not
   pending. Both directions share `_recompute_latest`.
-- In the demo, E-001 now shows two final comparisons after the answer: the server's settle
-  (seq 35, before the agent runs) and the agent's own `compare` (seq 38), with the same view.
+- In the demo, E-001 shows two final comparisons after the answer: the server's settle (before
+  the agent runs) and the agent's own `compare`, with the same view. Since 8b the recorded log
+  is: provisional (server, seq 26, +661 pending), `compare` (29, +661 pending), settle (server,
+  36, +611), `compare` (39, +611).
 - **No eval re-run.** The model reads the transcript (messages), and the guard's allowed numbers
   come from messages only (`allowed_for_session`). The settle adds an event, not a message, so
   nothing the model or the guard sees changes. The template fallback reads the latest
@@ -291,7 +307,8 @@ Regenerating committed artifacts:
 - **`GET /api/admin/stats`** (admin only, `compass/api/stats.py`):
   - evals pass rate, model and effort: parsed from the header of `evals/report.md`;
   - spend: the sum of `evals/spend.jsonl`, with the cap from the report;
-  - cost per conversation: the report's run cost over its scenario runs ($1.1358 / 45 = $0.0252);
+  - cost per conversation: the report's run cost over its scenario runs (at the time $1.1358 /
+    45 = $0.0252; with the 2026-10-18 report $0.4078 / 15 = $0.0272);
   - tests: `tests/counts.json`.
 
   USD values are display-ready strings (2 places, 4 for the per-conversation cost); the UI shows
@@ -326,7 +343,7 @@ Regenerating committed artifacts:
   retries, $0.1983 for the run ($0.0661 per run; total spend $2.8976 of $30). **The model still
   called `compare` in the rep turn in all 3 runs.** The prompt still tells it to, and the scenario
   requires it (`tool_called compare turn 3`), so the scenario would fail if the model stopped.
-  If stating the settle alone should be enough, that check has to change (your call).
+  Resolved in 7b: the check was relaxed (the settle and a reply stating 611 suffice).
 - **Judges mode** follows new runs: when a run starts, the engine room selects it, unless an older
   run was picked in the last 10 s (`judges/useTurnSelection.ts`, `PICK_HOLD_MS`).
 
@@ -343,8 +360,8 @@ Regenerating committed artifacts:
   - paths can't escape the build directory.
 - **Docs location.** The API docs are at `/docs` (and `/openapi.json`), not `/api/docs`. The
   tests check that `/docs` is served and that `/api/docs` is a JSON 404, not the UI. Moving the
-  docs under `/api` would keep everything the server owns under one prefix; it's a one-line
-  change (`docs_url`), but the README documents `/docs`. Your call.
+  docs under `/api` would keep everything the server owns under one prefix; decided in 7b: `/docs`
+  stays.
 - **`/__styleguide`** returns `index.html` like any UI path. The style guide is a dev-only route,
   so the production build renders an empty page there; it exists only under `npm run dev`.
 - **Tasks:** `tasks.py build-web` and `tasks.py web` (see "How to run the demo").
@@ -416,8 +433,8 @@ Regenerating committed artifacts:
   So there was no +661 pending comparison, and therefore nothing for the server to settle (the
   `origin: server` check found none). The 6b run with the same prompt compared in turn 2 in 3/3,
   so this looks like turn-2 variance, not the relaxed check. Not re-run beyond the ×1 asked for.
-  If it repeats, a prompt nudge for turn 2 ("after ask_representative, compare in the same turn")
-  is the fix to consider.
+  Reviewed as a correctness gap, not variance; fixed in 8b on the server (the provisional
+  comparison) and in the prompt.
 - `/docs` stays where it is.
 
 ## Stage 8 — what was built
@@ -456,15 +473,77 @@ Regenerating committed artifacts:
 - vitest is scoped to `src/**/*.test.{ts,tsx}`, so it never picks up `e2e/`; `tsconfig` covers
   `e2e/` and the Playwright config, so typecheck and lint include them.
 
+## Stage 8b — what was built
+
+- **Provisional comparison when a ticket opens** (`compass/tools/handlers.py:
+  _provisional_comparisons`, called by `ask_representative`). For each
+  `alternative_participation:<car>` field, when the session has no comparison of that car yet:
+  - The server computes one: the current profile and situation, the catalog default for the
+    participation (pending, since the ticket is open), no model call.
+  - It emits `comparison_ready` with `origin: "server"`, `ticket_id`, `pending_field`, pending.
+  - Missing inputs (a `ToolError`, or a partial result): nothing is emitted, logged at info.
+  - A car already compared is left to 3b50995's pending recompute. Nothing is duplicated.
+
+  The settle on answer (5b) then works unchanged; the provisional comparison is what it settles.
+- **In front of the model:** `ask_representative`'s result includes `provisional_comparisons`.
+  Each is in the exact shape `compare` returns, compacted by `model_view` like a `compare` result.
+  The guard allows those numbers (source `ask_representative`), so the model can state +661 at
+  once without calling `compare`.
+- **Prompt (second layer):** two lines after the ask-then-compare line. If the result has
+  `provisional_comparisons`, state it at once (the ticket is open, the net at the catalog
+  default). After opening a ticket, never ask whether to run a comparison. The ask-then-compare
+  line stays.
+- **Eval harness:** a server `comparison_ready` without `recomputed_from` (the provisional one)
+  maps to its own alternative; the settle chains from it through `recomputed_from`.
+- **Evals** (effort low, `claude-sonnet-5-5`):
+  - `e001_rep_flow` ×3: **3/3**, $0.1511, 0 guard retries. 5 tool rounds per run (7 before);
+    the model stated +661 right after opening the ticket and +611 after the answer, and called
+    no `compare`.
+  - An earlier ×3 ($0.1798) failed 0/3 on the harness gap above. The replies were right; the
+    harness couldn't map the provisional comparison.
+  - The full suite ×1: **15/15**, $0.4078, 0 guard retries, 0 templates (`evals/report.md`).
+  - Total spend **$3.7061 of the $30 cap**.
+- Tests:
+  - `tests/tools/test_provisional_comparison.py`: ask without compare → pending +661 (also in the
+    tool result); then the answer 350 → settled +611 representative; missing salary or no
+    current situation → nothing emitted (and logged); after a `compare` or a second ticket for
+    the same car → no duplicate; non-participation tickets → nothing.
+  - `tests/agent/test_rep_settle.py`: a scripted model calls only `ask_representative`, states
+    +661 (source `ask_representative`) and, after the answer, +611 (source `server`). The real
+    guard accepts both, and the model reads the compact view.
+  - Harness: the ask-only rep flow passes.
+  - Five older tests that pinned "no comparison before compare" now expect the provisional one.
+- Fixtures regenerated; the waterfall tests pick E-001's pending and final views by state, not
+  position.
+
+## Stage 9 — what was built
+
+- README: a "UI" section covering:
+  - the architecture in four steps (the model proposes, the tools compute, the guard verifies,
+    the server settles);
+  - the three screens with the committed screenshots;
+  - judges mode and demo mode;
+  - `tasks.py demo` and the other PowerShell commands;
+  - the event-name mapping table;
+  - the UI tests.
+
+  It also adds quickstart lines for the new tasks, refreshes the cost-per-conversation paragraph
+  to the 2026-10-18 report, and adds the `comparison` check's `origin`.
+- `docs/demo-runbook.md`: the final with two windows, live mode first (on its own
+  `COMPASS_APP_DB`, so no earlier session shows). It has the exact messages to type, what the
+  judges see at each step, what to do when something looks wrong, and the fallback to
+  `tasks.py demo` (chips instead of typing, same screens and numbers).
+- This handoff, checked against git.
+- The final Day 4 report (shared in the review; not a repo file).
+
 ## Open questions and notes
 
 - **System prompt apostrophes.** Decided: `system_he.md` keeps "ב'" (ASCII); the UI's own labels
   use the geresh. No eval re-run.
 - **Brand names.** The catalog has no Latin brand ("ATTO 3", not "BYD ATTO 3"). Adding one is a
   catalog data change, not a UI one.
-- **Stage 3 screenshots** (empty, walkthrough, E-001 pending, 400 px) were captured from a local
-  demo run and shared in the review; they are not committed. Stage 8 commits the README screenshots
-  from the Playwright run.
+- **Screenshots.** The README's three are committed (`docs/screenshots/`, written by every e2e
+  run). The review screenshots of Stages 3–7 were not committed.
 - **Windows dev servers.** Stopping a background `npx vite` can leave the node process listening
   on 5173; check with `Get-NetTCPConnection -LocalPort 5173` before starting another one.
 - **Port 8000.** The old `uvicorn --reload` was stopped before Stage 5, and the Stage 5 demo API
@@ -484,6 +563,5 @@ Regenerating committed artifacts:
 
 ## Next
 
-Stage 9: the README "UI" section (screens with `docs/screenshots/`, judges mode, demo mode, the
-PowerShell commands, `tasks.py demo`), this handoff checked against git, and the final report
-(per stage, all API changes, test counts, deviations from §3–4, known gaps).
+The review of the final report, then the merge of `day4/ui` into `main` (not before). Then polish
+day: the items under "Open questions and notes", and the dry runs in `docs/demo-runbook.md`.

@@ -24,13 +24,22 @@ uv run python tasks.py data      # rebuild all generated data from raw/
 uv run python tasks.py test      # run the tests
 uv run python tasks.py lint      # ruff check + ruff format --check
 uv run python tasks.py fmt       # apply formatting
+uv run python tasks.py demo      # the demo: UI + API on http://127.0.0.1:8000, no API key (see UI)
 uv run python tasks.py demo E-001  # Hebrew breakdown of a golden employee (E-001 … E-006)
 uv run python tasks.py calc      # interactive calculator for your own numbers
 uv run python tasks.py serve     # the API on http://127.0.0.1:8000 (Swagger at /docs)
 uv run python tasks.py openapi   # regenerate openapi.json after API changes
 uv run python tasks.py chat      # terminal chat with the agent (needs ANTHROPIC_API_KEY in .env)
 uv run python tasks.py eval      # agent evals against the real model -> evals/report.md
+uv run python tasks.py build-web # build the UI into web/dist (served by `serve` at /)
+uv run python tasks.py web       # UI development: API (:8000) + Vite (:5173), Ctrl+C stops both
+uv run python tasks.py demo-reset  # empty demo mode's own database (data/demo.db)
+uv run python tasks.py ts-types  # regenerate web/src/api/generated.ts after view changes
+uv run python tasks.py test-counts # update tests/counts.json (judges mode shows it)
 ```
+
+The UI's own commands run from `web/` (Node 22, `web/.nvmrc`): `npm ci`, `npm run dev`,
+`npm test` (vitest), `npm run e2e` (Playwright), `npm run lint`, `npm run typecheck`.
 
 If you have `make`, `make install|data|test|lint|fmt` does the same.
 
@@ -440,8 +449,9 @@ results, never the model's prose for numbers:
 
 - `tool_called` / `tool_not_called` match a tool's name, input subset, result subset and
   turn;
-- `comparison` checks the last matching compare result (net today and after, the diff,
-  sources, pending, hypothetical, partial);
+- `comparison` checks the last matching comparison shown, compare's own or the server's
+  (net today and after, the diff, sources, pending, hypothetical, partial); `origin: server`
+  or `tool` narrows it to one kind;
 - `slot` checks the final profile;
 - `reply` matches regexes on what the employee saw.
 
@@ -459,15 +469,120 @@ latency, tokens and cost per scenario. Each scenario run's cost is appended to
 is refused. CI runs the harness only with a scripted model, so it needs no key.
 
 **Cost per conversation** (from [evals/report.md](evals/report.md): `claude-sonnet-5-5`, effort
-`low`, 45 runs): **$0.025 on average**. A one-message question with a comparison costs
-$0.02–0.03, a clarifying exchange about $0.01, and the four-turn representative flow
-(E-001) $0.056. Prompt caching covers most of the input: a typical comparison reads
+`low`, the 2026-10-18 run of all 15 scenarios): **$0.027 on average**. A one-message question
+with a comparison costs $0.02–0.03, a clarifying exchange about $0.01, and the four-turn
+representative flow (E-001) $0.055. Prompt caching covers most of the input: a typical comparison reads
 ~50k tokens from the cache and writes ~2k new ones.
 
 **Effort `low` vs `medium`** ([evals/report-medium.md](evals/report-medium.md), 15 runs):
 both pass 15/15 with no guard retries or template fallbacks. `medium` cost $0.028 per run
 against $0.025 for `low` (+11%), and its mean latency was 13.5 s against 15.5 s, a gap
 from two slow `low` runs. Same quality at a lower cost, so the agent stays at `low`.
+
+## UI
+
+A React app (`web/`: Vite, TypeScript strict, Tailwind with the design tokens, Hebrew RTL, IBM
+Plex fonts bundled) on top of the API. FastAPI serves the build at `/`, so the demo is one URL.
+
+### How a number gets to the screen
+
+1. **The model proposes.** Claude reads the conversation and picks tools. It never computes
+   money.
+2. **The tools compute.** Deterministic formulas over the rules file and the catalog, in exact
+   `Decimal`, with a source for every value (the employee, the occupation, the catalog, the
+   representative).
+3. **The guard verifies.** Every number in a reply must come from a tool result, the employee,
+   the representative or the server's own recomputation, or the reply is rewritten (and, failing
+   that, replaced by a template).
+4. **The server settles.** When a ticket opens, the server shows the comparison at the catalog
+   default as pending. When the representative answers, the server recomputes it with the
+   answer and the card turns final. Neither step waits for the model.
+
+The UI only formats what the API sends: it never adds, rounds or animates a number.
+
+### The three screens
+
+**Employee** (`/`): the chat on the right; on the left the comparison: the signed difference,
+today's and the alternative's net, a waterfall of the difference from zero (each bar a button;
+the strip below it shows the tool, the inputs and the rules behind the selected bar), and every
+input with its source. While a representative's answer is pending, the card is dimmed, dashed
+and marked "ממתינה לנציג"; when it arrives, it turns "סופי".
+
+![Employee screen: the walkthrough, +2,914 ₪](docs/screenshots/employee.png)
+
+**Representative** (`/rep`, rep token): the open tickets, live; the ticket with the car, the
+catalog default and the employee's provisional difference; one field for the amount. The
+server validates it and shows its Hebrew message next to the field.
+
+![Representative screen: the E-001 ticket](docs/screenshots/representative.png)
+
+**Judges mode** (the toggle on the employee screen, admin token): the summary (the result,
+how it works, eval pass rate, spend, tests and cost per conversation from the committed files)
+and the engine room: per turn, every tool call with its input and full result, every
+comparison (from a tool or from the server), and the guard's verdict with the source of every
+number, including a rejected draft. Without the admin token none of this leaves the server.
+
+![Judges mode on the walkthrough](docs/screenshots/judges.png)
+
+### Demo mode
+
+`COMPASS_LLM=scripted` replaces only the model with two scripts (the walkthrough and E-001 with
+a representative); the tools, the guard, the tickets and the server's recomputations run for
+real. No API key and no network are needed (a test fails on any outbound request). Demo mode
+keeps its own database, `data/demo.db`, and never touches `data/app.db`.
+
+One command for the demo (PowerShell, from the repo root):
+
+```powershell
+uv run python tasks.py demo
+```
+
+It empties the demo database, builds the UI if `web/dist` is missing or older than its
+sources, serves on http://127.0.0.1:8000 and prints the URLs: the employee screen at `/`,
+the representative at `/rep`. Tokens come from `.env` (`COMPASS_REP_TOKEN`,
+`COMPASS_ADMIN_TOKEN`); unset, they default to `rep-demo` and `admin-demo`. The step-by-step
+script for the final is [docs/demo-runbook.md](docs/demo-runbook.md).
+
+For UI work: `uv run python tasks.py web` (API with reload and Vite with hot reload on
+http://localhost:5173), or by hand:
+
+```powershell
+$env:COMPASS_LLM="scripted"
+uv run python tasks.py serve        # API on :8000
+cd web; npm run dev                  # UI on :5173, /api proxied to :8000
+```
+
+### Events: the brief's names and the server's
+
+The UI reads the session stream (`GET /api/sessions/{id}/events`) and the representative's
+inbox (`GET /api/tickets/events`) over `fetch`, so a token goes in a header, never a URL.
+Fields marked admin are sent only with the admin token.
+
+| Brief | Server event | Notes |
+|---|---|---|
+| `employee_message` | `user_message` | |
+| `assistant_message` | `assistant_message` | `kind`: reply, template, error |
+| `turn_started` | `agent_started` | `trigger`: employee_turn, rep_answer |
+| `turn_finished`, `usage` | `agent_finished` | usage, latency, rounds, cost: admin |
+| `tool_call` | `tool_call` | input: admin |
+| `tool_result` | `tool_result` | summary, full result: admin |
+| `comparison_ready` | `comparison_ready` | with `view`; `origin: "server"` for the server's own: provisional when a ticket opens, pending when a ticket asks for a participation already shown, settled when the representative answers |
+| `ticket_opened` / `ticket_answered` | same | |
+| `guard_verdict` | `guard_check` | numbers, violations, sources, the rejected draft: admin |
+| `template_fallback` | `guard_check` with action `template`, then `assistant_message` kind `template` | |
+| `error` | `agent_error` | message: admin |
+
+A reconnect replays the stream from the start; the screen keeps what it showed until the replay
+catches up, and an effect (motion, an announcement) never plays twice for the same event.
+
+### Tests
+
+`npm test` (vitest): the formatter, the reducers, the waterfall's invariants, the screens and
+the pending-to-final transition on recorded demo event logs
+(`uv run python scripts/web_fixtures.py` regenerates them). `npm run e2e` (Playwright, about 30
+seconds): the walkthrough, E-001 through `/rep` in a second page, and judges mode with and without
+the admin token, in demo mode against the real API; it also writes the screenshots above.
+CI runs both.
 
 ## Rules: our additions to the official file
 
