@@ -26,3 +26,6 @@ web/dist/
 web/test-results/
 web/playwright-report/
 web/blob-report/
+
+# Backup video: the webm files are committed (under 25 MB); mp4 conversions are local only
+docs/video/*.mp4

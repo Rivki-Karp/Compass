@@ -36,6 +36,7 @@ uv run python tasks.py web       # UI development: API (:8000) + Vite (:5173), C
 uv run python tasks.py demo-reset  # empty demo mode's own database (data/demo.db)
 uv run python tasks.py ts-types  # regenerate web/src/api/generated.ts after view changes
 uv run python tasks.py test-counts # update tests/counts.json (judges mode shows it)
+uv run python tasks.py record-demo # re-record the backup video (docs/video/, demo mode, no key)
 ```
 
 The UI's own commands run from `web/` (Node 22, `web/.nvmrc`): `npm ci`, `npm run dev`,

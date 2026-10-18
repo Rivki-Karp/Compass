@@ -19,6 +19,7 @@ Usage:
     uv run python tasks.py openapi   # write openapi.json (commit it with API changes)
     uv run python tasks.py ts-types  # write web/src/api/generated.ts (commit it with view changes)
     uv run python tasks.py test-counts  # write tests/counts.json (judges mode; pytest checks it)
+    uv run python tasks.py record-demo  # the backup video -> docs/video/*.webm (demo mode, no key)
 """
 
 import subprocess
@@ -237,6 +238,13 @@ def demo_reset() -> None:
     print(f"demo-reset: cleared {target} (the next demo run starts with an empty one)")
 
 
+def record_demo() -> None:
+    """The backup demo video, recorded by Playwright at human pace (scripts/record_demo.py)."""
+    if _web_build_is_stale():
+        build_web()
+    run(sys.executable, str(REPO_ROOT / "scripts" / "record_demo.py"))
+
+
 def chat() -> None:
     run(sys.executable, "-m", "compass.agent.chat")
 
@@ -303,6 +311,7 @@ TASKS: dict[str, Callable[..., None]] = {
     "openapi": openapi,
     "ts-types": ts_types,
     "test-counts": test_counts,
+    "record-demo": record_demo,
     "chat": chat,
     "eval": evals,
 }
