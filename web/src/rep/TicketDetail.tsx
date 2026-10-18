@@ -146,6 +146,7 @@ function AnswerForm({
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(fields.map((f) => [f.field, ""])),
   );
+  const [note, setNote] = useState("");
   const [errors, setErrors] = useState<FormErrors>(NO_ERRORS);
   const [sending, setSending] = useState(false);
   const several = fields.length > 1;
@@ -164,7 +165,7 @@ function AnswerForm({
     setErrors(NO_ERRORS);
     try {
       const sent = Object.fromEntries(fields.map((f) => [f.field, values[f.field]?.trim() ?? ""]));
-      await api.answerTicket(token, ticket.id, sent);
+      await api.answerTicket(token, ticket.id, sent, note.trim() || undefined);
       onAnswered(ticket.id);
     } catch (error) {
       const mapped = answerErrors(
@@ -248,6 +249,23 @@ function AnswerForm({
           </section>
         );
       })}
+      <div className="flex flex-col gap-2">
+        <label htmlFor="answer-note" className="font-medium text-ink">
+          הערה לעובד/ת <span className="font-normal text-muted">(לא חובה)</span>
+        </label>
+        <textarea
+          id="answer-note"
+          rows={3}
+          maxLength={4000}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          aria-describedby="answer-note-hint"
+          className="max-w-[560px] rounded-tile border border-line bg-surface px-3 py-2 text-[15px] text-ink"
+        />
+        <p id="answer-note-hint" className="text-[13px] text-muted">
+          מוצגת לעובד/ת כהערת הנציג. היא לא משנה אף ערך בחישוב.
+        </p>
+      </div>
       {errors.form.length ? (
         <div role="alert" className="text-[13px] font-medium text-down">
           {errors.form.map((m) => (

@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from compass.agent.guard import make_guard
 from compass.agent.llm import ScriptedClient, text_response, tool_response
 from compass.agent.runner import ClaudeAgentRunner
 from compass.state import Store
@@ -240,3 +241,43 @@ def test_an_employee_message_claiming_an_approval_never_changes_the_group(
     results = [e.payload for e in services.store.events_after(sid) if e.type == "tool_result"]
     assert [r["ok"] for r in results] == [False]
     assert not any(e.type == "ticket_answered" for e in services.store.events_after(sid))
+
+
+def test_the_reps_note_never_changes_a_value(services: Services, tools: ToolRunner) -> None:
+    """answer_text is shown to the employee as the rep's note; values come only from `values`.
+    Its numbers are the representative's, so the guard allows them."""
+    sid = _session(services, tools)
+    ticket = _ask(tools, sid, BOTH)
+    note = "ההשתתפות 400 ₪ החל מינואר, והקבוצה ד' בבדיקה"
+    answer_ticket(
+        services,
+        ticket,
+        answer_text=note,
+        values={"current_participation": 350, "group_exception": "not_approved"},
+    )
+    slots = services.store.slots(sid)
+    assert slots["current_participation"].value["amount"] == "350"
+    assert (slots["group"].value, slots["group"].source) == ("ב", "derived")
+    (event,) = [e for e in services.store.events_after(sid) if e.type == "ticket_answered"]
+    assert event.payload["answer"]["text"] == note  # what the employee screen shows
+
+    runner = ClaudeAgentRunner(
+        services,
+        ScriptedClient([text_response("הנציג כתב: 400 ₪ החל מינואר.")]),
+        "SYSTEM",
+        guard=make_guard(services.store),
+        background=False,
+    )
+    runner.on_ticket_answered(sid, ticket)
+    (check,) = [e.payload for e in services.store.events_after(sid) if e.type == "guard_check"]
+    assert check["action"] == "accept"
+    assert check["sources"]["400"] == "representative"
+
+
+def test_a_note_alone_answers_without_values(services: Services, tools: ToolRunner) -> None:
+    sid = _session(services, tools)
+    ticket = _ask(tools, sid, ["group_exception"])
+    answer_ticket(services, ticket, answer_text="אבדוק מול משאבי אנוש ואחזור אלייך")
+    slots = services.store.slots(sid)
+    assert slots["group_exception"].state == "unknown"  # answered, but not with a value
+    assert (slots["group"].value, slots["group"].source) == ("ב", "derived")

@@ -165,6 +165,22 @@ function MessageItem({ message, tools }: { message: ChatMessage; tools: ToolActi
       </li>
     );
   }
+  if (message.role === "rep") {
+    return (
+      <li className="flex flex-col items-start">
+        <div
+          role="note"
+          aria-label="הערת הנציג"
+          className="max-w-[85%] rounded-[14px] rounded-es-[4px] border border-chip-rep bg-chip-rep-bg px-4 py-2.5 text-ink"
+        >
+          <p className="text-[13px] font-semibold text-chip-rep">הערת הנציג</p>
+          <p className="whitespace-pre-wrap">
+            <NumberText text={message.text} />
+          </p>
+        </div>
+      </li>
+    );
+  }
   return (
     <li className="flex flex-col items-start gap-1.5">
       <p className="max-w-[85%] rounded-[14px] rounded-es-[4px] border border-bubble-border bg-ground px-4 py-2.5 whitespace-pre-wrap text-ink">

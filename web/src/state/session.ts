@@ -14,7 +14,7 @@ import type {
 
 export interface ChatMessage {
   seq: number;
-  role: "employee" | "assistant";
+  role: "employee" | "assistant" | "rep"; // "rep": the representative's note to the employee
   text: string;
   kind: PayloadByType["assistant_message"]["kind"] | null;
   turn: number | null; // index into turns (assistant messages)
@@ -80,6 +80,13 @@ export const initialSession: SessionState = {
 export function limitReached(state: SessionState): boolean {
   const replies = state.messages.filter((m) => m.role === "assistant");
   return replies[replies.length - 1]?.kind === "limit";
+}
+
+/** The representative's free-text note in a ticket answer (answer.text), if any. */
+export function repNote(answer: unknown): string | null {
+  if (typeof answer !== "object" || answer === null) return null;
+  const text = (answer as { text?: unknown }).text;
+  return typeof text === "string" && text.trim() ? text.trim() : null;
 }
 
 function currentTurn(state: SessionState): Turn | null {
@@ -207,11 +214,16 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
     case "ticket_opened":
       return { ...next, openTickets: [...next.openTickets, event.payload.ticket] };
 
-    case "ticket_answered":
+    case "ticket_answered": {
+      const note = repNote(event.payload.answer);
       return {
         ...next,
         openTickets: next.openTickets.filter((t) => t.id !== event.payload.ticket_id),
+        messages: note
+          ? [...next.messages, { seq: event.seq, role: "rep", text: note, kind: null, turn: null }]
+          : next.messages,
       };
+    }
 
     case "session_status":
       return { ...next, status: event.payload.status };

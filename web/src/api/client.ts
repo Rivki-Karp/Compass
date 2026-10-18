@@ -37,10 +37,14 @@ export const api = {
     }),
   judgesStats: (token: string) => request<JudgesStats>("/admin/stats", {}, token),
   openTickets: (token: string) => request<TicketWithView[]>("/tickets?status=open", {}, token),
-  answerTicket: (token: string, ticketId: string, values: Record<string, unknown>) =>
+  /** `note`: the rep's free text to the employee (answer_text); it never changes a value. */
+  answerTicket: (token: string, ticketId: string, values: Record<string, unknown>, note?: string) =>
     request<unknown>(
       `/tickets/${ticketId}/answer`,
-      { method: "POST", body: JSON.stringify({ values }) },
+      {
+        method: "POST",
+        body: JSON.stringify(note ? { values, answer_text: note } : { values }),
+      },
       token,
     ),
 };

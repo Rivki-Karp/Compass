@@ -178,6 +178,24 @@ describe("TicketDetail: one ticket, two fields", () => {
   });
 });
 
+describe("TicketDetail: the note to the employee", () => {
+  it("is optional and goes out as answer_text with the values", async () => {
+    const fetchMock = respond(200, { ...ticket, status: "answered" });
+    vi.stubGlobal("fetch", fetchMock);
+    renderDetail();
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("סכום ההשתתפות החודשית (₪)"), "350");
+    await user.type(screen.getByLabelText(/הערה לעובד\/ת/), "מנובמבר");
+    await user.click(screen.getByRole("button", { name: "אישור ושליחה לעובד/ת" }));
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      values: { "alternative_participation:CAR-10": "350" },
+      answer_text: "מנובמבר",
+    });
+  });
+});
+
 describe("TicketList", () => {
   const now = Date.parse(ticket.created_at) + 2 * 60_000;
 

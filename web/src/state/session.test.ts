@@ -3,6 +3,7 @@ import type { SessionEvent } from "../api/types";
 import { EVENT_TYPES } from "../api/generated";
 import e001Log from "../test/fixtures/e001.json";
 import walkthroughLog from "../test/fixtures/walkthrough.json";
+import { must } from "../test/views";
 import { initialSession, reduce, type SessionState } from "./session";
 
 // Real event logs from a demo-mode run (scripts/web_fixtures.py).
@@ -114,7 +115,12 @@ describe("reduce: every event kind", () => {
       ev("current_situation_set", { scenario: {} }),
       ev("guard_check", { passed: true, action: "accept" }),
       ev("agent_error", { kind: "timeout" }),
-      ev("assistant_message", { message_seq: 2, text: "שגיאה", kind: "error", comparison_ref: null }),
+      ev("assistant_message", {
+        message_seq: 2,
+        text: "שגיאה",
+        kind: "error",
+        comparison_ref: null,
+      }),
       ev("agent_finished", { outcome: "error" }),
       ev("session_status", { status: "closed" }),
     ];
@@ -130,5 +136,41 @@ describe("reduce: every event kind", () => {
     expect(state.thinking).toBe(false);
     expect(state.status).toBe("closed");
     expect(state.lastSeq).toBe(seq);
+  });
+});
+
+describe("the representative's note", () => {
+  const answered = e001.findIndex((e) => e.type === "ticket_answered");
+  const withNote = (answer: unknown): SessionEvent[] =>
+    e001.map((e, i) =>
+      i === answered && e.type === "ticket_answered"
+        ? { ...e, payload: { ...e.payload, answer } }
+        : e,
+    );
+
+  it("a ticket answer with text adds the rep's note to the chat, before the reply", () => {
+    const state = replay(
+      withNote({
+        text: "  מעודכן מנובמבר, 400 ₪ אחרי השנה הראשונה  ",
+        values: {},
+      }),
+    );
+    const notes = state.messages.filter((m) => m.role === "rep");
+    expect(notes).toEqual([
+      {
+        seq: must(e001[answered]).seq,
+        role: "rep",
+        text: "מעודכן מנובמבר, 400 ₪ אחרי השנה הראשונה",
+        kind: null,
+        turn: null,
+      },
+    ]);
+    const index = state.messages.findIndex((m) => m.role === "rep");
+    expect(state.messages[index + 1]?.role).toBe("assistant"); // the model's reply follows
+  });
+
+  it("no text, no note", () => {
+    expect(replay(e001).messages.some((m) => m.role === "rep")).toBe(false);
+    expect(replay(withNote({ text: "   " })).messages.some((m) => m.role === "rep")).toBe(false);
   });
 });
