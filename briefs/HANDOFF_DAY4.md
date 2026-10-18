@@ -8,8 +8,8 @@ hash below) and a full test run. The brief is
 
 | Ref | Commit | Notes |
 |---|---|---|
-| `main` | `e319ec7` | identical to `origin/main`; nothing from Day 4 is merged |
-| `day4/ui` | the Stage 9 commit (docs, this handoff) on `94ef304` | pushed to `origin/day4/ui`; `main` is its ancestor (rebased on `main` before Stage 1); **not merged: waiting for the review of the final report** |
+| `main` | `4693804` + this note | Day 4 merged with `git merge --no-ff day4/ui` (the stage history is kept); tagged `day4-complete`; pushed |
+| `day4/ui` | `acf6328` | the Stage 9 commit; merged into `main` after the report was approved (2026-10-18) |
 
 ## Stages
 
@@ -42,7 +42,7 @@ hash below) and a full test run. The brief is
 | 8b | `94ef304` | provisional comparison when a ticket opens, prompt nudge, harness mapping, evals |
 | 9 | the commit after `94ef304` | README UI section, `docs/demo-runbook.md`, this handoff, the final report |
 
-All stages are done. Remaining: the review of the final report, then the merge to `main`.
+All stages are done; the final report was approved and `day4/ui` is merged into `main`.
 
 ## Tests and CI
 
@@ -61,6 +61,18 @@ All stages are done. Remaining: the review of the final report, then the merge t
   `uv run python tasks.py test-counts`; a full `pytest` run fails while its pytest number is
   stale (a partial run skips that check). It counts vitest from a real `vitest run`
   (`vitest list` undercounts).
+
+## Freeze (from 2026-10-18)
+
+These change **only with explicit approval and a full eval re-run** (all scenarios, effort low;
+the report and the spend committed with the change):
+
+- `compass/agent/prompts/system_he.md`, the system prompt;
+- the tool descriptions the model reads: `compass/tools/registry.py` (`tool_definitions`) and
+  the field descriptions in the tools' input models (`compass/tools/handlers.py`);
+- `evals/scenarios/`, the scenarios and their checks.
+
+The last full run before the freeze: 15/15 on 2026-10-18 (`evals/report.md`).
 
 ## Decisions approved in review
 
@@ -563,5 +575,10 @@ Regenerating committed artifacts:
 
 ## Next
 
-The review of the final report, then the merge of `day4/ui` into `main` (not before). Then polish
-day: the items under "Open questions and notes", and the dry runs in `docs/demo-runbook.md`.
+Polish day, from its own brief: the items under "Open questions and notes", and the dry runs in
+`docs/demo-runbook.md`. The freeze above applies.
+
+Checked on `main` before the push: ruff, pytest 600, web lint, typecheck, vitest 136, build, and
+Playwright 3/3. CI on GitHub for `4693804`: `test`, `web` and `e2e` all green (run 39114150521).
+
+Merged at 4693804, tag day4-complete.
