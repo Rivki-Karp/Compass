@@ -6,7 +6,7 @@ import { Header } from "../ui/Header";
 export function NotFound() {
   return (
     <div className="min-h-screen bg-ground">
-      <Header />
+      <Header heading={false} />
       <main className="px-8 py-12 max-sm:px-4">
         <section
           aria-labelledby="not-found-title"

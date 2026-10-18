@@ -80,11 +80,14 @@ def _spend(path: Path) -> dict[str, Any] | None:
 def _tests(path: Path) -> dict[str, Any] | None:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        return {
+        tests: dict[str, Any] = {
             "pytest": int(data["pytest"]),
             "vitest": int(data["vitest"]),
             "as_of": data["as_of"],
         }
+        if "e2e" in data:  # Playwright (Day 5); the tile shows pytest + vitest
+            tests["e2e"] = int(data["e2e"])
+        return tests
     except (OSError, ValueError, KeyError, TypeError):
         return None
 

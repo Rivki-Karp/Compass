@@ -347,3 +347,48 @@ def test_every_catalog_drive_has_a_label() -> None:
     from compass.labels import DRIVE_LABELS
 
     assert set(DRIVE_LABELS) == set(get_args(Drive))
+
+
+# --- Day 5 Stage 1: who computed the comparison ------------------------------------------------
+
+TOOL_LABEL = {"origin": "tool", "label": "חושב בכלי", "tool": "compare"}
+SERVER_LABEL = {"origin": "server", "label": "חושב מחדש בשרת · בלי מודל", "tool": None}
+
+
+def _computed_by(services: Services, sid: str) -> list[tuple[Any, dict[str, Any]]]:
+    return [
+        (e.payload.get("origin"), e.payload["view"]["computed_by"])
+        for e in services.store.events_after(sid)
+        if e.type == "comparison_ready"
+    ]
+
+
+def test_computed_by_the_tool(services: Services, runner: ToolRunner) -> None:
+    _, payload = _walkthrough(services, runner)
+    assert "origin" not in payload
+    assert payload["view"]["computed_by"] == TOOL_LABEL
+
+
+def test_computed_by_the_server_for_the_provisional_and_the_settle(
+    services: Services, runner: ToolRunner
+) -> None:
+    """E-001 without a `compare` call: the provisional comparison when the ticket opens, then the
+    settle on the rep's answer. Both are the server's, and say so."""
+    sid = _session(services, runner, NOA)
+    ticket = ok(runner.run(sid, "ask_representative", {"question": "?", "blocking_fields": [ATTO]}))
+    answer_ticket(services, ticket["ticket_id"], values={ATTO: 350})
+    ok(runner.run(sid, "compare", {"alternative": {"kind": "car", "car_id": "CAR-10"}}))
+    assert _computed_by(services, sid) == [
+        ("server", SERVER_LABEL),  # provisional, +661 pending
+        ("server", SERVER_LABEL),  # settle, +611
+        (None, TOOL_LABEL),  # the model's own compare
+    ]
+
+
+def test_computed_by_the_server_for_the_pending_recompute(
+    services: Services, runner: ToolRunner
+) -> None:
+    sid = _session(services, runner, NOA)
+    ok(runner.run(sid, "compare", {"alternative": {"kind": "car", "car_id": "CAR-10"}}))
+    ok(runner.run(sid, "ask_representative", {"question": "?", "blocking_fields": [ATTO]}))
+    assert _computed_by(services, sid) == [(None, TOOL_LABEL), ("server", SERVER_LABEL)]

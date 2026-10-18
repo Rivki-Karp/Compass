@@ -6,8 +6,8 @@ import { SourceChip } from "../ui/SourceChip";
 import type { WaterfallStep } from "./buildWaterfall";
 
 /**
- * Where the selected number came from (brief §4.3): the line's label and signed value, the tool
- * that computed it, one chip per input (value and source from `view.inputs`), and one chip per
+ * Where the selected number came from (brief §4.3): the line's label and signed value, who
+ * computed it (`view.computed_by`: the `compare` tool, or the server with no model), one chip per input (value and source from `view.inputs`), and one chip per
  * rule (the API's label). With the total selected (`step` null) it shows the two nets the
  * difference connects. Everything shown is the API's; nothing is looked up in the frontend.
  */
@@ -35,12 +35,20 @@ export function ProvenanceStrip({
           {" · "}
           <Amount value={step ? step.value : total} signed currency />
         </span>
-        <span className="text-[13px] text-muted">
-          חושב בכלי{" "}
-          <code className="rounded-[6px] bg-tool-chip-bg px-1.5 py-0.5 font-mono text-[12px] text-steel">
-            compare
-          </code>
-        </span>
+        {/* Optional chaining: views stored before Day 5 have no `computed_by`; show nothing. */}
+        {view.computed_by?.label ? (
+          <span data-testid="computed-by" className="text-[13px] text-muted">
+            {view.computed_by.label}
+            {view.computed_by.tool ? (
+              <>
+                {" "}
+                <code className="rounded-[6px] bg-tool-chip-bg px-1.5 py-0.5 font-mono text-[12px] text-steel">
+                  {view.computed_by.tool}
+                </code>
+              </>
+            ) : null}
+          </span>
+        ) : null}
       </div>
 
       {step ? (

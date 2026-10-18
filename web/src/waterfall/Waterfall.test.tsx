@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import type { ComparisonView } from "../api/types";
 import e001Log from "../test/fixtures/e001.json";
 import walkthroughLog from "../test/fixtures/walkthrough.json";
 import { must, views, viewWith } from "../test/views";
@@ -134,6 +135,36 @@ describe("Waterfall", () => {
     fireEvent.click(must(bars()[4]));
     expect(strip()).toHaveTextContent("השתתפות ברכב · −50 ₪");
     expect(strip()).toHaveTextContent("השתתפות בחלופה 350 ₪אושר על ידי נציג");
+  });
+
+  it("says the server computed E-001's provisional comparison, with no tool chip", () => {
+    // the first E-001 view is the provisional comparison the server made when the ticket opened
+    const provisional = must(e001Views[0]);
+    expect(provisional.computed_by.origin).toBe("server");
+    render(<Waterfall view={provisional} />);
+    expect(screen.getByTestId("computed-by")).toHaveTextContent(/^חושב מחדש בשרת · בלי מודל$/);
+    expect(within(strip()).queryByText("compare")).toBeNull();
+    expect(strip()).not.toHaveTextContent("חושב בכלי");
+  });
+
+  it("renders the computed-by label it receives, as is", () => {
+    const base = must(walkthrough);
+    const { rerender } = render(
+      <Waterfall view={{ ...base, computed_by: { origin: "server", label: "תווית מהשרת", tool: null } }} />,
+    );
+    expect(screen.getByTestId("computed-by")).toHaveTextContent(/^תווית מהשרת$/);
+
+    rerender(<Waterfall view={{ ...base, computed_by: { origin: "tool", label: "כלי", tool: "x_tool" } }} />);
+    expect(screen.getByTestId("computed-by")).toHaveTextContent(/^כלי x_tool$/);
+    expect(within(strip()).getByText("x_tool").tagName).toBe("CODE");
+  });
+
+  it("shows no computed-by line for a view stored before it existed", () => {
+    const legacy: Partial<ComparisonView> = { ...must(walkthrough) };
+    delete legacy.computed_by;
+    render(<Waterfall view={legacy as ComparisonView} />);
+    expect(screen.queryByTestId("computed-by")).toBeNull();
+    expect(strip()).toHaveTextContent("אחזקת רכב · +1,500 ₪");
   });
 
   it("draws a negative total below the zero line", () => {

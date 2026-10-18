@@ -6,16 +6,22 @@ import { type EffectsMemory, EffectsMemoryContext } from "../employee/effects";
 import { EmptyComparison } from "../employee/EmptyComparison";
 import { HeroAnnouncement, HeroCard } from "../employee/HeroCard";
 import { InputsCard } from "../employee/InputsCard";
+import { PhoneBar } from "../employee/PhoneBar";
+import { PHONE_QUERY, phoneBarVisible } from "../employee/phoneBarRules";
+import { useMediaQuery } from "../lib/useMediaQuery";
 import { EngineRoom } from "../judges/EngineRoom";
 import { HowItWorks, StatsGrid } from "../judges/Summary";
 import { useTurnSelection } from "../judges/useTurnSelection";
 import { demoSuggestions, GENERAL_SUGGESTIONS } from "../employee/suggestions";
 import { clearToken, getToken, setToken } from "../lib/tokens";
 import { useHealth } from "../lib/useHealth";
+import { limitReached } from "../state/session";
 import { useSession } from "../state/useSession";
 import { ConnectionPill, DemoBadge, Header, JudgesToggle } from "../ui/Header";
 import { TokenDialog } from "../ui/TokenDialog";
 import { Waterfall } from "../waterfall/Waterfall";
+
+const HERO_ID = "hero-card";
 
 /** Judges mode's stats tiles: loaded with the admin token when judges mode turns on. */
 function useJudgesStats(token: string | null): JudgesStats | null {
@@ -51,6 +57,7 @@ export function EmployeePage() {
   const effects = useMemo<EffectsMemory>(() => ({}), [session.sessionId]);
   const stats = useJudgesStats(judges ? adminToken : null);
   const [turn, setTurn] = useTurnSelection(state.turns.length);
+  const phone = useMediaQuery(PHONE_QUERY);
 
   // A stored admin token the server no longer accepts: forget it, leave judges mode.
   useEffect(() => {
@@ -94,6 +101,9 @@ export function EmployeePage() {
           {health?.llm === "scripted" ? <DemoBadge /> : null}
           <JudgesToggle on={judges} onToggle={toggleJudges} />
         </Header>
+        {comparison && phoneBarVisible({ narrow: phone, comparison, judges }) ? (
+          <PhoneBar comparison={comparison} heroId={HERO_ID} />
+        ) : null}
         <TokenDialog
           open={asking}
           title="מצב שופטים"
@@ -127,11 +137,13 @@ export function EmployeePage() {
               suggestions={suggestions}
               failedText={session.sendFailure?.text ?? null}
               onSend={session.send}
+              limitReached={limitReached(state)}
+              onNewSession={session.newSession}
             />
             <div className="flex min-w-0 flex-[999_1_640px] flex-col gap-6">
               {comparison ? (
                 <>
-                  <HeroCard comparison={comparison} />
+                  <HeroCard comparison={comparison} id={HERO_ID} />
                   <Waterfall view={comparison.view} />
                   <InputsCard view={comparison.view} />
                 </>

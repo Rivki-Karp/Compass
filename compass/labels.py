@@ -97,6 +97,15 @@ RULE_LABELS: dict[str, str] = {
 }
 
 
+# Who computed a comparison (the provenance strip's "computed by" line). "tool": the model called
+# `compare`; "server": the server ran the same code with no model call (the provisional comparison
+# when a ticket opens, the pending recompute, the settle on the rep's answer).
+COMPUTED_BY_LABELS: dict[str, str] = {
+    "tool": "חושב בכלי",  # followed by the tool's name, `compare`
+    "server": "חושב מחדש בשרת · בלי מודל",
+}
+
+
 DRIVE_LABELS: dict[str, str] = {
     "electric": "חשמלי",
     "plugin": "פלאג-אין",

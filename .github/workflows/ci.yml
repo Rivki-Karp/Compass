@@ -100,6 +100,17 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
+      - name: Playwright test count matches tests/counts.json (the README shows it)
+        working-directory: web
+        run: |
+          listed=$(npx playwright test --list | sed -n 's/^Total: \([0-9]*\) tests\? in.*/\1/p')
+          committed=$(node -p 'require("../tests/counts.json").e2e')
+          if [ "$listed" != "$committed" ]; then
+            echo "playwright lists $listed tests, tests/counts.json says $committed: run uv run python tasks.py test-counts"
+            exit 1
+          fi
+          echo "playwright: $listed tests, as committed"
+
       - name: End to end
         working-directory: web
         run: npm run e2e
@@ -110,3 +121,30 @@ jobs:
         with:
           name: playwright-report
           path: web/playwright-report
+
+  docker:
+    # Build the image (never pushed), check it holds no secret, and that it starts healthy.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: docker build -t compass:ci .
+
+      - name: No secret in the image (no .env, no Anthropic key pattern)
+        run: python3 scripts/check_image_secrets.py compass:ci
+
+      - name: Starts healthy in demo mode
+        run: |
+          docker run -d --name compass -e COMPASS_LLM=scripted compass:ci
+          for i in $(seq 1 30); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' compass)
+            [ "$status" = healthy ] && break
+            sleep 2
+          done
+          docker inspect --format '{{.State.Health.Status}}' compass
+          test "$status" = healthy
+          test "$(docker exec compass id -u)" != 0
+
+      - name: Image size
+        run: docker image ls compass:ci --format '{{.Repository}}:{{.Tag}} {{.Size}}'

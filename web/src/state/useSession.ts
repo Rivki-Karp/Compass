@@ -88,6 +88,8 @@ export interface UseSession {
   sending: boolean;
   sendFailure: SendFailure | null;
   send: (text: string) => void;
+  /** Leave this session and start an empty one (after the session safety limit). */
+  newSession: () => void;
 }
 
 /** `adminToken`: open the stream with it (judges mode gets the full events). */
@@ -163,5 +165,13 @@ export function useSession(adminToken: string | null): UseSession {
     [sessionId],
   );
 
-  return { sessionId, state, connection, sending, sendFailure, send };
+  const newSession = useCallback(() => {
+    storeSession(null);
+    setSessionId(null); // the effect above creates the new one
+    setSending(false);
+    setSendFailure(null);
+    dispatch({ kind: "reset" });
+  }, []);
+
+  return { sessionId, state, connection, sending, sendFailure, send, newSession };
 }

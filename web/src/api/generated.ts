@@ -43,6 +43,7 @@ export interface ComparisonView {
   warnings: ViewWarning[];
   hypothetical: boolean;
   rules_version: string;
+  computed_by: ViewComputedBy;
 }
 
 export interface TicketComparisonView {
@@ -65,6 +66,12 @@ export interface TicketView {
   title: string;
   fields: TicketFieldView[];
   comparison: TicketComparisonView | null;
+}
+
+export interface ViewComputedBy {
+  origin: "tool" | "server";
+  label: string;
+  tool: string | null;
 }
 
 export interface ViewField {

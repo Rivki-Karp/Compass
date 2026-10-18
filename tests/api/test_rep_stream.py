@@ -76,9 +76,16 @@ def test_inbox_updates_live(make_settings: Callable[..., Settings]) -> None:
                 "catalog_default": 300,
             }
         ]
-        assert opened["view"]["comparison"] is None  # nothing compared yet
+        # Since 8b opening the ticket also emits the server's provisional comparison. A snapshot
+        # taken between the two has none yet, so wait for it rather than assert on the first.
+        (provisional,) = _until(inbox, lambda t: len(t) == 1 and t[0]["view"]["comparison"])
+        assert provisional["view"]["comparison"] == {
+            "alternative_title": "ATTO 3",
+            "display_diff": 661,
+            "pending": True,
+        }
 
-        # The employee's comparison arrives: the ticket shows the provisional diff.
+        # The employee's own comparison: the ticket still shows the provisional diff.
         _tool(http, sid, "compare", {"alternative": {"kind": "car", "car_id": "CAR-10"}})
         (updated,) = _until(inbox, lambda t: len(t) == 1 and t[0]["view"]["comparison"])
         assert updated["view"]["comparison"] == {

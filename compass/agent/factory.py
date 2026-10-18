@@ -30,6 +30,8 @@ def build_claude_runner(
         load_system_prompt(),
         tool_runner=tool_runner,
         max_tool_rounds=settings.max_tool_rounds,
+        max_session_turns=settings.max_session_turns,
+        max_session_input_tokens=settings.max_session_input_tokens,
         guard=make_guard(services.store),
         template=make_template(services.store),
         background=background,

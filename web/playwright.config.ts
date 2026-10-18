@@ -11,11 +11,15 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
  * database per run, so it never touches a running demo or app.db.
  *
  *   npx playwright test            (from web/; builds the UI first)
+ *
+ * E2E_BASE_URL runs the same tests against a server that is already running instead (the Docker
+ * image, Day 5 Stage 5): demo mode, with the rep and admin tokens from e2e/support.ts.
  */
 
 const PORT = 8765;
 const REPO = path.resolve(HERE, "..");
 const DEMO_DB = path.join(HERE, "test-results", `e2e-${Date.now()}.db`);
+const EXTERNAL = process.env.E2E_BASE_URL;
 
 export default defineConfig({
   testDir: "e2e",
@@ -25,7 +29,7 @@ export default defineConfig({
   expect: { timeout: 30_000 },
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: `http://127.0.0.1:${PORT}`,
+    baseURL: EXTERNAL ?? `http://127.0.0.1:${PORT}`,
     viewport: { width: 1440, height: 900 },
     locale: "he-IL",
     trace: "retain-on-failure",
@@ -36,7 +40,7 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
   ],
-  webServer: {
+  webServer: EXTERNAL ? undefined : {
     command: `npm run build && cd .. && uv run python -m uvicorn compass.api.main:app --workers 1 --port ${PORT}`,
     cwd: HERE,
     url: `http://127.0.0.1:${PORT}/api/health`,
