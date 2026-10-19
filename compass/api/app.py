@@ -34,7 +34,7 @@ from starlette.concurrency import run_in_threadpool
 
 from compass.api.agent import AgentRunner
 from compass.api.broker import TICKETS, Broker
-from compass.api.ratelimit import RateLimiter
+from compass.api.ratelimit import RateLimiter, client_ip
 from compass.api.redact import public_message, public_payload
 from compass.api.settings import Settings, token_warnings
 from compass.api.spa import mount_spa
@@ -263,7 +263,7 @@ def create_app(
     def post_message(session_id: str, body: UserMessage, request: Request) -> MessageAccepted:
         """Store the message and hand it to the agent. At most COMPASS_MESSAGE_RATE_PER_MINUTE
         per client IP (429 with Retry-After beyond that)."""
-        wait = messages_limiter.check(request.client.host if request.client else "unknown")
+        wait = messages_limiter.check(client_ip(request, settings.trust_proxy))
         if wait is not None:
             raise HTTPException(
                 429,

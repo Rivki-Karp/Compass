@@ -8,12 +8,13 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.requests import Request
 
 from compass.agent.factory import build_claude_runner
 from compass.agent.llm import ScriptedClient, Usage, text_response, tool_response
 from compass.agent.runner import DAILY_CAP_HE, ClaudeAgentRunner
 from compass.api import Settings, create_app
-from compass.api.ratelimit import RateLimiter
+from compass.api.ratelimit import RateLimiter, client_ip
 from compass.api.settings import SettingsError
 from compass.state import Store
 from compass.tools import Services
@@ -113,6 +114,63 @@ def test_the_image_reads_the_environment_only(
     assert Settings.from_env(env_file=env).model != "from-a-file"
     dockerfile = (Path(__file__).parents[2] / "Dockerfile").read_text(encoding="utf-8")
     assert "COMPASS_ENV_ONLY=1" in dockerfile
+
+
+def test_trust_proxy_setting(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("COMPASS_TRUST_PROXY", raising=False)
+    assert Settings.from_env(env_file=None).trust_proxy is False
+    monkeypatch.setenv("COMPASS_TRUST_PROXY", "1")
+    assert Settings.from_env(env_file=None).trust_proxy is True
+
+
+def _limited_codes(client: TestClient, headers: list[dict[str, str]]) -> list[int]:
+    sid = client.post("/api/sessions").json()["id"]
+    url = f"/api/sessions/{sid}/messages"
+    return [client.post(url, json={"text": "x"}, headers=h).status_code for h in headers]
+
+
+def test_behind_a_trusted_proxy_the_rightmost_forwarded_entry_is_the_key(tmp_path: Path) -> None:
+    settings = Settings(app_db=tmp_path / "a.db", message_rate_per_minute=1, trust_proxy=True)
+    with TestClient(create_app(settings)) as client:
+        # two employees behind the same proxy: their own limits
+        codes = _limited_codes(
+            client,
+            [
+                {"X-Forwarded-For": "198.51.100.1"},
+                {"X-Forwarded-For": "198.51.100.2"},
+                {"X-Forwarded-For": "198.51.100.1"},
+            ],
+        )
+        assert codes == [202, 202, 429]
+        # a forged entry on the left changes nothing: the proxy's entry (rightmost) counts
+        forged = {"X-Forwarded-For": "203.0.113.9, 198.51.100.2"}
+        assert _limited_codes(client, [forged]) == [429]
+
+
+def _request(*forwarded: str) -> Request:
+    headers = [(b"x-forwarded-for", value.encode()) for value in forwarded]
+    return Request({"type": "http", "headers": headers, "client": ("10.0.0.5", 4000)})
+
+
+def test_client_ip() -> None:
+    assert client_ip(_request("198.51.100.1"), trust_proxy=False) == "10.0.0.5"
+    assert client_ip(_request(), trust_proxy=True) == "10.0.0.5"  # no header: the socket
+    assert client_ip(_request("1.1.1.1, 198.51.100.1 "), trust_proxy=True) == "198.51.100.1"
+    # two headers read as one list; the last one's last entry is the proxy's
+    assert client_ip(_request("1.1.1.1", "2.2.2.2, 198.51.100.3"), trust_proxy=True) == (
+        "198.51.100.3"
+    )
+    assert client_ip(_request(" , "), trust_proxy=True) == "10.0.0.5"
+
+
+def test_without_trust_proxy_forwarded_for_is_ignored(tmp_path: Path) -> None:
+    settings = Settings(app_db=tmp_path / "a.db", message_rate_per_minute=1)
+    with TestClient(create_app(settings)) as client:
+        codes = _limited_codes(
+            client,
+            [{"X-Forwarded-For": "198.51.100.1"}, {"X-Forwarded-For": "198.51.100.2"}],
+        )
+        assert codes == [202, 429]  # one socket address, one limit
 
 
 def test_rate_limiter_window() -> None:

@@ -186,6 +186,8 @@ class Settings:
     # Live mode only: the server's model spend per UTC day, USD; then a fixed reply until tomorrow.
     daily_spend_cap_usd: float = DEFAULT_DAILY_SPEND_CAP_USD
     message_rate_per_minute: int = DEFAULT_MESSAGE_RATE_PER_MINUTE
+    # Behind a platform's reverse proxy: rate-limit by X-Forwarded-For's rightmost entry.
+    trust_proxy: bool = False
 
     def __post_init__(self) -> None:
         # Demo mode has its own database (data/demo.db, wiped by `tasks.py demo-reset`); it
@@ -239,6 +241,7 @@ class Settings:
                 "COMPASS_MESSAGE_RATE_PER_MINUTE",
                 DEFAULT_MESSAGE_RATE_PER_MINUTE,
             ),
+            trust_proxy=env.get("COMPASS_TRUST_PROXY") == "1",
             cors_origins=tuple(o.strip() for o in origins.split(","))
             if origins
             else DEFAULT_CORS_ORIGINS,

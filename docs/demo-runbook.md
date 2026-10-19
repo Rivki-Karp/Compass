@@ -234,7 +234,9 @@ Not deployed anywhere yet; the host is a separate decision. What the single cont
   cap every conversation gets "השירות הגיע למכסת השימוש היומית שלו. אפשר לנסות שוב מחר." until
   midnight UTC. It is kept on the `/data` volume, so a restart doesn't reset it.
 - **A per-IP rate limit** on sending messages: `COMPASS_MESSAGE_RATE_PER_MINUTE` (default 20;
-  429 with `Retry-After` beyond it). It counts the client IP the server sees: behind a reverse
-  proxy or load balancer, set `FORWARDED_ALLOW_IPS` to the proxy's address so uvicorn takes the
-  employee's IP from `X-Forwarded-For` (otherwise every employee shares the proxy's limit). The
-  count is per process, which is fine: the server runs one worker.
+  429 with `Retry-After` beyond it). It counts the socket's client IP. Behind a platform's
+  reverse proxy (Render), set `COMPASS_TRUST_PROXY=1`: it then counts the rightmost
+  `X-Forwarded-For` entry, the address the proxy itself saw and appended (the entries to its
+  left come from the browser and can be forged, so they are ignored). Otherwise every employee
+  shares the proxy's limit. Never set it without such a proxy in front: anyone could then pick
+  their own key. The count is per process, which is fine: the server runs one worker.
