@@ -1,0 +1,32 @@
+name: free_question
+description: 'A policy question only the company knows: one free yes/no question; the rep answers yes
+  with a note, the agent uses it in its reply, and no value changes'
+turns:
+- employee: אני מפתחת תוכנה, שכר בסיס 18,500, אין לי עמלות או בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%,
+    3 נקודות זיכוי. היום יש לי קורולה קרוס 2025 ואני משתתפת ב-300 ₪. שאלה אחת לנציג, רק את זה תשאל
+    אותו — האם החברה מאפשרת לטעון רכב חשמלי בחניון של המשרדים?
+- rep:
+    answers:
+      free:
+        value: 'yes'
+        note: בחניון התת-קרקעי בקומה מינוס 2, עם תג עובד
+checks:
+- tool_called:
+    name: ask_representative
+    ok: true
+    turn: 0
+- ticket:
+    bound_fields: []
+    free_types:
+    - yes_no
+- slot:
+    field: group
+    value: ב
+    source: derived
+- slot:
+    field: occupation
+    source: employee
+- reply:
+    turn: 1
+    matches:
+    - תת.קרקעי|מינוס 2|תג עובד

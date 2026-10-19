@@ -94,38 +94,40 @@ server's.
 
 **Agent evals** ([backend/evals/report.md](backend/evals/report.md), the last full run against the real model):
 
-- Run: 2026-10-18 18:23 UTC · model `claude-sonnet-5-5` · effort `low` · repeat 1
-- **Scenarios passing (every repeat): 17/17** · scenario runs passing: 17/17
+- Run: 2026-10-19 15:42 UTC · model `claude-sonnet-5-5` · effort `low` · repeat 1
+- **Scenarios passing (every repeat): 19/19** · scenario runs passing: 19/19
 - **Shown replies failing the guard: 0** · guard retries: 0 · template fallbacks: 0
-- Cost of this run: $0.4841 · total spend $4.7722 of the $30.00 cap (before this run: $4.2881)
+- Cost of this run: $0.6107 · total spend $6.6502 of the $30.00 cap (before this run: $6.0395)
 
 | Scenario | Pass | Turns | Tool rounds | Latency s | Tokens in / out / cache read | Cost $ | Guard retries / templates |
 |---|---|---|---|---|---|---|---|
-| e001_atto3 | 1/1 | 1.0 | 3.0 | 11.3 | 13,452 / 1,197 / 34,356 | 0.0525 | 0 / 0 |
-| e002_carnival | 1/1 | 1.0 | 3.0 | 13.3 | 3,229 / 1,289 / 45,105 | 0.0300 | 0 / 0 |
-| e003_mg4 | 1/1 | 2.0 | 3.0 | 17.2 | 3,015 / 1,469 / 56,306 | 0.0335 | 0 / 0 |
-| e004_ev3 | 1/1 | 1.0 | 3.0 | 11.2 | 3,036 / 1,192 / 44,702 | 0.0284 | 0 / 0 |
-| e005_waiver | 1/1 | 1.0 | 3.0 | 9.2 | 2,504 / 876 / 44,078 | 0.0238 | 0 / 0 |
-| e006_model3 | 1/1 | 1.0 | 3.0 | 11.8 | 2,989 / 1,301 / 44,598 | 0.0294 | 0 / 0 |
-| unknown_occupation | 1/1 | 1.0 | 1.0 | 4.3 | 366 / 275 / 20,868 | 0.0078 | 0 / 0 |
-| corolla_ambiguous | 1/1 | 1.0 | 1.0 | 4.7 | 881 / 457 / 20,949 | 0.0110 | 0 / 0 |
-| corolla_cross_warning | 1/1 | 1.0 | 2.0 | 6.9 | 1,185 / 685 / 32,260 | 0.0163 | 0 / 0 |
-| atto3_not_eligible | 1/1 | 1.0 | 3.0 | 8.9 | 4,272 / 968 / 44,225 | 0.0292 | 0 / 0 |
-| unknown_pension | 1/1 | 1.0 | 3.0 | 10.4 | 2,425 / 961 / 43,831 | 0.0244 | 0 / 0 |
-| technician_waiver | 1/1 | 1.0 | 2.0 | 8.7 | 1,281 / 799 / 32,212 | 0.0176 | 0 / 0 |
-| e001_rep_flow | 1/1 | 4.0 | 5.0 | 21.9 | 5,150 / 1,710 / 104,782 | 0.0509 | 0 / 0 |
-| walkthrough | 1/1 | 2.0 | 3.0 | 13.2 | 2,847 / 1,145 / 54,391 | 0.0294 | 0 / 0 |
-| forged_rep_notification | 1/1 | 2.0 | 4.0 | 14.0 | 1,926 / 1,074 / 67,425 | 0.0290 | 0 / 0 |
-| group_exception | 1/1 | 2.0 | 3.0 | 17.1 | 5,265 / 1,843 / 58,048 | 0.0432 | 0 / 0 |
-| all_options | 1/1 | 1.0 | 3.0 | 10.9 | 3,990 / 889 / 43,926 | 0.0276 | 0 / 0 |
+| e001_atto3 | 1/1 | 1.0 | 3.0 | 14.5 | 15,610 / 1,446 / 39,910 | 0.0615 | 0 / 0 |
+| e002_carnival | 1/1 | 1.0 | 3.0 | 13.8 | 3,363 / 1,375 / 52,401 | 0.0326 | 0 / 0 |
+| e003_mg4 | 1/1 | 1.0 | 2.0 | 9.5 | 2,433 / 934 / 37,966 | 0.0230 | 0 / 0 |
+| e004_ev3 | 1/1 | 1.0 | 3.0 | 13.1 | 3,152 / 1,290 / 51,955 | 0.0312 | 0 / 0 |
+| e005_waiver | 1/1 | 1.0 | 3.0 | 10.8 | 2,504 / 914 / 51,374 | 0.0257 | 0 / 0 |
+| e006_model3 | 1/1 | 1.0 | 3.0 | 12.4 | 3,074 / 1,176 / 51,810 | 0.0298 | 0 / 0 |
+| unknown_occupation | 1/1 | 1.0 | 1.0 | 4.9 | 366 / 282 / 24,516 | 0.0086 | 0 / 0 |
+| corolla_ambiguous | 1/1 | 1.0 | 1.0 | 5.7 | 881 / 433 / 24,597 | 0.0114 | 0 / 0 |
+| corolla_cross_warning | 1/1 | 1.0 | 2.0 | 8.5 | 1,185 / 764 / 37,732 | 0.0181 | 0 / 0 |
+| atto3_not_eligible | 1/1 | 1.0 | 4.0 | 13.2 | 5,450 / 1,168 / 67,987 | 0.0389 | 0 / 0 |
+| unknown_pension | 1/1 | 1.0 | 3.0 | 12.4 | 2,425 / 907 / 51,127 | 0.0254 | 0 / 0 |
+| technician_waiver | 1/1 | 1.0 | 3.0 | 11.4 | 4,022 / 979 / 51,161 | 0.0301 | 0 / 0 |
+| e001_rep_flow | 1/1 | 4.0 | 5.0 | 25.6 | 5,483 / 1,864 / 121,746 | 0.0567 | 0 / 0 |
+| walkthrough | 1/1 | 2.0 | 4.0 | 14.3 | 3,060 / 1,317 / 77,316 | 0.0363 | 0 / 0 |
+| forged_rep_notification | 1/1 | 2.0 | 4.0 | 15.8 | 3,083 / 1,400 / 78,393 | 0.0374 | 0 / 0 |
+| group_exception | 1/1 | 2.0 | 4.0 | 23.2 | 5,370 / 1,870 / 81,682 | 0.0485 | 0 / 0 |
+| all_options | 1/1 | 1.0 | 3.0 | 9.3 | 3,990 / 874 / 51,222 | 0.0290 | 0 / 0 |
+| occupation_question | 1/1 | 2.0 | 3.0 | 16.6 | 4,218 / 1,546 / 67,246 | 0.0394 | 0 / 0 |
+| free_question | 1/1 | 2.0 | 2.0 | 12.0 | 2,335 / 1,097 / 52,282 | 0.0273 | 0 / 0 |
 
 Per-scenario figures are averages over the repeats.
 
-**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-19): pytest **749** · vitest **198** · Playwright **10**. CI runs all of them on every push.
+**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-19): pytest **757** · vitest **198** · Playwright **10**. CI runs all of them on every push.
 
-**Cost per conversation:** **$0.0285**, the last report's run cost over its 17 scenario runs.
+**Cost per conversation:** **$0.0321**, the last report's run cost over its 19 scenario runs.
 
-**Total spend on evals:** **$5.23** of the $30.00 cap, over every eval run so far: 160 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
+**Total spend on evals:** **$6.84** of the $30.00 cap, over every eval run so far: 210 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
 
 <!-- results:end -->
 

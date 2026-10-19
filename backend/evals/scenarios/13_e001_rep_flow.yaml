@@ -11,12 +11,10 @@ turns:
     values:
       alternative_participation:CAR-10: 350
 checks:
-- tool_called:
-    name: ask_representative
-    ok: true
-    input:
-      blocking_fields:
-      - alternative_participation:CAR-10
+# the ticket, whichever input form the model used (questions[] or blocking_fields)
+- ticket:
+    bound_fields:
+    - alternative_participation:CAR-10
 - comparison:
     alternative:
       kind: car

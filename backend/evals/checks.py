@@ -8,12 +8,17 @@ Check types (one key per check):
     tool_not_called  {name, input?, result?, ok?, turn?}   no call matches
     comparison       {alternative?, turn?, origin?, today_net?, alternative_net?, diff?,
                       has_diff?, participation_source?, maintenance_source?, pending_rep?,
-                      hypothetical?, partial?}
+                      hypothetical?, partial?, input_sources?}
                      the last comparison shown (a comparison_ready event: compare's result
                      or a server recompute of it, whose compare input alternative matches,
                      at or before `turn`) has these values. `origin: server` looks only at
                      the server's recomputes (a ticket opened, or the rep's answer settled it);
-                     `origin: tool` only at compare's own results
+                     `origin: tool` only at compare's own results. `input_sources`: the view's
+                     input chips by id, e.g. {occupation: representative}
+    ticket           {bound_fields?, free_types?, occupation_options_from_table?}
+                     some ticket opened in the session has exactly these bound fields and
+                     free questions' types (in any order), and (true) occupation options that
+                     are all titles of the occupations table (or "other")
     slot             {field, value?, state?, source?, absent?}   the final session profile
     reply            {turn?, matches?, not_matches?}   regexes on the shown replies of `turn`
                      (default: all replies); every `matches` regex must match some reply,
@@ -61,7 +66,9 @@ _ARGS: dict[str, set[str]] = {
         "pending_rep",
         "hypothetical",
         "partial",
+        "input_sources",
     },
+    "ticket": {"bound_fields", "free_types", "occupation_options_from_table"},
     "slot": {"field", "value", "state", "source", "absent"},
     "reply": {"turn", "matches", "not_matches"},
     "options_reply": {"top", "turn"},
@@ -106,6 +113,8 @@ class Trace:
     guard_rechecks: list[tuple[int, list[str]]] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)  # e.g. a rep turn with no open ticket
     employee_messages: list[tuple[int, str]] = field(default_factory=list)  # (turn, text)
+    # every ticket opened: {"bound_fields", "free_types", "occupation_options_from_table"}
+    tickets: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -207,6 +216,7 @@ def _comparison_values(result: dict[str, Any]) -> dict[str, Any]:
         "pending_rep": result["pending_rep"],
         "hypothetical": result["hypothetical"],
         "partial": comparison["partial"],
+        "input_sources": {i["id"]: i["source"] for i in result.get("view", {}).get("inputs", [])},
     }
 
 
@@ -236,6 +246,20 @@ def _slot(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
         return False, f"{args['field']} not in the session"
     ok = all(matches(args[k], slot[k]) for k in ("value", "state", "source") if k in args)
     return ok, f"{args['field']}: {slot}"
+
+
+def _ticket(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
+    def fits(ticket: dict[str, Any]) -> bool:
+        same = all(
+            sorted(ticket[k]) == sorted(args[k])
+            for k in ("bound_fields", "free_types")
+            if k in args
+        )
+        table = "occupation_options_from_table"
+        return same and (table not in args or ticket[table] == args[table])
+
+    found = [t for t in trace.tickets if fits(t)]
+    return bool(found), f"tickets: {trace.tickets or 'none'}"
 
 
 def _reply(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
@@ -301,6 +325,7 @@ _CHECKS = {
     "slot": _slot,
     "reply": _reply,
     "options_reply": _options_reply,
+    "ticket": _ticket,
 }
 
 
