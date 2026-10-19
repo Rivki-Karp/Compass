@@ -15,10 +15,14 @@ Check types (one key per check):
                      the server's recomputes (a ticket opened, or the rep's answer settled it);
                      `origin: tool` only at compare's own results. `input_sources`: the view's
                      input chips by id, e.g. {occupation: representative}
-    ticket           {bound_fields?, free_types?, occupation_options_from_table?}
+    ticket           {bound_fields?, free_types?, occupation_options_from_table?,
+                      allow_pending_participation?}
                      some ticket opened in the session has exactly these bound fields and
                      free questions' types (in any order), and (true) occupation options that
-                     are all titles of the occupations table (or "other")
+                     are all titles of the occupations table (or "other").
+                     `allow_pending_participation: true`: the ticket may also ask
+                     alternative_participation:<car> for a car whose comparison in the
+                     session was pending on exactly that field; any other extra fails
     slot             {field, value?, state?, source?, absent?}   the final session profile
     reply            {turn?, matches?, not_matches?}   regexes on the shown replies of `turn`
                      (default: all replies); every `matches` regex must match some reply,
@@ -68,7 +72,12 @@ _ARGS: dict[str, set[str]] = {
         "partial",
         "input_sources",
     },
-    "ticket": {"bound_fields", "free_types", "occupation_options_from_table"},
+    "ticket": {
+        "bound_fields",
+        "free_types",
+        "occupation_options_from_table",
+        "allow_pending_participation",
+    },
     "slot": {"field", "value", "state", "source", "absent"},
     "reply": {"turn", "matches", "not_matches"},
     "options_reply": {"top", "turn"},
@@ -248,15 +257,39 @@ def _slot(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
     return ok, f"{args['field']}: {slot}"
 
 
+PARTICIPATION_PREFIX = "alternative_participation:"
+
+
+def _pending_on(trace: Trace) -> set[str]:
+    """The fields some comparison in the session was pending on (its view's pending_fields)."""
+    return {
+        f
+        for c in trace.comparisons
+        if (c.result.get("view") or {}).get("pending")
+        for f in (c.result.get("view") or {}).get("pending_fields", [])
+    }
+
+
 def _ticket(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
+    pending = _pending_on(trace)
+
+    def extra_ok(field: str) -> bool:
+        # a car's participation the shown comparison of that car was pending on
+        return field.startswith(PARTICIPATION_PREFIX) and field in pending
+
     def fits(ticket: dict[str, Any]) -> bool:
-        same = all(
-            sorted(ticket[k]) == sorted(args[k])
-            for k in ("bound_fields", "free_types")
-            if k in args
-        )
+        if "bound_fields" in args:
+            expected, got = sorted(args["bound_fields"]), sorted(ticket["bound_fields"])
+            if args.get("allow_pending_participation"):
+                extra = [f for f in got if f not in expected]
+                if not set(expected) <= set(got) or not all(map(extra_ok, extra)):
+                    return False
+            elif got != expected:
+                return False
+        if "free_types" in args and sorted(ticket["free_types"]) != sorted(args["free_types"]):
+            return False
         table = "occupation_options_from_table"
-        return same and (table not in args or ticket[table] == args[table])
+        return table not in args or ticket[table] == args[table]
 
     found = [t for t in trace.tickets if fits(t)]
     return bool(found), f"tickets: {trace.tickets or 'none'}"

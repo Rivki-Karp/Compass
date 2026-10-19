@@ -68,3 +68,46 @@ def test_comparison_input_sources() -> None:
     assert _passed(trace, check)
     wrong = {"comparison": {"input_sources": {"occupation": "employee_input"}}}
     assert not _passed(trace, wrong)
+
+
+def _pending_comparison(field: str) -> Comparison:
+    view = {"pending": True, "pending_fields": [field], "inputs": []}
+    return Comparison(0, {"alternative": {"kind": "car"}}, {"view": view})
+
+
+BOTH = ["current_participation", "group_exception"]
+ATTO = "alternative_participation:CAR-10"
+
+
+@pytest.mark.parametrize(
+    ("ticket_fields", "free", "pending", "passed"),
+    [
+        (BOTH, [], [], True),  # exactly the expected ones
+        ([*BOTH, ATTO], [], [ATTO], True),  # + the participation the comparison waits on
+        ([*BOTH, ATTO], [], [], False),  # no comparison pending on it
+        ([*BOTH, ATTO], [], ["alternative_participation:CAR-06"], False),  # another car's
+        ([*BOTH, "occupation"], [], ["occupation"], False),  # not a participation
+        ([*BOTH, ATTO], ["yes_no"], [ATTO], False),  # an extra free question
+        (["current_participation", ATTO], [], [ATTO], False),  # an expected one missing
+    ],
+)
+def test_ticket_allows_only_a_pending_participation_extra(
+    ticket_fields: list[str], free: list[str], pending: list[str], passed: bool
+) -> None:
+    ticket = {"bound_fields": ticket_fields, "free_types": free}
+    ticket["occupation_options_from_table"] = False
+    trace = Trace(tickets=[ticket], comparisons=[_pending_comparison(f) for f in pending])
+    check = {
+        "ticket": {
+            "bound_fields": BOTH,
+            "free_types": [],
+            "allow_pending_participation": True,
+        }
+    }
+    assert _passed(trace, check) is passed
+
+
+def test_without_the_option_an_extra_question_fails() -> None:
+    ticket = {"bound_fields": [*BOTH, ATTO], "free_types": []}
+    trace = Trace(tickets=[ticket], comparisons=[_pending_comparison(ATTO)])
+    assert not _passed(trace, {"ticket": {"bound_fields": BOTH}})
