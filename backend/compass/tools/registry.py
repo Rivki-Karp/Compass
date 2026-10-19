@@ -116,20 +116,25 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool(
         "ask_representative",
-        "Open a ticket for a human representative, only for what only the company knows: the "
-        "participation for a new car, group disputes, exceptions, policy questions. Ask the "
-        "employee first. Write the question as one self-contained sentence. blocking_fields "
-        "wait for the answer: profile fields, current_participation, group_exception, or "
-        "alternative_participation:<catalog car id> (e.g. alternative_participation:CAR-10); "
-        "quick_answers are one-click answers that fill them. Participation only for cars the "
-        "employee is actually considering (named, or compared in this conversation), at most 3 "
-        "per ticket. group_exception: whether the "
-        "employee is approved for a group above their occupation's group (when today's car "
-        "is above it, or the employee says they have a special approval); the representative "
-        "answers with the approved group or not_approved, and only that answer changes the "
-        "group. One ticket may block on several fields: when both today's participation and "
-        "the group approval are unknown, open one ticket with current_participation and "
-        "group_exception.",
+        "Open a ticket for a human representative, only for what only the company knows. Ask "
+        "the employee first. Ask only what the employee actually asked, or what the next "
+        "calculation strictly needs; never add questions of your own. `question`: one "
+        "self-contained context paragraph for the representative. `questions`: at most 3. "
+        "A bound question (bound_field) is for a value the calculation needs; the server builds "
+        "its answer options, so give no type, options or quick_answers: current_participation "
+        "(today's car), alternative_participation:<catalog car id> (only cars the employee is "
+        "actually considering: named, or compared in this conversation), group_exception, "
+        "occupation (with occupation_query: the employee's words). Example: the employee says "
+        "'AI developer' and lookup_occupation finds nothing -> {bound_field: occupation, "
+        "occupation_query: 'מפתח AI', prompt_he: 'האם מפתח AI נחשב מפתח/ת תוכנה?'}; the "
+        "representative picks a title from the occupations table and the group follows from it "
+        "(never ask about the group with it). group_exception: only when the occupation is "
+        "known and today's car is above the occupation's group; the representative answers "
+        "with the approved group or not_approved, and only that answer changes the group. A "
+        "free question (no bound_field) is for anything else, e.g. a policy question: prompt_he, "
+        "type yes_no / choice (with 2-6 option labels) / text; its answer comes back to you as "
+        "data in the rep notification and never changes a value. The older question + "
+        "blocking_fields form still works.",
         h.AskRepresentativeInput,
         h.ask_representative,
     ),
