@@ -9,6 +9,10 @@ events as the admin stream sends them. Ids and timestamps differ per run; the nu
 Also records `options`: the walkthrough, then list_options (through the dev tools endpoint): every
 eligible alternative on screen (comparison_set_ready).
 
+Also records `questions` and `questions_inbox`: an employee who describes themselves as an AI
+developer and asks about parking; the agent opens one ticket with an occupation question and a
+free yes/no question; the representative picks software developer and answers yes with a note.
+
 Also records `guard_retry`: the walkthrough with a first draft of the last reply that has a number
 no tool produced, so the real guard rejects it and the model rewrites it (judges mode's rejected
 draft card).
@@ -70,6 +74,89 @@ def _guard_retry_log() -> list[dict[str, Any]]:
     return log
 
 
+AI_DEVELOPER_HE = (
+    "אני מפתח AI. שכר בסיס 18,500, אין לי עמלות או בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%, "
+    "3 נקודות זיכוי. היום יש לי קורולה קרוס 2025 ואני משתתף ב-300 ₪. האם יש חניה לעובדים "
+    "בבניין? ומה יקרה לנטו אם אעבור ל-ATTO 3?"
+)
+QUESTIONS_ASK = {
+    "question": "העובד מתאר את עצמו כ'מפתח AI', עיסוק שלא מופיע בטבלה, ושואל על חניה לעובדים.",
+    "questions": [
+        {
+            "bound_field": "occupation",
+            "occupation_query": "מפתח AI",
+            "prompt_he": "האם 'מפתח AI' נחשב מפתח/ת תוכנה?",
+        },
+        {"prompt_he": "האם יש חניה לעובדים בבניין המשרדים?", "type": "yes_no"},
+    ],
+}
+QUESTIONS_ANSWER = {
+    "answers": {
+        "q1": {"value": "מפתח/ת תוכנה"},
+        "q2": {"value": "yes", "note": "בחניון התת-קרקעי, עם תג עובד"},
+    },
+    "partial": True,
+}
+
+
+def questions_steps() -> list[LLMResponse]:
+    """The scripted model of the `questions` recording (real tools, guard and tickets)."""
+    profile = {
+        "base_salary": 18500,
+        "commissions": 0,
+        "bonus": 0,
+        "pension_percent": 6.5,
+        "study_fund_percent": 2.5,
+        "credit_points": 3,
+    }
+    today = {"today": {"kind": "company_car", "car_id": "CAR-09", "participation": 300}}
+    return [
+        tool_response(
+            ("save_profile", profile),
+            ("lookup_occupation", {"query": "מפתח AI"}),
+            ("set_current_situation", today),
+        ),
+        tool_response(("ask_representative", QUESTIONS_ASK)),
+        text_response(
+            "העיסוק 'מפתח AI' לא מופיע ברשימת העיסוקים, ולכן שאלתי את הנציג לאיזה עיסוק הוא "
+            "מתאים, ובאותה פנייה גם אם יש חניה לעובדים. התשובה תופיע כאן."
+        ),
+        tool_response(("compare", {"alternative": {"kind": "car", "car_id": "CAR-10"}})),
+        text_response(
+            "הנציג ענה: יש חניה לעובדים, בחניון התת-קרקעי עם תג עובד. העיסוק סווג כמפתח/ת "
+            "תוכנה, ולכן הקבוצה שלך ב׳. ההשוואה ל-ATTO 3 מוצגת בכרטיס, והיא מותנית באישור כי "
+            "ATTO 3 בקבוצה גבוהה יותר."
+        ),
+    ]
+
+
+def _questions_log() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """(the inbox before the answer, the session's events)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        settings = Settings(app_db=Path(tmp) / "app.db", llm="scripted", rep_token="rep")
+        app = create_app(
+            settings,
+            agent_factory=lambda s, services, tools: build_claude_runner(
+                s, services, llm=ScriptedClient(questions_steps()), tool_runner=tools
+            ),
+        )
+        with TestClient(app) as client:
+            sid = client.post("/api/sessions").json()["id"]
+            client.post(f"/api/sessions/{sid}/messages", json={"text": AI_DEVELOPER_HE})
+            assert app.state.agent.wait_idle(30)
+            inbox = client.get("/api/tickets", params={"status": "open"}, headers=REP).json()
+            (ticket,) = inbox
+            answered = client.post(
+                f"/api/tickets/{ticket['id']}/answer", json=QUESTIONS_ANSWER, headers=REP
+            )
+            assert answered.status_code == 200, answered.text
+            assert app.state.agent.wait_idle(30)
+            log = _events(app, sid)
+    actions = [e["payload"]["action"] for e in log if e["type"] == "guard_check"]
+    assert actions == ["accept", "accept"], actions
+    return inbox, log
+
+
 def main() -> int:
     demo_llm.DEMO_DELAY_SECONDS = 0
     with tempfile.TemporaryDirectory() as tmp:
@@ -116,6 +203,7 @@ def main() -> int:
                 "e001_answer_negative": refused.json(),  # the 422 body for -50
                 "guard_retry": _guard_retry_log(),
             }
+            outputs["questions_inbox"], outputs["questions"] = _questions_log()
             for name, data in outputs.items():
                 path = OUT / f"{name}.json"
                 text = json.dumps(data, ensure_ascii=False, indent=1)

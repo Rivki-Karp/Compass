@@ -8,6 +8,11 @@
 
 import type { AnswerError, Health, JudgesStats, TicketWithView } from "./types";
 
+/** One question's answer in POST /tickets/{id}/answer (`answers`). */
+export type QuestionAnswer =
+  | { value: string; note?: string }
+  | { status: "needs_checking"; note?: string };
+
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
 /** An API URL: `apiUrl("/health")` is `${VITE_API_BASE_URL}/api/health`. */
@@ -51,6 +56,14 @@ export const api = {
     }),
   judgesStats: (token: string) => request<JudgesStats>("/admin/stats", {}, token),
   openTickets: (token: string) => request<TicketWithView[]>("/tickets?status=open", {}, token),
+  /** Answer some of a ticket's questions (by question id); the others stay pending. Each is a
+   * value or needs_checking, with an optional note. */
+  answerQuestions: (token: string, ticketId: string, answers: Record<string, QuestionAnswer>) =>
+    request<unknown>(
+      `/tickets/${ticketId}/answer`,
+      { method: "POST", body: JSON.stringify({ answers, partial: true }) },
+      token,
+    ),
   /** `note`: the rep's free text to the employee (answer_text); it never changes a value.
    * `partial`: only these fields; the others stay pending and the ticket stays open. */
   answerTicket: (

@@ -28,6 +28,8 @@ export type { ComparisonView, EventType, TicketView } from "./generated";
 export type {
   TicketComparisonView,
   TicketFieldView,
+  TicketOptionView,
+  TicketQuestionView,
   ViewField,
   ViewInput,
   ViewLine,

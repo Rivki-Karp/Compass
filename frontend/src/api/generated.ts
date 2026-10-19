@@ -76,6 +76,7 @@ export interface TicketFieldView {
 export interface TicketOptionView {
   value: string;
   label: string;
+  detail: string | null;
 }
 
 export interface TicketQuestionView {
@@ -87,6 +88,7 @@ export interface TicketQuestionView {
   prompt_he: string;
   label: string;
   options: TicketOptionView[];
+  search_options: TicketOptionView[];
   facts: TicketFactView[];
   car_id: string | null;
   car_name: string | null;

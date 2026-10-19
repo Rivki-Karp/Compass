@@ -1,0 +1,1334 @@
+[
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 1,
+  "type": "session_created",
+  "payload": {
+   "status": "active"
+  },
+  "created_at": "2026-10-19T15:04:44.388+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 2,
+  "type": "user_message",
+  "payload": {
+   "message_seq": 1,
+   "content": {
+    "text": "אני מפתח AI. שכר בסיס 18,500, אין לי עמלות או בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%, 3 נקודות זיכוי. היום יש לי קורולה קרוס 2025 ואני משתתף ב-300 ₪. האם יש חניה לעובדים בבניין? ומה יקרה לנטו אם אעבור ל-ATTO 3?"
+   }
+  },
+  "created_at": "2026-10-19T15:04:44.415+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 3,
+  "type": "agent_started",
+  "payload": {
+   "trigger": "employee_turn"
+  },
+  "created_at": "2026-10-19T15:04:44.472+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 4,
+  "type": "tool_call",
+  "payload": {
+   "tool_use_id": "toolu_save_profile_22",
+   "name": "save_profile",
+   "input": {
+    "base_salary": 18500,
+    "commissions": 0,
+    "bonus": 0,
+    "pension_percent": 6.5,
+    "study_fund_percent": 2.5,
+    "credit_points": 3
+   }
+  },
+  "created_at": "2026-10-19T15:04:44.500+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 5,
+  "type": "profile_updated",
+  "payload": {
+   "fields": {
+    "base_salary": {
+     "state": "filled",
+     "source": "employee",
+     "value": "18500"
+    },
+    "commissions": {
+     "state": "filled",
+     "source": "employee",
+     "value": "0"
+    },
+    "bonus": {
+     "state": "filled",
+     "source": "employee",
+     "value": "0"
+    },
+    "pension_pct": {
+     "state": "filled",
+     "source": "employee",
+     "value": "0.065"
+    },
+    "study_fund_pct": {
+     "state": "filled",
+     "source": "employee",
+     "value": "0.025"
+    },
+    "credit_points": {
+     "state": "filled",
+     "source": "employee",
+     "value": "3"
+    }
+   }
+  },
+  "created_at": "2026-10-19T15:04:44.519+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 6,
+  "type": "tool_result",
+  "payload": {
+   "tool_use_id": "toolu_save_profile_22",
+   "name": "save_profile",
+   "ok": true,
+   "summary": {
+    "saved": [
+     "base_salary",
+     "bonus",
+     "commissions",
+     "credit_points",
+     "pension_percent",
+     "study_fund_percent"
+    ],
+    "missing": [
+     "occupation",
+     "group"
+    ]
+   },
+   "result": {
+    "ok": true,
+    "saved": {
+     "base_salary": "18500",
+     "commissions": "0",
+     "bonus": "0",
+     "pension_percent": "6.5",
+     "study_fund_percent": "2.5",
+     "credit_points": "3"
+    },
+    "missing": [
+     "occupation",
+     "group"
+    ],
+    "unknown": [],
+    "warnings": [],
+    "group": null,
+    "group_source": null,
+    "group_budget": null
+   }
+  },
+  "created_at": "2026-10-19T15:04:44.557+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 7,
+  "type": "tool_call",
+  "payload": {
+   "tool_use_id": "toolu_lookup_occupation_23",
+   "name": "lookup_occupation",
+   "input": {
+    "query": "מפתח AI"
+   }
+  },
+  "created_at": "2026-10-19T15:04:44.578+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 8,
+  "type": "tool_result",
+  "payload": {
+   "tool_use_id": "toolu_lookup_occupation_23",
+   "name": "lookup_occupation",
+   "ok": false,
+   "summary": {
+    "error": "not_found",
+    "fields": null
+   },
+   "result": {
+    "ok": false,
+    "error": {
+     "code": "not_found",
+     "message": "no occupation matches",
+     "query": "מפתח AI"
+    }
+   }
+  },
+  "created_at": "2026-10-19T15:04:44.595+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 9,
+  "type": "tool_call",
+  "payload": {
+   "tool_use_id": "toolu_set_current_situation_24",
+   "name": "set_current_situation",
+   "input": {
+    "today": {
+     "kind": "company_car",
+     "car_id": "CAR-09",
+     "participation": 300
+    }
+   }
+  },
+  "created_at": "2026-10-19T15:04:44.610+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 10,
+  "type": "current_situation_set",
+  "payload": {
+   "scenario": {
+    "input": {
+     "kind": "company_car",
+     "car_id": "CAR-09",
+     "registration_year": null,
+     "participation": "300"
+    },
+    "scenario": {
+     "participation": "300",
+     "participation_source": "employee_input",
+     "kind": "company_car",
+     "car_id": "CAR-09"
+    },
+    "label": "COROLLA CROSS"
+   }
+  },
+  "created_at": "2026-10-19T15:04:44.624+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 11,
+  "type": "tool_result",
+  "payload": {
+   "tool_use_id": "toolu_set_current_situation_24",
+   "name": "set_current_situation",
+   "ok": true,
+   "summary": {},
+   "result": {
+    "ok": true,
+    "today": {
+     "input": {
+      "kind": "company_car",
+      "car_id": "CAR-09",
+      "registration_year": null,
+      "participation": "300"
+     },
+     "scenario": {
+      "participation": "300",
+      "participation_source": "employee_input",
+      "kind": "company_car",
+      "car_id": "CAR-09"
+     },
+     "label": "COROLLA CROSS"
+    },
+    "warnings": []
+   }
+  },
+  "created_at": "2026-10-19T15:04:44.635+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 12,
+  "type": "tool_call",
+  "payload": {
+   "tool_use_id": "toolu_ask_representative_25",
+   "name": "ask_representative",
+   "input": {
+    "question": "העובד מתאר את עצמו כ'מפתח AI', עיסוק שלא מופיע בטבלה, ושואל על חניה לעובדים.",
+    "questions": [
+     {
+      "bound_field": "occupation",
+      "occupation_query": "מפתח AI",
+      "prompt_he": "האם 'מפתח AI' נחשב מפתח/ת תוכנה?"
+     },
+     {
+      "prompt_he": "האם יש חניה לעובדים בבניין המשרדים?",
+      "type": "yes_no"
+     }
+    ]
+   }
+  },
+  "created_at": "2026-10-19T15:04:44.670+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 13,
+  "type": "ticket_opened",
+  "payload": {
+   "ticket": {
+    "id": "c743e8ae3a694871911fe83d30a883c8",
+    "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+    "question": "העובד מתאר את עצמו כ'מפתח AI', עיסוק שלא מופיע בטבלה, ושואל על חניה לעובדים.",
+    "context": {
+     "display_name": null,
+     "occupation": null,
+     "group": null,
+     "current_situation": "COROLLA CROSS",
+     "requested_alternative": null
+    },
+    "blocking_fields": [
+     "occupation"
+    ],
+    "quick_answers": [],
+    "questions": [
+     {
+      "id": "q1",
+      "prompt_he": "האם 'מפתח AI' נחשב מפתח/ת תוכנה?",
+      "bound_field": "occupation",
+      "answer": {
+       "type": "choice",
+       "options": [
+        {
+         "value": "מפתח/ת תוכנה",
+         "label": "מפתח/ת תוכנה · קבוצה ב׳"
+        },
+        {
+         "value": "מפקח/ת איכות במפעל",
+         "label": "מפקח/ת איכות במפעל · קבוצה א׳"
+        },
+        {
+         "value": "מנהל/ת פיתוח",
+         "label": "מנהל/ת פיתוח · קבוצה ג׳"
+        },
+        {
+         "value": "נציג/ת מכירות שטח",
+         "label": "נציג/ת מכירות שטח · קבוצה ב׳"
+        },
+        {
+         "value": "מנהל/ת אזור מכירות",
+         "label": "מנהל/ת אזור מכירות · קבוצה ג׳"
+        },
+        {
+         "value": "other",
+         "label": "עיסוק אחר (לפרט בהערה)"
+        }
+       ]
+      },
+      "occupation_query": "מפתח AI"
+     },
+     {
+      "id": "q2",
+      "prompt_he": "האם יש חניה לעובדים בבניין המשרדים?",
+      "bound_field": null,
+      "answer": {
+       "type": "yes_no",
+       "options": []
+      }
+     }
+    ],
+    "status": "open",
+    "answer": null,
+    "created_at": "2026-10-19T15:04:44.689+00:00",
+    "answered_at": null
+   }
+  },
+  "created_at": "2026-10-19T15:04:44.689+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 14,
+  "type": "session_status",
+  "payload": {
+   "status": "waiting_for_rep"
+  },
+  "created_at": "2026-10-19T15:04:44.689+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 15,
+  "type": "tool_result",
+  "payload": {
+   "tool_use_id": "toolu_ask_representative_25",
+   "name": "ask_representative",
+   "ok": true,
+   "summary": {},
+   "result": {
+    "ok": true,
+    "ticket_id": "c743e8ae3a694871911fe83d30a883c8",
+    "status": "open",
+    "context": {
+     "display_name": null,
+     "occupation": null,
+     "group": null,
+     "current_situation": "COROLLA CROSS",
+     "requested_alternative": null
+    },
+    "questions": [
+     {
+      "id": "q1",
+      "bound_field": "occupation",
+      "type": "choice",
+      "options": [
+       "מפתח/ת תוכנה · קבוצה ב׳",
+       "מפקח/ת איכות במפעל · קבוצה א׳",
+       "מנהל/ת פיתוח · קבוצה ג׳",
+       "נציג/ת מכירות שטח · קבוצה ב׳",
+       "מנהל/ת אזור מכירות · קבוצה ג׳",
+       "עיסוק אחר (לפרט בהערה)"
+      ]
+     },
+     {
+      "id": "q2",
+      "bound_field": null,
+      "type": "yes_no",
+      "options": []
+     }
+    ]
+   }
+  },
+  "created_at": "2026-10-19T15:04:44.716+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 16,
+  "type": "guard_check",
+  "payload": {
+   "passed": true,
+   "numbers": [],
+   "violations": [],
+   "sources": {},
+   "action": "accept"
+  },
+  "created_at": "2026-10-19T15:04:44.755+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 17,
+  "type": "assistant_message",
+  "payload": {
+   "message_seq": 7,
+   "text": "העיסוק 'מפתח AI' לא מופיע ברשימת העיסוקים, ולכן שאלתי את הנציג לאיזה עיסוק הוא מתאים, ובאותה פנייה גם אם יש חניה לעובדים. התשובה תופיע כאן.",
+   "kind": "reply",
+   "comparison_ref": null
+  },
+  "created_at": "2026-10-19T15:04:44.797+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 18,
+  "type": "agent_finished",
+  "payload": {
+   "outcome": "reply",
+   "error": null,
+   "rounds": 2,
+   "latency_ms": 360,
+   "model": "scripted",
+   "usage": {
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+   },
+   "cost_usd": null,
+   "limit": null
+  },
+  "created_at": "2026-10-19T15:04:44.807+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 19,
+  "type": "ticket_answered",
+  "payload": {
+   "ticket_id": "c743e8ae3a694871911fe83d30a883c8",
+   "answer": {
+    "text": null,
+    "quick_answer_id": null,
+    "values": {
+     "occupation": "מפתח/ת תוכנה"
+    },
+    "effective_from": null,
+    "questions": {
+     "q1": {
+      "status": "answered",
+      "value": "מפתח/ת תוכנה",
+      "note": null
+     },
+     "q2": {
+      "status": "answered",
+      "value": "yes",
+      "note": "בחניון התת-קרקעי, עם תג עובד"
+     }
+    }
+   },
+   "fields": {
+    "occupation": "מפתח/ת תוכנה",
+    "group": "ב"
+   },
+   "unknown": [],
+   "partial": false,
+   "pending": [],
+   "questions": [
+    {
+     "id": "q1",
+     "kind": "bound",
+     "bound_field": "occupation",
+     "prompt_he": "האם 'מפתח AI' נחשב מפתח/ת תוכנה?",
+     "status": "answered",
+     "value": "מפתח/ת תוכנה",
+     "answer": "מפתח/ת תוכנה · קבוצה ב׳",
+     "note": null
+    },
+    {
+     "id": "q2",
+     "kind": "free",
+     "bound_field": null,
+     "prompt_he": "האם יש חניה לעובדים בבניין המשרדים?",
+     "status": "answered",
+     "value": "yes",
+     "answer": "כן",
+     "note": "בחניון התת-קרקעי, עם תג עובד"
+    }
+   ]
+  },
+  "created_at": "2026-10-19T15:04:44.851+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 20,
+  "type": "session_status",
+  "payload": {
+   "status": "active"
+  },
+  "created_at": "2026-10-19T15:04:44.851+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 21,
+  "type": "agent_started",
+  "payload": {
+   "trigger": "rep_answer"
+  },
+  "created_at": "2026-10-19T15:04:44.911+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 22,
+  "type": "tool_call",
+  "payload": {
+   "tool_use_id": "toolu_compare_26",
+   "name": "compare",
+   "input": {
+    "alternative": {
+     "kind": "car",
+     "car_id": "CAR-10"
+    }
+   }
+  },
+  "created_at": "2026-10-19T15:04:44.931+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 23,
+  "type": "comparison_ready",
+  "payload": {
+   "alternative_kind": "alternative:1",
+   "alternative": {
+    "participation": null,
+    "participation_source": null,
+    "kind": "company_car",
+    "car_id": "CAR-10"
+   },
+   "comparison": {
+    "today": {
+     "scenario": {
+      "participation": "300",
+      "participation_source": "employee_input",
+      "kind": "company_car",
+      "car_id": "CAR-09"
+     },
+     "car_id": "CAR-09",
+     "vehicle_key": null,
+     "exact": {
+      "cash_income": "18500",
+      "value_of_use": "4070",
+      "maintenance": "0",
+      "electric_gross": "0",
+      "taxable_income": "22570",
+      "income_tax_before_credits": "4341.40",
+      "credit_points_value": "726",
+      "pension_credit": "232.7500",
+      "income_tax": "3382.6500",
+      "national_insurance": "1131.5888",
+      "health": "1020.9422",
+      "employee_pension": "1202.500",
+      "employee_study": "462.500",
+      "participation": "300",
+      "family_employee_share": "0",
+      "net": "10999.8190"
+     },
+     "display": {
+      "cash_income": 18500,
+      "value_of_use": 4070,
+      "maintenance": 0,
+      "electric_gross": 0,
+      "taxable_income": 22570,
+      "income_tax_before_credits": 4341,
+      "credit_points_value": 726,
+      "pension_credit": 233,
+      "income_tax": 3383,
+      "national_insurance": 1132,
+      "health": 1021,
+      "employee_pension": 1203,
+      "employee_study": 463,
+      "participation": 300,
+      "family_employee_share": 0,
+      "net": 11000
+     },
+     "metadata": {
+      "rules_version": "mock-2026-10-12",
+      "tax_tables_year": 2025,
+      "value_of_use_year": 2026,
+      "participation_source": "employee_input",
+      "maintenance_source": null,
+      "electric_method": null
+     }
+    },
+    "alternative": {
+     "scenario": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-10"
+     },
+     "car_id": "CAR-10",
+     "vehicle_key": null,
+     "exact": {
+      "cash_income": "18500",
+      "value_of_use": "3130",
+      "maintenance": "0",
+      "electric_gross": "439.90849903220130231486229011039768010959960520267486572265625",
+      "taxable_income": "22069.90849903220130231486229011039768010959960520267486572265625",
+      "income_tax_before_credits": "4181.1716346999824037176073099342232808339758776128292083740234375",
+      "credit_points_value": "726",
+      "pension_credit": "232.7500",
+      "income_tax": "3222.4216346999824037176073099342232808339758776128292083740234375",
+      "national_insurance": "1096.5823949322540911620403603077278376076719723641872406005859375",
+      "health": "995.087469399964807329678380398707560061666299588978290557861328125",
+      "employee_pension": "1202.500",
+      "employee_study": "462.500",
+      "participation": "300",
+      "family_employee_share": "0",
+      "net": "11660.817000000000000105536239469739001606285455636680126190185546875"
+     },
+     "display": {
+      "cash_income": 18500,
+      "value_of_use": 3130,
+      "maintenance": 0,
+      "electric_gross": 440,
+      "taxable_income": 22070,
+      "income_tax_before_credits": 4181,
+      "credit_points_value": 726,
+      "pension_credit": 233,
+      "income_tax": 3222,
+      "national_insurance": 1097,
+      "health": 995,
+      "employee_pension": 1203,
+      "employee_study": 463,
+      "participation": 300,
+      "family_employee_share": 0,
+      "net": 11661
+     },
+     "metadata": {
+      "rules_version": "mock-2026-10-12",
+      "tax_tables_year": 2025,
+      "value_of_use_year": 2026,
+      "participation_source": "catalog_default",
+      "maintenance_source": null,
+      "electric_method": "gross_up"
+     }
+    },
+    "diff": "660.998000000000000105536239469739001606285455636680126190185546875",
+    "display_diff": 661,
+    "delta_lines": [
+     {
+      "line": "cash_income",
+      "net_effect": "0"
+     },
+     {
+      "line": "maintenance",
+      "net_effect": "0"
+     },
+     {
+      "line": "electric_gross",
+      "net_effect": "439.90849903220130231486229011039768010959960520267486572265625"
+     },
+     {
+      "line": "income_tax",
+      "net_effect": "160.2283653000175962823926900657767191660241223871707916259765625"
+     },
+     {
+      "line": "national_insurance",
+      "net_effect": "35.0064050677459088379596396922721623923280276358127593994140625"
+     },
+     {
+      "line": "health",
+      "net_effect": "25.854730600035192670321619601292439938333700411021709442138671875"
+     },
+     {
+      "line": "employee_pension",
+      "net_effect": "0.000"
+     },
+     {
+      "line": "employee_study",
+      "net_effect": "0.000"
+     },
+     {
+      "line": "participation",
+      "net_effect": "0"
+     },
+     {
+      "line": "family_employee_share",
+      "net_effect": "0"
+     }
+    ],
+    "display_delta_lines": [
+     {
+      "line": "cash_income",
+      "net_effect": 0
+     },
+     {
+      "line": "maintenance",
+      "net_effect": 0
+     },
+     {
+      "line": "electric_gross",
+      "net_effect": 440
+     },
+     {
+      "line": "income_tax",
+      "net_effect": 160
+     },
+     {
+      "line": "national_insurance",
+      "net_effect": 35
+     },
+     {
+      "line": "health",
+      "net_effect": 26
+     },
+     {
+      "line": "employee_pension",
+      "net_effect": 0
+     },
+     {
+      "line": "employee_study",
+      "net_effect": 0
+     },
+     {
+      "line": "participation",
+      "net_effect": 0
+     },
+     {
+      "line": "family_employee_share",
+      "net_effect": 0
+     }
+    ],
+    "explanation_facts": [
+     {
+      "kind": "value_of_use_change",
+      "from": 4070,
+      "to": 3130
+     },
+     {
+      "kind": "electric_bonus",
+      "method": "gross_up",
+      "net": 250,
+      "gross": 440
+     },
+     {
+      "kind": "participation_change",
+      "from": 300,
+      "to": 300,
+      "source": "catalog_default"
+     }
+    ],
+    "warnings": [
+     {
+      "code": "current_car_above_group",
+      "facts": {
+       "employee_group": "ב",
+       "car_id": "CAR-09",
+       "car_group": "ג"
+      }
+     }
+    ],
+    "missing": [],
+    "partial": false
+   },
+   "eligibility": {
+    "status": "not_eligible",
+    "reason": "car_group_higher",
+    "facts": {
+     "car_id": "CAR-10",
+     "car_group": "ג",
+     "employee_group": "ב"
+    },
+    "warnings": []
+   },
+   "hypothetical": true,
+   "missing": [],
+   "participation_source": "catalog_default",
+   "pending_rep": false,
+   "participation_effective_from": null,
+   "today_participation": {
+    "source": "employee_input",
+    "pending_rep": false,
+    "effective_from": null
+   },
+   "view": {
+    "version": 1,
+    "today_title": "COROLLA CROSS",
+    "alternative_title": "ATTO 3",
+    "alternative_kind": "company_car",
+    "alternative_car_id": "CAR-10",
+    "alternative_details": "חשמלי · קבוצה ג׳",
+    "group": "ב",
+    "group_label": "קבוצה ב׳",
+    "group_budget": 3700,
+    "today_net": 11000,
+    "alternative_net": 11661,
+    "display_diff": 661,
+    "direction": "up",
+    "breakdown": [
+     {
+      "key": "electric_gross",
+      "label": "החזר חשמל מגולם",
+      "net_effect": 440,
+      "inputs": [
+       "alternative_car",
+       "today_car"
+      ],
+      "rules": [
+       {
+        "key": "electric_reimbursement",
+        "label": "החזר חשמל לרכב חשמלי"
+       },
+       {
+        "key": "income_tax_brackets",
+        "label": "מדרגות מס הכנסה"
+       }
+      ]
+     },
+     {
+      "key": "income_tax",
+      "label": "מס הכנסה",
+      "net_effect": 160,
+      "inputs": [
+       "credit_points",
+       "pension_percent",
+       "base_salary",
+       "today_car",
+       "alternative_car"
+      ],
+      "rules": [
+       {
+        "key": "income_tax_brackets",
+        "label": "מדרגות מס הכנסה"
+       },
+       {
+        "key": "credit_point_value",
+        "label": "שווי נקודת זיכוי"
+       },
+       {
+        "key": "pension_credit",
+        "label": "זיכוי על הפרשה לפנסיה"
+       },
+       {
+        "key": "value_of_use",
+        "label": "שווי שימוש (טבלת רשות המסים)"
+       }
+      ]
+     },
+     {
+      "key": "national_insurance",
+      "label": "ביטוח לאומי",
+      "net_effect": 35,
+      "inputs": [
+       "base_salary",
+       "today_car",
+       "alternative_car"
+      ],
+      "rules": [
+       {
+        "key": "national_insurance_brackets",
+        "label": "מדרגות ביטוח לאומי"
+       },
+       {
+        "key": "value_of_use",
+        "label": "שווי שימוש (טבלת רשות המסים)"
+       }
+      ]
+     },
+     {
+      "key": "health",
+      "label": "מס בריאות",
+      "net_effect": 26,
+      "inputs": [
+       "base_salary",
+       "today_car",
+       "alternative_car"
+      ],
+      "rules": [
+       {
+        "key": "health_brackets",
+        "label": "מדרגות מס בריאות"
+       },
+       {
+        "key": "value_of_use",
+        "label": "שווי שימוש (טבלת רשות המסים)"
+       }
+      ]
+     }
+    ],
+    "inputs": [
+     {
+      "id": "occupation",
+      "label": "עיסוק",
+      "value": "מפתח/ת תוכנה",
+      "unit": "text",
+      "source": "representative",
+      "ticket_field": null
+     },
+     {
+      "id": "group",
+      "label": "קבוצת רכב",
+      "value": "ב׳",
+      "unit": "text",
+      "source": "occupation",
+      "ticket_field": null
+     },
+     {
+      "id": "base_salary",
+      "label": "שכר בסיס",
+      "value": 18500,
+      "unit": "ils",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "commissions",
+      "label": "עמלות",
+      "value": 0,
+      "unit": "ils",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "bonus",
+      "label": "בונוס",
+      "value": 0,
+      "unit": "ils",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "pension_percent",
+      "label": "הפרשת עובד לפנסיה",
+      "value": "6.5",
+      "unit": "percent",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "study_fund_percent",
+      "label": "הפרשת עובד לקרן השתלמות",
+      "value": "2.5",
+      "unit": "percent",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "credit_points",
+      "label": "נקודות זיכוי",
+      "value": "3",
+      "unit": "points",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "today_car",
+      "label": "הרכב היום",
+      "value": "COROLLA CROSS",
+      "unit": "text",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "today_participation",
+      "label": "השתתפות היום",
+      "value": 300,
+      "unit": "ils",
+      "source": "employee_input",
+      "ticket_field": "current_participation"
+     },
+     {
+      "id": "alternative_car",
+      "label": "הרכב בחלופה",
+      "value": "ATTO 3",
+      "unit": "text",
+      "source": "employee_input",
+      "ticket_field": null
+     },
+     {
+      "id": "alternative_participation",
+      "label": "השתתפות בחלופה",
+      "value": 300,
+      "unit": "ils",
+      "source": "catalog_default",
+      "ticket_field": "alternative_participation:CAR-10"
+     }
+    ],
+    "pending": false,
+    "pending_fields": [],
+    "partial": false,
+    "missing": [],
+    "warnings": [
+     {
+      "code": "current_car_above_group",
+      "message": "הרכב של היום (COROLLA CROSS) בקבוצה ג׳, מעל קבוצה ב׳. כדאי לבדוק את זה מול נציג."
+     }
+    ],
+    "hypothetical": true,
+    "rules_version": "mock-2026-10-12",
+    "computed_by": {
+     "origin": "tool",
+     "label": "חושב בכלי",
+     "tool": "compare"
+    }
+   }
+  },
+  "created_at": "2026-10-19T15:04:44.959+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 24,
+  "type": "tool_result",
+  "payload": {
+   "tool_use_id": "toolu_compare_26",
+   "name": "compare",
+   "ok": true,
+   "summary": {
+    "display_diff": 661,
+    "hypothetical": true,
+    "pending_rep": false,
+    "partial": false
+   },
+   "result": {
+    "ok": true,
+    "alternative_kind": "alternative:1",
+    "comparison": {
+     "today": {
+      "scenario": {
+       "participation": "300",
+       "participation_source": "employee_input",
+       "kind": "company_car",
+       "car_id": "CAR-09"
+      },
+      "car_id": "CAR-09",
+      "vehicle_key": null,
+      "exact": {
+       "cash_income": "18500",
+       "value_of_use": "4070",
+       "maintenance": "0",
+       "electric_gross": "0",
+       "taxable_income": "22570",
+       "income_tax_before_credits": "4341.40",
+       "credit_points_value": "726",
+       "pension_credit": "232.7500",
+       "income_tax": "3382.6500",
+       "national_insurance": "1131.5888",
+       "health": "1020.9422",
+       "employee_pension": "1202.500",
+       "employee_study": "462.500",
+       "participation": "300",
+       "family_employee_share": "0",
+       "net": "10999.8190"
+      },
+      "display": {
+       "cash_income": 18500,
+       "value_of_use": 4070,
+       "maintenance": 0,
+       "electric_gross": 0,
+       "taxable_income": 22570,
+       "income_tax_before_credits": 4341,
+       "credit_points_value": 726,
+       "pension_credit": 233,
+       "income_tax": 3383,
+       "national_insurance": 1132,
+       "health": 1021,
+       "employee_pension": 1203,
+       "employee_study": 463,
+       "participation": 300,
+       "family_employee_share": 0,
+       "net": 11000
+      },
+      "metadata": {
+       "rules_version": "mock-2026-10-12",
+       "tax_tables_year": 2025,
+       "value_of_use_year": 2026,
+       "participation_source": "employee_input",
+       "maintenance_source": null,
+       "electric_method": null
+      }
+     },
+     "alternative": {
+      "scenario": {
+       "participation": null,
+       "participation_source": null,
+       "kind": "company_car",
+       "car_id": "CAR-10"
+      },
+      "car_id": "CAR-10",
+      "vehicle_key": null,
+      "exact": {
+       "cash_income": "18500",
+       "value_of_use": "3130",
+       "maintenance": "0",
+       "electric_gross": "439.90849903220130231486229011039768010959960520267486572265625",
+       "taxable_income": "22069.90849903220130231486229011039768010959960520267486572265625",
+       "income_tax_before_credits": "4181.1716346999824037176073099342232808339758776128292083740234375",
+       "credit_points_value": "726",
+       "pension_credit": "232.7500",
+       "income_tax": "3222.4216346999824037176073099342232808339758776128292083740234375",
+       "national_insurance": "1096.5823949322540911620403603077278376076719723641872406005859375",
+       "health": "995.087469399964807329678380398707560061666299588978290557861328125",
+       "employee_pension": "1202.500",
+       "employee_study": "462.500",
+       "participation": "300",
+       "family_employee_share": "0",
+       "net": "11660.817000000000000105536239469739001606285455636680126190185546875"
+      },
+      "display": {
+       "cash_income": 18500,
+       "value_of_use": 3130,
+       "maintenance": 0,
+       "electric_gross": 440,
+       "taxable_income": 22070,
+       "income_tax_before_credits": 4181,
+       "credit_points_value": 726,
+       "pension_credit": 233,
+       "income_tax": 3222,
+       "national_insurance": 1097,
+       "health": 995,
+       "employee_pension": 1203,
+       "employee_study": 463,
+       "participation": 300,
+       "family_employee_share": 0,
+       "net": 11661
+      },
+      "metadata": {
+       "rules_version": "mock-2026-10-12",
+       "tax_tables_year": 2025,
+       "value_of_use_year": 2026,
+       "participation_source": "catalog_default",
+       "maintenance_source": null,
+       "electric_method": "gross_up"
+      }
+     },
+     "diff": "660.998000000000000105536239469739001606285455636680126190185546875",
+     "display_diff": 661,
+     "delta_lines": [
+      {
+       "line": "cash_income",
+       "net_effect": "0"
+      },
+      {
+       "line": "maintenance",
+       "net_effect": "0"
+      },
+      {
+       "line": "electric_gross",
+       "net_effect": "439.90849903220130231486229011039768010959960520267486572265625"
+      },
+      {
+       "line": "income_tax",
+       "net_effect": "160.2283653000175962823926900657767191660241223871707916259765625"
+      },
+      {
+       "line": "national_insurance",
+       "net_effect": "35.0064050677459088379596396922721623923280276358127593994140625"
+      },
+      {
+       "line": "health",
+       "net_effect": "25.854730600035192670321619601292439938333700411021709442138671875"
+      },
+      {
+       "line": "employee_pension",
+       "net_effect": "0.000"
+      },
+      {
+       "line": "employee_study",
+       "net_effect": "0.000"
+      },
+      {
+       "line": "participation",
+       "net_effect": "0"
+      },
+      {
+       "line": "family_employee_share",
+       "net_effect": "0"
+      }
+     ],
+     "display_delta_lines": [
+      {
+       "line": "cash_income",
+       "net_effect": 0
+      },
+      {
+       "line": "maintenance",
+       "net_effect": 0
+      },
+      {
+       "line": "electric_gross",
+       "net_effect": 440
+      },
+      {
+       "line": "income_tax",
+       "net_effect": 160
+      },
+      {
+       "line": "national_insurance",
+       "net_effect": 35
+      },
+      {
+       "line": "health",
+       "net_effect": 26
+      },
+      {
+       "line": "employee_pension",
+       "net_effect": 0
+      },
+      {
+       "line": "employee_study",
+       "net_effect": 0
+      },
+      {
+       "line": "participation",
+       "net_effect": 0
+      },
+      {
+       "line": "family_employee_share",
+       "net_effect": 0
+      }
+     ],
+     "explanation_facts": [
+      {
+       "kind": "value_of_use_change",
+       "from": 4070,
+       "to": 3130
+      },
+      {
+       "kind": "electric_bonus",
+       "method": "gross_up",
+       "net": 250,
+       "gross": 440
+      },
+      {
+       "kind": "participation_change",
+       "from": 300,
+       "to": 300,
+       "source": "catalog_default"
+      }
+     ],
+     "warnings": [
+      {
+       "code": "current_car_above_group",
+       "facts": {
+        "employee_group": "ב",
+        "car_id": "CAR-09",
+        "car_group": "ג"
+       }
+      }
+     ],
+     "missing": [],
+     "partial": false
+    },
+    "eligibility": {
+     "status": "not_eligible",
+     "reason": "car_group_higher",
+     "facts": {
+      "car_id": "CAR-10",
+      "car_group": "ג",
+      "employee_group": "ב"
+     },
+     "warnings": []
+    },
+    "hypothetical": true,
+    "missing": [],
+    "participation_source": "catalog_default",
+    "pending_rep": false,
+    "participation_effective_from": null,
+    "today_participation": {
+     "source": "employee_input",
+     "pending_rep": false,
+     "effective_from": null
+    }
+   }
+  },
+  "created_at": "2026-10-19T15:04:44.973+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 25,
+  "type": "guard_check",
+  "payload": {
+   "passed": true,
+   "numbers": [
+    "3",
+    "3"
+   ],
+   "violations": [],
+   "sources": {
+    "3": "employee"
+   },
+   "action": "accept"
+  },
+  "created_at": "2026-10-19T15:04:45.004+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 26,
+  "type": "assistant_message",
+  "payload": {
+   "message_seq": 11,
+   "text": "הנציג ענה: יש חניה לעובדים, בחניון התת-קרקעי עם תג עובד. העיסוק סווג כמפתח/ת תוכנה, ולכן הקבוצה שלך ב׳. ההשוואה ל-ATTO 3 מוצגת בכרטיס, והיא מותנית באישור כי ATTO 3 בקבוצה גבוהה יותר.",
+   "kind": "reply",
+   "comparison_ref": 23
+  },
+  "created_at": "2026-10-19T15:04:45.031+00:00"
+ },
+ {
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "seq": 27,
+  "type": "agent_finished",
+  "payload": {
+   "outcome": "reply",
+   "error": null,
+   "rounds": 1,
+   "latency_ms": 156,
+   "model": "scripted",
+   "usage": {
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0
+   },
+   "cost_usd": null,
+   "limit": null
+  },
+  "created_at": "2026-10-19T15:04:45.040+00:00"
+ }
+]

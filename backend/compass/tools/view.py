@@ -440,6 +440,8 @@ def _computed_by(payload: Mapping[str, Any]) -> ViewComputedBy:
 class TicketOptionView(_View):
     value: str  # what the answer sends for the field, e.g. "ג" or "not_approved"
     label: str  # "מאושר לקבוצה ג׳"
+    # an occupation's group ("קבוצה ב׳"): the group this choice would give
+    detail: str | None = None
 
 
 class TicketFactView(_View):
@@ -492,6 +494,9 @@ class TicketQuestionView(_View):
     prompt_he: str  # the model's wording ("" when none)
     label: str  # the input's label
     options: list[TicketOptionView] = []  # choice and yes_no
+    # An occupation question: every title in the occupations table, for the picker's search
+    # box (the options are the closest ones). The answer is always one of these, or "other".
+    search_options: list[TicketOptionView] = []
     facts: list[TicketFactView] = []
     car_id: str | None = None
     car_name: str | None = None
@@ -646,6 +651,14 @@ def _occupation_field(question: Mapping[str, Any]) -> TicketFieldView:
     )
 
 
+def _with_group(services: Services, option: TicketOptionView) -> TicketOptionView:
+    """An occupation option with the group it gives (none for "other")."""
+    occupation = services.ctx.occupations.get(option.value)
+    if occupation is None:
+        return option
+    return option.model_copy(update={"detail": group_label(occupation.group)})
+
+
 def _participation_label(field: TicketFieldView) -> str:
     """The amount input's label, with the car's name: "סכום ההשתתפות החודשית ב-MG4 (₪)"."""
     if field.car_name:
@@ -710,6 +723,13 @@ def build_ticket_view(services: Services, ticket: Ticket) -> dict[str, Any]:
             )
             continue
         name = question["bound_field"]
+        search: list[TicketOptionView] = []
+        if name == OCCUPATION:
+            options = [_with_group(services, o) for o in options]
+            search = [
+                _with_group(services, TicketOptionView(value=t, label=t))
+                for t in services.ctx.occupations
+            ]
         field = (
             _occupation_field(question)
             if name == OCCUPATION and "occupation_query" in question
@@ -734,6 +754,7 @@ def build_ticket_view(services: Services, ticket: Ticket) -> dict[str, Any]:
                 prompt_he=question["prompt_he"],
                 label=_participation_label(field) if participation else field.label,
                 options=options or field.options,
+                search_options=search,
                 facts=field.facts,
                 car_id=field.car_id,
                 car_name=field.car_name,

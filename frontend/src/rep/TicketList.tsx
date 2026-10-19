@@ -61,7 +61,9 @@ export function TicketList({
                     </span>
                   </span>
                   <code className="self-end font-mono text-[12px] text-steel">
-                    {ticket.blocking_fields.join(", ")}
+                    {(ticket.view.questions ?? [])
+                      .map((q) => q.bound_field ?? `free:${q.type}`)
+                      .join(", ") || ticket.blocking_fields.join(", ")}
                   </code>
                 </a>
               </li>
