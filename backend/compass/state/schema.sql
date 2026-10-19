@@ -46,6 +46,9 @@ CREATE TABLE IF NOT EXISTS tickets (
     context_json          TEXT NOT NULL,
     blocking_fields_json  TEXT NOT NULL,
     quick_answers_json    TEXT NOT NULL,
+    -- the ticket's questions (compass/tools/questions.py); NULL: a ticket stored before them,
+    -- whose questions are its blocking fields. Added in place to older files (store.py).
+    questions_json        TEXT,
     status                TEXT NOT NULL CHECK (status IN ('open', 'answered')),
     answer_json           TEXT,
     created_at            TEXT NOT NULL,

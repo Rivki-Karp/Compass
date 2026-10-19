@@ -202,6 +202,13 @@ class Searcher:
             truncated=len(ranked) > MAX_CANDIDATES,
         )
 
+    def rank_occupations(self, query: str, limit: int = MAX_CANDIDATES) -> list[str]:
+        """The `limit` occupation titles closest to `query`, best first, by the same score as
+        search_occupations but with no minimum: a representative chooses among them, so a query
+        no title matches well ("מפתח AI") still gets its nearest titles. lookup_occupation's
+        candidates (MIN_SCORE and up) always come first."""
+        return [entry.id for _, _, entry in _best(normalize(query), self._occupations)[:limit]]
+
     # --- vehicles ---------------------------------------------------------------------------
 
     def search_vehicles(self, query: str, registration_year: int | None = None) -> SearchResult:

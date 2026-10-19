@@ -33,6 +33,14 @@ TicketErrorCode = Literal[
     "unknown_quick_answer",
     "not_a_blocking_field",
     "field_already_answered",
+    # questions (compass/tools/questions.py)
+    "unknown_question",
+    "not_an_option",
+    "not_a_whole_amount",
+    "empty_text",
+    "text_too_long",
+    "note_required",
+    "value_with_needs_checking",
 ]
 
 

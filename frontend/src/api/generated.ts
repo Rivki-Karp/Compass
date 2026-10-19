@@ -78,10 +78,30 @@ export interface TicketOptionView {
   label: string;
 }
 
+export interface TicketQuestionView {
+  id: string;
+  kind: "bound" | "free";
+  bound_field: string | null;
+  type: "amount" | "choice" | "yes_no" | "text";
+  title: string;
+  prompt_he: string;
+  label: string;
+  options: TicketOptionView[];
+  facts: TicketFactView[];
+  car_id: string | null;
+  car_name: string | null;
+  catalog_default: number | null;
+  comparison: TicketComparisonView | null;
+  status: "pending" | "needs_checking" | "answered" | "unknown";
+  answer: number | string | null;
+  note: string | null;
+}
+
 export interface TicketView {
   version: number;
   title: string;
   fields: TicketFieldView[];
+  questions: TicketQuestionView[];
   comparison: TicketComparisonView | null;
 }
 

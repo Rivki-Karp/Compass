@@ -104,6 +104,8 @@ class Ticket(_Model):
     context: Any
     blocking_fields: list[str]
     quick_answers: list[Any]
+    # The questions (compass/tools/questions.py); empty for a ticket stored before them.
+    questions: list[Any] = []
     status: TicketStatus
     answer: Any
     created_at: str
@@ -134,8 +136,20 @@ class Store:
                     f"{path}: schema version {row[0]}, expected {SCHEMA_VERSION}; "
                     "delete the file to recreate it"
                 )
+            self._add_columns(conn)
         finally:
             conn.close()
+
+    # Nullable columns added after a file was created: added in place (additive, so every row
+    # stored before reads as it did). table -> (column, SQL type).
+    _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (("tickets", "questions_json", "TEXT"),)
+
+    @classmethod
+    def _add_columns(cls, conn: sqlite3.Connection) -> None:
+        for table, column, sql_type in cls._ADDED_COLUMNS:
+            have = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+            if column not in have:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {sql_type}")
 
     # --- plumbing ---------------------------------------------------------------------------
 
@@ -413,6 +427,7 @@ class Store:
         blocking_fields: Sequence[str],
         quick_answers: Sequence[Any],
         pending_slots: Sequence[str] | None = None,
+        questions: Sequence[Any] = (),
     ) -> Ticket:
         """Create a ticket, mark its slots pending_rep, and wait for the representative.
 
@@ -425,8 +440,8 @@ class Store:
             self._require_session(conn, session_id)
             conn.execute(
                 "INSERT INTO tickets (id, session_id, question, context_json, "
-                "blocking_fields_json, quick_answers_json, status, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, 'open', ?)",
+                "blocking_fields_json, quick_answers_json, questions_json, status, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?)",
                 (
                     ticket_id,
                     session_id,
@@ -434,6 +449,7 @@ class Store:
                     _dump(context),
                     _dump(list(blocking_fields)),
                     _dump(list(quick_answers)),
+                    _dump(list(questions)) if questions else None,
                     now,
                 ),
             )
@@ -453,13 +469,15 @@ class Store:
         unknown: Sequence[str] = (),
         pending: Sequence[str] = (),
         part: Any = None,
+        questions: Sequence[Any] = (),
     ) -> Ticket:
         """Fill the given slots (source representative), mark `unknown` slots unknown (the
         representative answered without a value), and, unless fields are still `pending` (a
         partial answer: those slots stay pending_rep), close the ticket and resume the session.
 
         `answer` is stored as the ticket's answer so far (the caller merges earlier parts); the
-        event carries this `part` of it (default: the whole answer) and its slot values."""
+        event carries this `part` of it (default: the whole answer) and its slot values, and
+        `questions`, this part's answer to each question (display-ready), when given."""
         with self._write() as (conn, events):
             ticket = self._ticket(conn, ticket_id)
             if ticket.status != "open":
@@ -485,6 +503,8 @@ class Store:
                 "partial": bool(pending),
                 "pending": list(pending),
             }
+            if questions:
+                payload["questions"] = list(questions)
             self._event(conn, events, ticket.session_id, "ticket_answered", payload)
             if not pending:
                 self._set_status(conn, events, ticket.session_id, "active")
@@ -506,6 +526,7 @@ class Store:
             context=json.loads(row["context_json"]),
             blocking_fields=json.loads(row["blocking_fields_json"]),
             quick_answers=json.loads(row["quick_answers_json"]),
+            questions=json.loads(row["questions_json"] or "[]"),
             status=row["status"],
             answer=None if row["answer_json"] is None else json.loads(row["answer_json"]),
             created_at=row["created_at"],
