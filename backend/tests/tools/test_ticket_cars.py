@@ -79,7 +79,7 @@ def test_at_most_three_cars_per_ticket(services: Services, tools: ToolRunner) ->
 
 def test_other_fields_are_not_limited(services: Services, tools: ToolRunner) -> None:
     sid = _session(services, tools, "שאלה")
-    fields = ["current_participation", "group_exception", "bonus"]
+    fields = ["current_participation", "pension_percent", "bonus"]
     result = tools.run(sid, "ask_representative", {"question": "?", "blocking_fields": fields})
     assert result["ok"] is True
 
