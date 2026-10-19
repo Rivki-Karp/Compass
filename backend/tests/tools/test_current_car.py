@@ -259,3 +259,33 @@ def test_the_rep_notification_says_which_car_and_the_guard_allows_it(
     assert "today_after" in text
     guard = [e.payload for e in services.store.events_after(sid) if e.type == "guard_check"]
     assert guard[-1]["action"] == "accept"
+
+
+def test_the_same_car_with_the_employees_participation_stays_the_representatives(
+    tools: ToolRunner, services: Services
+) -> None:
+    sid, ticket_id = _asked(tools)
+    answer_ticket(services, ticket_id, answers={"q1": QuestionAnswer(value="CAR-13")})
+    stated = {"today": {"kind": "company_car", "car_id": "CAR-13", "participation": 300}}
+    ok(tools.run(sid, "set_current_situation", stated))
+    today = services.store.scenarios(sid)["today"]
+    assert today["source"] == "representative" and today["scenario"]["participation"] == "300"
+    view = ok(tools.run(sid, "compare", MG4))
+    shown = _events(services, sid, "comparison_ready")[-1].payload["view"]
+    chips = {i["id"]: i["source"] for i in shown["inputs"]}
+    assert chips["today_car"] == "representative"
+    assert chips["today_participation"] == "employee_input"
+    assert view["today_participation"]["source"] == "employee_input"
+
+
+def test_another_car_is_not_the_employees_to_change(tools: ToolRunner, services: Services) -> None:
+    sid, ticket_id = _asked(tools)
+    answer_ticket(services, ticket_id, answers={"q1": QuestionAnswer(value="CAR-13")})
+    other = {"today": {"kind": "company_car", "car_id": "CAR-07", "participation": 300}}
+    assert "only a representative can change it" in err(
+        tools.run(sid, "set_current_situation", other)
+    )
+    assert "only a representative" in err(
+        tools.run(sid, "set_current_situation", {"today": {"kind": "none"}})
+    )
+    assert services.store.scenarios(sid)["today"]["scenario"]["car_id"] == "CAR-13"

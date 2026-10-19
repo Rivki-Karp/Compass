@@ -485,14 +485,29 @@ def _today_scenario(services: Services, today: Any) -> tuple[Scenario, str]:
 def set_current_situation(
     services: Services, session_id: str, data: SetCurrentSituationInput
 ) -> dict[str, Any]:
-    pending = services.store.slots(session_id).get(CURRENT_CAR)
-    if pending is not None and pending.state == "pending_rep":
+    car = services.store.slots(session_id).get(CURRENT_CAR)
+    if car is not None and car.state == "pending_rep":
         raise ToolError(
             "invalid_input",
             "a representative is identifying today's car (current_car); wait for the answer",
             field="today",
         )
-    payload = today_payload(services, data.today, source="employee")
+    source = "employee"
+    if car is not None and car.state == "filled":
+        # The representative identified the car: the same car again (say, with the
+        # participation the employee stated) stays the representative's, whatever way the model
+        # calls; another one is not the employee's to change.
+        if getattr(data.today, "car_id", None) != car.value:
+            raise ToolError(
+                "invalid_input",
+                f"a representative identified today's car as {car.value}; only a "
+                "representative can change it (set it again with that car_id, e.g. with the "
+                "participation the employee stated)",
+                field="today",
+                car_id=car.value,
+            )
+        source = "representative"
+    payload = today_payload(services, data.today, source=source)
     services.store.set_today(session_id, payload)
     refresh_without_today(services, session_id)
     return {"today": payload, "warnings": _warnings(services, session_id)}
