@@ -24,7 +24,8 @@ Usage:
     tasks.py test-counts  # write backend/tests/counts.json (judges mode; pytest checks it)
     tasks.py record-demo  # the backup video -> docs/video/*.webm (demo mode, no key)
     tasks.py readme    # regenerate README.md's results block (pytest checks it)
-    tasks.py smoke --api https://compass-api.onrender.com --web https://compass-web.onrender.com
+    tasks.py smoke --api https://compass-api-tft8.onrender.com \
+                   --web https://compass-web-hcpz.onrender.com
                        # check a deployment: the backend, and the frontend (--web optional)
 """
 

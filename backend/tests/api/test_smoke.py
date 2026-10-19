@@ -79,7 +79,7 @@ def test_render_blueprint() -> None:
         "COMPASS_DAILY_SPEND_CAP_USD": "5",
         "COMPASS_MESSAGE_RATE_PER_MINUTE": "20",
         "COMPASS_TRUST_PROXY": "1",
-        "COMPASS_CORS_ORIGINS": "https://compass-web.onrender.com",
+        "COMPASS_CORS_ORIGINS": "https://compass-web-hcpz.onrender.com",
     }
 
     # the UI: a static site whose CSP and API URL name the backend above
@@ -87,10 +87,10 @@ def test_render_blueprint() -> None:
     assert (web["rootDir"], web["staticPublishPath"]) == ("frontend", "dist")
     assert web["autoDeployTrigger"] == "off"
     built = {v["key"]: v["value"] for v in web["envVars"]}
-    assert built["VITE_API_BASE_URL"] == "https://compass-api.onrender.com"
+    assert built["VITE_API_BASE_URL"] == "https://compass-api-tft8.onrender.com"
     assert web["routes"] == [{"type": "rewrite", "source": "/*", "destination": "/index.html"}]
     csp = {h["name"]: h["value"] for h in web["headers"]}["Content-Security-Policy"]
-    assert "connect-src 'self' https://compass-api.onrender.com;" in csp
+    assert "connect-src 'self' https://compass-api-tft8.onrender.com;" in csp
 
 
 def test_the_image_listens_on_port_with_one_worker() -> None:

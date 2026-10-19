@@ -267,8 +267,8 @@ both, so one "Blueprint" creates them together:
 
 | Service | What it is | Address |
 |---|---|---|
-| `compass-api` | the backend (`backend/`): the API, the agent, the session databases. A Docker web service on the **free** plan, Frankfurt | https://compass-api.onrender.com |
-| `compass-web` | the UI (`frontend/`): a static site, files only, which call the backend | https://compass-web.onrender.com |
+| `compass-api` | the backend (`backend/`): the API, the agent, the session databases. A Docker web service on the **free** plan, Frankfurt | https://compass-api-tft8.onrender.com |
+| `compass-web` | the UI (`frontend/`): a static site, files only, which call the backend | https://compass-web-hcpz.onrender.com |
 
 You need about 30 minutes, a GitHub account with access to the repo, and an Anthropic Console
 login. The free plan needs no credit card.
@@ -307,8 +307,8 @@ Neither service redeploys on a push (`autoDeployTrigger: off`): you deploy by ha
    Never reuse the demo tokens: a live server refuses to start with them (section 1).
    `render.yaml` sets everything else: `COMPASS_LLM=anthropic`, `COMPASS_TRUST_PROXY=1`,
    `COMPASS_DAILY_SPEND_CAP_USD=5`, `COMPASS_MESSAGE_RATE_PER_MINUTE=20`,
-   `COMPASS_CORS_ORIGINS=https://compass-web.onrender.com`, and for the UI `NODE_VERSION`,
-   `VITE_API_BASE_URL=https://compass-api.onrender.com` (public by design: it is in the UI's
+   `COMPASS_CORS_ORIGINS=https://compass-web-hcpz.onrender.com`, and for the UI `NODE_VERSION`,
+   `VITE_API_BASE_URL=https://compass-api-tft8.onrender.com` (public by design: it is in the UI's
    JavaScript), the rewrite rule and the security headers.
 
 ### 9b. The Blueprint (the normal way)
@@ -327,19 +327,19 @@ Neither service redeploys on a push (`autoDeployTrigger: off`): you deploy by ha
 6. Click **Apply** (or **Deploy Blueprint**). Both services build at once: the UI in 1–3
    minutes, the API in 5–10. Open each one → **Logs** to follow it; each is done when it shows
    **Live**.
-7. **Check the two addresses** at the top of each service's page. They must be exactly
-   `https://compass-api.onrender.com` and `https://compass-web.onrender.com`, because each one is
-   written into the other's settings. If Render added a suffix (the name was taken, e.g.
-   `https://compass-api-x1y2.onrender.com`), fix all three places, then deploy again:
-   - `compass-web` → **Environment**: `VITE_API_BASE_URL` = the API's real address;
-   - `compass-web` → **Headers**: in `Content-Security-Policy`, `connect-src 'self'` followed by
-     the API's real address;
-   - `compass-api` → **Environment**: `COMPASS_CORS_ORIGINS` = the UI's real address
-     (`https://`, no slash at the end);
+7. **Check the two addresses** at the top of each service's page. Render adds a random suffix to
+   each name, and this deployment's are `https://compass-api-tft8.onrender.com` and
+   `https://compass-web-hcpz.onrender.com`. Each one is written into the other's settings in
+   `render.yaml`, so they must match. If a new Blueprint (or a recreated service) gets different
+   suffixes, change all three places in `render.yaml`, commit and push, then **Blueprints** →
+   `compass` → **Manual Sync**, and redeploy `compass-web`:
+   - `compass-web` `VITE_API_BASE_URL` = the API's address;
+   - `compass-web` `Content-Security-Policy` header: `connect-src 'self'` followed by the API's
+     address;
+   - `compass-api` `COMPASS_CORS_ORIGINS` = the UI's address (`https://`, no slash at the end).
 
-   then `compass-web` → **Manual Deploy** → **Deploy latest commit** (the URL is baked in at
-   build time, so saving alone changes nothing). Better still, change the names in
-   `render.yaml` the same way, so the next Blueprint sync matches.
+   The UI needs the redeploy because its URL is baked in at build time; the API restarts by
+   itself when its environment changes.
 8. Continue with "Keep awake" (9d) and "Check it from outside" (9f).
 
 ### 9c. By hand (if the Blueprint fails)
@@ -354,7 +354,7 @@ The same two services, created one at a time. **The API first:**
 4. **Instance Type:** Free.
 5. **Environment Variables:** the three secrets (9a) and `COMPASS_LLM=anthropic`,
    `COMPASS_TRUST_PROXY=1`, `COMPASS_DAILY_SPEND_CAP_USD=5`,
-   `COMPASS_MESSAGE_RATE_PER_MINUTE=20`, `COMPASS_CORS_ORIGINS=https://compass-web.onrender.com`.
+   `COMPASS_MESSAGE_RATE_PER_MINUTE=20`, `COMPASS_CORS_ORIGINS=https://compass-web-hcpz.onrender.com`.
 6. **Advanced:** **Health Check Path** `/api/health`; **Auto-Deploy** Off. No disk.
 7. **Create Web Service**, and wait for **Live**.
 
@@ -364,7 +364,7 @@ The same two services, created one at a time. **The API first:**
 2. **Name:** `compass-web`. **Branch:** the same one. **Root Directory:** `frontend`.
 3. **Build Command:** `npm ci && npm run build`. **Publish Directory:** `dist`.
 4. **Environment Variables:** `NODE_VERSION` = `22.19.0` (the version in `frontend/.nvmrc`) and
-   `VITE_API_BASE_URL` = `https://compass-api.onrender.com` (no `/api`, no slash at the end).
+   `VITE_API_BASE_URL` = `https://compass-api-tft8.onrender.com` (no `/api`, no slash at the end).
 5. **Create Static Site**, and wait for **Live**.
 6. **Redirects/Rewrites** (left menu) → **Add Rule**: Source `/*`, Destination `/index.html`,
    Action **Rewrite** → **Save Changes**. Without it, opening `/rep` directly is a 404. (Files
@@ -373,7 +373,7 @@ The same two services, created one at a time. **The API first:**
 
    | Name | Value |
    |---|---|
-   | `Content-Security-Policy` | `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://compass-api.onrender.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'` |
+   | `Content-Security-Policy` | `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://compass-api-tft8.onrender.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'` |
    | `X-Content-Type-Options` | `nosniff` |
    | `X-Frame-Options` | `DENY` |
    | `Referrer-Policy` | `strict-origin-when-cross-origin` |
@@ -390,7 +390,7 @@ minutes keeps it awake (the health check makes no model call, so it costs nothin
 
 1. Go to <https://uptimerobot.com> and sign up (the free plan is enough).
 2. **New monitor** (or **+ Add New Monitor**). **Monitor type:** HTTP(s).
-3. **URL:** `https://compass-api.onrender.com/api/health`. **Name:** `compass-api`.
+3. **URL:** `https://compass-api-tft8.onrender.com/api/health`. **Name:** `compass-api`.
    **Monitoring interval:** 5 minutes.
 4. **Create monitor**. Within a few minutes it shows **Up**.
 
@@ -410,7 +410,7 @@ fallbacks in sections 5 and 6 don't depend on Render at all.
 From the repo root on your machine:
 
 ```powershell
-uv run --project backend python tasks.py smoke --api https://compass-api.onrender.com --web https://compass-web.onrender.com
+uv run --project backend python tasks.py smoke --api https://compass-api-tft8.onrender.com --web https://compass-web-hcpz.onrender.com
 ```
 
 It checks, in order: `/api/health` answers ok; a CORS preflight from the UI's origin is allowed;
@@ -420,8 +420,8 @@ says which step. It sends no token and prints no secret. `health: ok (llm: anthr
 live mode. (It leaves one empty session behind; harmless. If the API was asleep, the first step
 can take a minute.)
 
-Then open https://compass-web.onrender.com in a browser: the employee screen; send one message
-to see a real reply. Open https://compass-web.onrender.com/rep and enter the rep token.
+Then open https://compass-web-hcpz.onrender.com in a browser: the employee screen; send one message
+to see a real reply. Open https://compass-web-hcpz.onrender.com/rep and enter the rep token.
 
 ### Later
 

@@ -45,7 +45,7 @@ services:
       - key: COMPASS_MESSAGE_RATE_PER_MINUTE
         value: "20"
       - key: COMPASS_CORS_ORIGINS # the UI's origin, exactly (no slash, no wildcard)
-        value: https://compass-web.onrender.com
+        value: https://compass-web-hcpz.onrender.com
 
   - type: web
     name: compass-web
@@ -58,7 +58,7 @@ services:
       - key: NODE_VERSION # as in frontend/.nvmrc
         value: 22.19.0
       - key: VITE_API_BASE_URL # build time only: baked into the JavaScript, public by design
-        value: https://compass-api.onrender.com
+        value: https://compass-api-tft8.onrender.com
     routes:
       # SPA: any path that is not a file in dist/ (e.g. /rep) gets index.html; files win
       - type: rewrite
@@ -67,7 +67,7 @@ services:
     headers:
       - path: /*
         name: Content-Security-Policy
-        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://compass-api.onrender.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://compass-api-tft8.onrender.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
       - path: /*
         name: X-Content-Type-Options
         value: nosniff

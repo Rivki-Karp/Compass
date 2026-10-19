@@ -514,7 +514,7 @@ from the environment, which wins over the file: `COMPASS_DEV_TOOLS=1`, `COMPASS_
 `COMPASS_ADMIN_TOKEN`, `COMPASS_APP_DB` (default `data/app.db`), `COMPASS_RULES` (default
 `data/rules.yaml`) and `COMPASS_CORS_ORIGINS` (exact origins, comma-separated, never a wildcard;
 default none: same origin only, which is all dev needs behind the Vite proxy; the deployed UI's
-origin goes here, `https://compass-web.onrender.com` in render.yaml). Relative paths are relative to `backend/`. The session store is created
+origin goes here, `https://compass-web-hcpz.onrender.com` in render.yaml). Relative paths are relative to `backend/`. The session store is created
 on startup.
 
 Run the API as a **single process** (`tasks.py serve` passes `--workers 1`). The agent keeps
