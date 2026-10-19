@@ -108,7 +108,9 @@ TOOLS: tuple[Tool, ...] = (
         "compute, round or estimate. An ineligible alternative is still calculated and marked "
         "hypothetical (say it is conditional on approval). pending_rep: true means the "
         "participation is the catalog default until the representative confirms it. With "
-        "unknown pension/study-fund rates the diff may still be known (partial: nets null).",
+        "unknown pension/study-fund rates the diff may still be known (partial: nets null). "
+        "Today's car unknown: the alternative's own net, no diff (today_unknown: true, "
+        "display_diff null); say the diff needs today's car.",
         h.CompareInput,
         h.compare,
     ),
@@ -116,7 +118,10 @@ TOOLS: tuple[Tool, ...] = (
         "list_options",
         "Every alternative (all catalog cars and the waiver if allowed) with its eligibility, "
         "net diff vs today and the car's name, group and drive, best eligible first. Use it to "
-        "offer eligible alternatives of the same drive type. Quote only its display values.",
+        "offer eligible alternatives of the same drive type. Quote only its display values. Works "
+        "before today's car is known: each option's net, no diff (today_unknown: true); do not "
+        "wait for today's car to show the options. Once it is set, the server recomputes the "
+        "options on screen with their diffs.",
         h.ListOptionsInput,
         h.list_options,
     ),

@@ -12,6 +12,7 @@ from compass.engine.context import EngineContext
 from compass.engine.decimal_math import ZERO, apportion, exact, to_agora, to_display
 from compass.engine.eligibility import profile_warnings
 from compass.engine.models import (
+    CURRENT_SITUATION,
     TODAY_ONLY,
     Comparison,
     DeltaLine,
@@ -173,7 +174,7 @@ def _build(
 
 def compare(
     profile: EmployeeProfile,
-    today: Scenario,
+    today: Scenario | None,
     alternative: Scenario,
     ctx: EngineContext,
 ) -> Comparison:
@@ -181,10 +182,13 @@ def compare(
 
     If only contribution rates are unknown, the diff is still returned when it does not depend
     on them (checked at PROBE_RATES, to the agora): nets are then None and `missing` lists the
-    unknown rates. Otherwise raises MissingInputs listing every unknown input.
+    unknown rates. `today` None (not known yet): the alternative's own net and no diff (see
+    Comparison). Otherwise raises MissingInputs listing every unknown input.
     """
     if isinstance(alternative, TODAY_ONLY):
         raise ValueError(f"{alternative.kind} describes today only, not an alternative")
+    if today is None:
+        return _without_today(profile, alternative, ctx)
     missing = list(
         dict.fromkeys(missing_inputs(profile, today) + missing_inputs(profile, alternative))
     )
@@ -215,6 +219,30 @@ def compare(
     if len(diffs) != 1:
         raise MissingInputs(missing)  # the diff depends on the unknown rates
     return _build(profile, *probes[0], ctx, missing)
+
+
+def _without_today(
+    profile: EmployeeProfile, alternative: Scenario, ctx: EngineContext
+) -> Comparison:
+    """The alternative alone: its net needs every input of its own (contribution rates
+    included) and none of today's. The diff waits for today."""
+    missing = missing_inputs(profile, alternative)
+    if missing:
+        raise MissingInputs([CURRENT_SITUATION, *missing])
+    breakdown = compute_with_rates(
+        profile, alternative, ctx, profile.pension_pct, profile.study_fund_pct
+    )
+    return Comparison(
+        today=None,
+        alternative=breakdown,
+        diff=None,
+        display_diff=None,
+        delta_lines=(),
+        display_delta_lines=(),
+        explanation_facts=(),
+        warnings=profile_warnings(profile, None, ctx),
+        missing=(CURRENT_SITUATION,),
+    )
 
 
 def _net(breakdown: NetBreakdown) -> Decimal:

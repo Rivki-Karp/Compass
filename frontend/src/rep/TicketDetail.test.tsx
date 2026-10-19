@@ -161,7 +161,7 @@ function car(
     status: "pending",
     answer: null,
     note: null,
-    comparison: { alternative_title: name, display_diff: diff, pending: true },
+    comparison: { alternative_title: name, display_diff: diff, pending: true, diff_note: null },
     ...extra,
   };
 }
@@ -176,7 +176,7 @@ const threeCars: TicketWithView = {
       car("CAR-10", "ATTO 3", 611, {
         status: "answered",
         answer: 350,
-        comparison: { alternative_title: "ATTO 3", display_diff: 611, pending: false },
+        comparison: { alternative_title: "ATTO 3", display_diff: 611, pending: false, diff_note: null },
       }),
       car("CAR-06", "MG4", 1020, { catalog_default: 250 }),
       car("CAR-11", "EV3", 455),
@@ -246,7 +246,7 @@ describe("TicketDetail: today's participation and a group approval", () => {
     id: "current_participation",
     bound_field: "current_participation",
     title: "השתתפות עצמית ברכב של היום",
-    comparison: { alternative_title: "ATTO 3", display_diff: 661, pending: true },
+    comparison: { alternative_title: "ATTO 3", display_diff: 661, pending: true, diff_note: null },
   };
   const group: TicketQuestionView = {
     id: "group_exception",
@@ -271,7 +271,7 @@ describe("TicketDetail: today's participation and a group approval", () => {
     status: "pending",
     answer: null,
     note: null,
-    comparison: { alternative_title: "ATTO 3", display_diff: 661, pending: true },
+    comparison: { alternative_title: "ATTO 3", display_diff: 661, pending: true, diff_note: null },
   };
   const withFields = (questions: TicketQuestionView[]): TicketWithView => ({
     ...ticket,

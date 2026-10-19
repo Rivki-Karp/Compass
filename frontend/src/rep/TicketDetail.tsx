@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } fro
 import { api, type QuestionAnswer } from "../api/client";
 import type { Ticket, TicketOptionView, TicketQuestionView, TicketWithView } from "../api/types";
 import { Amount } from "../ui/Amount";
+import { Diff } from "../ui/Diff";
 import { Button } from "../ui/Button";
 import { answerErrors, NO_ERRORS, type FormErrors } from "./answerErrors";
 import { BidiText } from "../ui/BidiText";
@@ -153,7 +154,7 @@ function DiffTile({ question }: { question: TicketQuestionView }) {
       }
       note={comparison?.pending ? "זמני, לפי ברירת המחדל" : undefined}
     >
-      {comparison ? <Amount value={comparison.display_diff} signed currency /> : "עדיין אין חישוב"}
+      {comparison ? <Diff view={comparison} currency /> : "עדיין אין חישוב"}
     </Tile>
   );
 }

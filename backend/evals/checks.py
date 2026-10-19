@@ -216,7 +216,7 @@ def _tool_not_called(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
 def _comparison_values(result: dict[str, Any]) -> dict[str, Any]:
     comparison = result["comparison"]
     return {
-        "today_net": comparison["today"]["display"]["net"],
+        "today_net": None if comparison["today"] is None else comparison["today"]["display"]["net"],
         "alternative_net": comparison["alternative"]["display"]["net"],
         "diff": comparison["display_diff"],
         "has_diff": comparison["display_diff"] is not None,
@@ -225,6 +225,7 @@ def _comparison_values(result: dict[str, Any]) -> dict[str, Any]:
         "pending_rep": result["pending_rep"],
         "hypothetical": result["hypothetical"],
         "partial": comparison["partial"],
+        "today_unknown": comparison.get("today_unknown", False),
         "input_sources": {i["id"]: i["source"] for i in result.get("view", {}).get("inputs", [])},
     }
 

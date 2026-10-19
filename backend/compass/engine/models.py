@@ -255,22 +255,45 @@ class EngineWarning(_Frozen):
     facts: FrozenFacts = Field(default_factory=dict)
 
 
+# In Comparison.missing: today's situation (car, maintenance or none) is not known yet.
+CURRENT_SITUATION = "current_situation"
+
+
 class Comparison(_Frozen):
-    today: NetBreakdown
+    """Today vs an alternative. Two partial forms (`missing` non-empty):
+
+    - contribution rates unknown: the nets are None, the diff is still exact;
+    - today unknown (CURRENT_SITUATION in `missing`): `today`, the diff, its lines and the
+      facts are absent, and the alternative's own net is known (it does not depend on today).
+    """
+
+    today: NetBreakdown | None
     alternative: NetBreakdown
-    diff: Decimal  # exact: alternative.net - today.net
+    diff: Decimal | None  # exact: alternative.net - today.net
     # round(alternative.net) - round(today.net), so the shown numbers subtract correctly. In a
     # partial comparison the nets are unknown and this is round(diff).
-    display_diff: int
+    display_diff: int | None
     delta_lines: tuple[DeltaLine, ...]  # sum == diff exactly
     display_delta_lines: tuple[DisplayDeltaLine, ...]  # largest remainder; sum == display_diff
     explanation_facts: tuple[FrozenFacts, ...]
     warnings: tuple[EngineWarning, ...] = ()
-    missing: tuple[str, ...] = ()  # non-empty -> partial: nets are None, diff is still exact
+    missing: tuple[str, ...] = ()  # non-empty -> partial (see above)
+
+    @model_validator(mode="after")
+    def _no_diff_exactly_when_today_unknown(self) -> "Comparison":
+        unknown = CURRENT_SITUATION in self.missing
+        absent = (self.today is None, self.diff is None, self.display_diff is None)
+        if absent != (unknown, unknown, unknown) or (unknown and self.display_delta_lines):
+            raise ValueError("today, the diff and its lines are absent exactly when today is")
+        return self
 
     @property
     def partial(self) -> bool:
         return bool(self.missing)
+
+    @property
+    def today_unknown(self) -> bool:
+        return CURRENT_SITUATION in self.missing
 
 
 # --- eligibility ----------------------------------------------------------------------------

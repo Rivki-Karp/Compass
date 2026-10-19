@@ -13,6 +13,10 @@ Also records `questions` and `questions_inbox`: an employee who describes themse
 developer and asks about parking; the agent opens one ticket with an occupation question and a
 free yes/no question; the representative picks software developer and answers yes with a note.
 
+Also records `options_without_today`: list_options before today's car is known (each option's
+net, "חסר הרכב של היום" for the diff), then set_current_situation, after which the server puts
+the same options on screen again with their diffs.
+
 Also records `guard_retry`: the walkthrough with a first draft of the last reply that has a number
 no tool produced, so the real guard rejects it and the model rewrites it (judges mode's rejected
 draft card).
@@ -34,6 +38,17 @@ from compass.api import Settings, create_app
 from compass.config import REPO_ROOT
 
 OUT = REPO_ROOT / "frontend" / "src" / "test" / "fixtures"
+# options_without_today: a profile, the options before today's car is known, then today's car
+NO_TODAY_PROFILE = {
+    "occupation_query": "מפתחת תוכנה",
+    "base_salary": 18500,
+    "commissions": 0,
+    "bonus": 0,
+    "pension_percent": 6.5,
+    "study_fund_percent": 2.5,
+    "credit_points": 3,
+}
+COROLLA_CROSS_TODAY = {"kind": "company_car", "car_id": "CAR-09", "participation": 300}
 REP = {"Authorization": "Bearer rep"}
 
 
@@ -178,6 +193,14 @@ def main() -> int:
             options = run(WALKTHROUGH.employee_messages)
             listed = client.post(f"/api/sessions/{options}/tools/list_options", json={})
             assert listed.json()["ok"], listed.text
+            no_today = client.post("/api/sessions").json()["id"]
+            for name, body in (
+                ("save_profile", NO_TODAY_PROFILE),
+                ("list_options", {}),
+                ("set_current_situation", {"today": COROLLA_CROSS_TODAY}),
+            ):
+                done = client.post(f"/api/sessions/{no_today}/tools/{name}", json=body)
+                assert done.json()["ok"], done.text
             e001 = run(E001.employee_messages)
             inbox = client.get("/api/tickets", params={"status": "open"}, headers=REP).json()
             (ticket,) = inbox
@@ -199,6 +222,7 @@ def main() -> int:
                 "walkthrough": _events(app, walkthrough),
                 "e001": _events(app, e001),
                 "options": _events(app, options),
+                "options_without_today": _events(app, no_today),
                 "e001_inbox": inbox,  # GET /api/tickets?status=open before the answer
                 "e001_answer_negative": refused.json(),  # the 422 body for -50
                 "guard_retry": _guard_retry_log(),

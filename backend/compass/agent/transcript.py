@@ -168,8 +168,10 @@ _BREAKDOWN_KEEP = ("scenario", "car_id", "vehicle_key", "display", "metadata")
 
 
 def _compact_comparison(comparison: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "today": {k: comparison["today"].get(k) for k in _BREAKDOWN_KEEP},
+    compact = {
+        "today": None
+        if comparison["today"] is None
+        else {k: comparison["today"].get(k) for k in _BREAKDOWN_KEEP},
         "alternative": {k: comparison["alternative"].get(k) for k in _BREAKDOWN_KEEP},
         "display_diff": comparison["display_diff"],
         "display_delta_lines": comparison["display_delta_lines"],
@@ -178,6 +180,9 @@ def _compact_comparison(comparison: dict[str, Any]) -> dict[str, Any]:
         "missing": comparison["missing"],
         "partial": comparison["partial"],
     }
+    if comparison.get("today_unknown"):  # no today, no diff: each alternative's own net
+        compact["today_unknown"] = True
+    return compact
 
 
 def model_view(name: str, result: dict[str, Any]) -> str:
@@ -210,6 +215,9 @@ def model_view(name: str, result: dict[str, Any]) -> str:
             }
             for option in result["options"]
         ]
-        if result["options"]:  # today's net is the same in every option
-            view["today_net"] = result["options"][0]["comparison"]["today"]["display"]["net"]
+        today = result["options"][0]["comparison"]["today"] if result["options"] else None
+        if today is not None:  # today's net is the same in every option
+            view["today_net"] = today["display"]["net"]
+        elif result["options"]:  # each option's own net; the diffs wait for today's car
+            view["today_unknown"] = True
     return json.dumps(view, ensure_ascii=False, separators=(",", ":"), sort_keys=True)

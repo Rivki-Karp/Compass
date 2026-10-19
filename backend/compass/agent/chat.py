@@ -38,7 +38,8 @@ def _money(value: int | None, signed: bool = False) -> str:
 def render_comparison(result: dict[str, Any]) -> str:
     """The demo table, from a compare tool result (display values only)."""
     comparison = result["comparison"]
-    today, alt = comparison["today"]["display"], comparison["alternative"]["display"]
+    alt = comparison["alternative"]["display"]
+    today = {} if comparison["today"] is None else comparison["today"]["display"]
     out = [f"{'היום'.rjust(WIDTH)}  {'חלופה'.rjust(WIDTH)}  {'הפרש'.rjust(WIDTH)}  שורה"]
     for field, label in BREAKDOWN_ROWS:
         a, b = today.get(field), alt.get(field)

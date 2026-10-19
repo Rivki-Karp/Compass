@@ -50,6 +50,28 @@ const FILL = { up: "var(--color-up)", down: "var(--color-down)", total: "var(--c
 const TEXT = { up: "text-up", down: "text-down", total: "text-navy" };
 
 export function Waterfall({ view }: { view: ComparisonView }) {
+  if (view.display_diff === null) return <NoDifference note={view.diff_note} />;
+  return <DifferenceChart view={view} />;
+}
+
+/** Today's car unknown: no difference yet, so no lines to chart. */
+function NoDifference({ note }: { note: string | null }) {
+  return (
+    <section
+      aria-labelledby="waterfall-title"
+      className="rounded-card border border-line bg-surface p-6 max-sm:p-4"
+    >
+      <h2 id="waterfall-title" className="text-[15px] font-semibold text-navy">
+        מאיפה מגיע ההפרש
+      </h2>
+      <p className="mt-3 text-[14px] text-muted">
+        {note}: פירוט ההפרש יוצג כשהרכב של היום יהיה ידוע.
+      </p>
+    </section>
+  );
+}
+
+function DifferenceChart({ view }: { view: ComparisonView }) {
   const result = useMemo(() => {
     try {
       return { ok: true as const, series: buildWaterfall(view) };

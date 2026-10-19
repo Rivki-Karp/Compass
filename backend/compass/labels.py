@@ -120,6 +120,11 @@ RULE_LABELS: dict[str, str] = {
 }
 
 
+# In place of the difference while today's car is unknown (each alternative's own net is
+# known; the difference needs today's).
+DIFF_WAITS_FOR_TODAY = "חסר הרכב של היום"
+
+
 # Who computed a comparison (the provenance strip's "computed by" line). "tool": the model called
 # `compare`; "server": the server ran the same code with no model call (the provisional comparison
 # when a ticket opens, the pending recompute, the settle on the rep's answer).

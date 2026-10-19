@@ -1,10 +1,10 @@
-import { spokenSigned } from "../lib/format";
+import { spokenDiff } from "../lib/format";
 import type { ComparisonState } from "../state/session";
-import { Amount } from "../ui/Amount";
+import { Diff } from "../ui/Diff";
 import { FinalChip, Tag } from "./HeroCard";
 import { BidiText } from "../ui/BidiText";
 
-const TONE = { up: "text-up", down: "text-down", flat: "text-ink" } as const;
+const TONE = { up: "text-up", down: "text-down", flat: "text-ink", unknown: "text-muted" } as const;
 
 /**
  * The phone summary bar (Day 5 Stage 4): sticky under the header, the alternative's title, the
@@ -36,14 +36,20 @@ export function PhoneBar({
       type="button"
       data-testid="phone-bar"
       onClick={toHero}
-      aria-label={`${view.alternative_title}: ${spokenSigned(view.display_diff)}${state ? `, ${state}` : ""}. מעבר לכרטיס התוצאה`}
+      aria-label={`${view.alternative_title}: ${spokenDiff(view)}${state ? `, ${state}` : ""}. מעבר לכרטיס התוצאה`}
       className={`${hidden ? "invisible" : ""} sticky top-0 z-20 flex min-h-12 w-full items-center gap-3 border-b border-line bg-surface/95 px-4 py-2 text-start shadow-sm backdrop-blur`}
     >
       <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-navy">
         <BidiText text={view.alternative_title} />
       </span>
-      <span className={`text-[20px] leading-none font-bold ${TONE[view.direction]}`}>
-        <Amount value={view.display_diff} signed currency />
+      <span
+        className={
+          view.display_diff === null
+            ? "text-[13px] text-muted"
+            : `text-[20px] leading-none font-bold ${TONE[view.direction]}`
+        }
+      >
+        <Diff view={view} currency />
       </span>
       {view.pending ? <Tag>זמני</Tag> : comparison.settled ? <FinalChip /> : null}
     </button>

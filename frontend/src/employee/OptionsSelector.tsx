@@ -1,10 +1,18 @@
 import { useRef, type KeyboardEvent } from "react";
-import { spokenSigned } from "../lib/format";
+import type { ComparisonView } from "../api/types";
+import { formatAmount, spokenDiff } from "../lib/format";
 import { Amount } from "../ui/Amount";
+import { Diff } from "../ui/Diff";
 import type { OptionItem } from "./options";
 import { BidiText } from "../ui/BidiText";
 
-const TONE = { up: "text-up", down: "text-down", flat: "text-ink" } as const;
+const TONE = { up: "text-up", down: "text-down", flat: "text-ink", unknown: "text-muted" } as const;
+
+/** The option as a screen reader hears it: its difference, or its net and the missing car. */
+function spokenOption(view: ComparisonView): string {
+  if (view.display_diff !== null || view.alternative_net === null) return spokenDiff(view);
+  return `נטו ${formatAmount(view.alternative_net)} שקלים, ${spokenDiff(view)}`;
+}
 
 /**
  * Every alternative on screen (round 2, item 4), above the hero: name, group and drive, the
@@ -71,7 +79,7 @@ export function OptionsSelector({
               role="radio"
               aria-checked={checked}
               tabIndex={checked ? 0 : -1}
-              aria-label={`${view.alternative_title}${view.alternative_details ? `, ${view.alternative_details}` : ""}: ${spokenSigned(view.display_diff)}, ${state}`}
+              aria-label={`${view.alternative_title}${view.alternative_details ? `, ${view.alternative_details}` : ""}: ${spokenOption(view)}, ${state}`}
               data-option={option.key}
               onClick={() => onSelect(option.key)}
               onKeyDown={(event) => onKeyDown(event, index)}
@@ -89,9 +97,21 @@ export function OptionsSelector({
                   <BidiText text={view.alternative_details} />
                 </span>
               ) : null}
+              {view.display_diff === null && view.alternative_net !== null ? (
+                // today's car unknown: the option's own net, and what the difference waits for
+                <span className="text-[13px] text-ink">
+                  נטו <Amount value={view.alternative_net} currency className="font-semibold" />
+                </span>
+              ) : null}
               <span className="flex items-center gap-2">
-                <span className={`text-[15px] font-bold ${TONE[view.direction]}`}>
-                  <Amount value={view.display_diff} signed currency />
+                <span
+                  className={
+                    view.display_diff === null
+                      ? "text-[12px] text-muted"
+                      : `text-[15px] font-bold ${TONE[view.direction]}`
+                  }
+                >
+                  <Diff view={view} currency />
                 </span>
                 <span
                   className={`rounded-chip border px-1.5 text-[11px] ${

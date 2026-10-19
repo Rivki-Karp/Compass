@@ -65,7 +65,7 @@ def _warnings(warnings: tuple[EngineWarning, ...]) -> list[dict[str, Any]]:
 
 def _comparison(result: Comparison, rules: Rules) -> dict[str, Any]:
     return {
-        "today": _breakdown(result.today, rules),
+        "today": None if result.today is None else _breakdown(result.today, rules),
         "alternative": _breakdown(result.alternative, rules),
         "diff": plain_json(result.diff),
         "display_diff": result.display_diff,
@@ -81,6 +81,7 @@ def _comparison(result: Comparison, rules: Rules) -> dict[str, Any]:
         "warnings": _warnings(result.warnings),
         "missing": list(result.missing),
         "partial": result.partial,
+        "today_unknown": result.today_unknown,  # today, the diffs and the facts are absent
     }
 
 

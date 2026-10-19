@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { SHEKEL } from "../lib/format";
 import type { Turn } from "../state/session";
 import { Amount } from "../ui/Amount";
+import { Diff } from "../ui/Diff";
 import { Icon } from "../ui/icons";
 import { engineCards, guardVerdict, sourceLabel, type EngineCard } from "./engine";
 
@@ -143,7 +144,7 @@ function Card({ card }: { card: EngineCard }) {
           <p className="mt-1 text-white">
             {view.alternative_title}:{" "}
             <span className="font-semibold">
-              <Amount value={view.display_diff} signed currency />
+              <Diff view={view} currency />
             </span>
             {view.today_net !== null && view.alternative_net !== null ? (
               <span className="text-engine-muted">

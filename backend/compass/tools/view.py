@@ -7,6 +7,9 @@ display invariants are checked here before the event is stored:
 
     sum(line.net_effect) == display_diff
     today_net + display_diff == alternative_net        (when both nets are known)
+
+While today's car is unknown there is no diff: display_diff is None, there are no lines, and
+`diff_note` says what is missing ("חסר הרכב של היום"); the alternative's own net is shown.
 """
 
 from collections.abc import Mapping, Sequence
@@ -20,6 +23,7 @@ from compass.engine.models import DeltaLineName
 from compass.labels import (
     COMPUTED_BY_LABELS,
     DELTA_LABELS,
+    DIFF_WAITS_FOR_TODAY,
     FREE_ANSWER_LABELS,
     OCCUPATION_QUESTION_TITLE,
     RULE_LABELS,
@@ -145,8 +149,11 @@ class ComparisonView(_View):
     group_budget: int | None
     today_net: int | None
     alternative_net: int | None
-    display_diff: int
-    direction: Literal["up", "down", "flat"]  # flat: display_diff == 0
+    display_diff: int | None  # None: today unknown (diff_note says so)
+    # flat: display_diff == 0; unknown: no diff yet (today unknown)
+    direction: Literal["up", "down", "flat", "unknown"]
+    # What the diff waits for, in place of it: "חסר הרכב של היום" (None when there is a diff).
+    diff_note: str | None = None
     breakdown: list[ViewLine]  # non-zero lines only, in API order
     inputs: list[ViewInput]
     pending: bool
@@ -237,8 +244,8 @@ def _scenario_inputs(
     today, alt = comparison["today"], comparison["alternative"]
     inputs: list[ViewInput] = []
 
-    today_scenario = today["scenario"]
-    if today_scenario["kind"] in ("company_car", "family_car", "external_car"):
+    today_scenario = {} if today is None else today["scenario"]  # None: today unknown
+    if today_scenario.get("kind") in ("company_car", "family_car", "external_car"):
         name = today_label or _car_name(services, today_scenario.get("car_id", ""))
         inputs.append(
             ViewInput(
@@ -259,7 +266,7 @@ def _scenario_inputs(
                 CURRENT_PARTICIPATION,
             )
         )
-    elif today_scenario["kind"] == "current_maintenance":
+    elif today_scenario.get("kind") == "current_maintenance":
         inputs.append(
             ViewInput(
                 id="today_maintenance",
@@ -377,13 +384,17 @@ def build_view(
             )
         )
 
-    display_diff: int = comparison["display_diff"]
-    today_net = comparison["today"]["display"]["net"]
+    display_diff: int | None = comparison["display_diff"]
+    today = comparison["today"]
+    today_net = None if today is None else today["display"]["net"]
     alt_net = comparison["alternative"]["display"]["net"]
     total = sum(line["net_effect"] for line in comparison["display_delta_lines"])
-    if total != display_diff:
+    if display_diff is None:  # today unknown: no lines, and the alternative's own net
+        if comparison["display_delta_lines"] or today is not None or alt_net is None:
+            raise ViewInvariantError("no diff: no lines and no today, but the alternative's net")
+    elif total != display_diff:
         raise ViewInvariantError(f"lines sum to {total}, display_diff is {display_diff}")
-    if today_net is not None and alt_net is not None and today_net + display_diff != alt_net:
+    elif today_net is not None and alt_net is not None and today_net + display_diff != alt_net:
         raise ViewInvariantError(f"{today_net} + {display_diff} != {alt_net}")
 
     group_slot = slots.get("group")
@@ -406,7 +417,8 @@ def build_view(
         today_net=today_net,
         alternative_net=alt_net,
         display_diff=display_diff,
-        direction="up" if display_diff > 0 else "down" if display_diff < 0 else "flat",
+        direction=_direction(display_diff),
+        diff_note=None if display_diff is not None else DIFF_WAITS_FOR_TODAY,
         breakdown=breakdown,
         inputs=inputs,
         pending=bool(pending_fields),
@@ -425,6 +437,12 @@ def build_view(
         computed_by=_computed_by(payload),
     )
     return view.model_dump(mode="json")
+
+
+def _direction(display_diff: int | None) -> Literal["up", "down", "flat", "unknown"]:
+    if display_diff is None:
+        return "unknown"
+    return "up" if display_diff > 0 else "down" if display_diff < 0 else "flat"
 
 
 def _computed_by(payload: Mapping[str, Any]) -> ViewComputedBy:
@@ -451,8 +469,9 @@ class TicketFactView(_View):
 
 class TicketComparisonView(_View):
     alternative_title: str
-    display_diff: int
+    display_diff: int | None  # None: today unknown (diff_note)
     pending: bool
+    diff_note: str | None = None
 
 
 class TicketFieldView(_View):
@@ -602,6 +621,7 @@ def _ticket_comparison(view: Mapping[str, Any] | None) -> TicketComparisonView |
         alternative_title=view["alternative_title"],
         display_diff=view["display_diff"],
         pending=view["pending"],
+        diff_note=view.get("diff_note"),
     )
 
 

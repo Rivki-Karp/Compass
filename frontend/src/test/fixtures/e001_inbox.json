@@ -1,7 +1,7 @@
 [
  {
-  "id": "c27bcad0b8d24cd9a123a8bccd2d288f",
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "id": "89453ec5ac8c48b9aded8e2e08b4324f",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "question": "מה גובה ההשתתפות העצמית החודשית ב-ATTO 3?",
   "context": {
    "display_name": null,
@@ -17,7 +17,7 @@
   "questions": [],
   "status": "open",
   "answer": null,
-  "created_at": "2026-10-19T15:04:42.900+00:00",
+  "created_at": "2026-10-19T17:02:03.169+00:00",
   "answered_at": null,
   "view": {
    "version": 1,
@@ -38,7 +38,8 @@
      "comparison": {
       "alternative_title": "ATTO 3",
       "display_diff": 661,
-      "pending": true
+      "pending": true,
+      "diff_note": null
      }
     }
    ],
@@ -60,7 +61,8 @@
      "comparison": {
       "alternative_title": "ATTO 3",
       "display_diff": 661,
-      "pending": true
+      "pending": true,
+      "diff_note": null
      },
      "status": "pending",
      "answer": null,
@@ -70,7 +72,8 @@
    "comparison": {
     "alternative_title": "ATTO 3",
     "display_diff": 661,
-    "pending": true
+    "pending": true,
+    "diff_note": null
    }
   }
  }

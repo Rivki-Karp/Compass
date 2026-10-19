@@ -1,11 +1,13 @@
 """Every alternative an employee could pick, with its eligibility verdict and diff vs today."""
 
 from collections.abc import Callable
+from decimal import Decimal
 
 from compass.engine.compare import compare
 from compass.engine.context import EngineContext
 from compass.engine.eligibility import check_eligibility
 from compass.engine.models import (
+    CURRENT_SITUATION,
     CompanyCar,
     CurrentMaintenance,
     EmployeeProfile,
@@ -20,7 +22,9 @@ from compass.engine.net import CONTRIBUTION_FIELDS, missing_inputs
 _STATUS_RANK = {"eligible": 0, "needs_info": 1, "not_eligible": 2}
 
 
-def _is_today(option: Scenario, today: Scenario) -> bool:
+def _is_today(option: Scenario, today: Scenario | None) -> bool:
+    if today is None:
+        return False
     if isinstance(option, CompanyCar | FamilyCar):
         return isinstance(today, CompanyCar | FamilyCar) and today.car_id == option.car_id
     return isinstance(today, Waiver | CurrentMaintenance)  # option is a Waiver
@@ -39,7 +43,7 @@ def _candidates(profile: EmployeeProfile, ctx: EngineContext) -> list[Scenario]:
 
 def list_options(
     profile: EmployeeProfile,
-    today: Scenario,
+    today: Scenario | None,
     ctx: EngineContext,
     adjust: Callable[[Scenario], Scenario] | None = None,
 ) -> list[Option]:
@@ -50,14 +54,17 @@ def list_options(
 
     Sorted: eligible by diff (best first), then needs_info, then not_eligible, each by diff;
     ties keep catalog order. With unknown contribution rates the comparisons are partial.
-    Raises MissingInputs (all fields at once) if any option cannot be compared.
+    `today` None (not known yet): every option with its own net and no diff, in the same order
+    (by net). Raises MissingInputs (all fields at once) if any option cannot be compared.
     """
     candidates = [c for c in _candidates(profile, ctx) if not _is_today(c, today)]
     if adjust is not None:
         candidates = [adjust(c) for c in candidates]
     missing: list[str] = []
-    for candidate in [today, *candidates]:
+    for candidate in candidates if today is None else [today, *candidates]:
         missing += missing_inputs(profile, candidate)
+    if today is None and missing:
+        raise MissingInputs([CURRENT_SITUATION, *missing])  # neither a diff nor a net
     if any(field not in CONTRIBUTION_FIELDS for field in missing):
         raise MissingInputs(missing)  # MissingInputs drops duplicates
 
@@ -70,5 +77,14 @@ def list_options(
         for candidate in candidates
     ]
     # Two stable sorts (no Decimal negation, which would round in the default context).
-    by_diff = sorted(options, key=lambda o: o.comparison.diff, reverse=True)
+    by_diff = sorted(options, key=_rank_value, reverse=True)
     return sorted(by_diff, key=lambda o: _STATUS_RANK[o.eligibility.status])
+
+
+def _rank_value(option: Option) -> Decimal:
+    """The diff; with today unknown, the option's own net (the same order: today is common)."""
+    comparison = option.comparison
+    if comparison.diff is not None:
+        return comparison.diff
+    assert comparison.alternative.net is not None
+    return comparison.alternative.net

@@ -33,8 +33,9 @@ export interface ComparisonView {
   group_budget: number | null;
   today_net: number | null;
   alternative_net: number | null;
-  display_diff: number;
-  direction: "up" | "down" | "flat";
+  display_diff: number | null;
+  direction: "up" | "down" | "flat" | "unknown";
+  diff_note: string | null;
   breakdown: ViewLine[];
   inputs: ViewInput[];
   pending: boolean;
@@ -49,8 +50,9 @@ export interface ComparisonView {
 
 export interface TicketComparisonView {
   alternative_title: string;
-  display_diff: number;
+  display_diff: number | null;
   pending: boolean;
+  diff_note: string | null;
 }
 
 export interface TicketFactView {

@@ -10,11 +10,12 @@ import { useFreshness } from "./effects";
 import { announcement, SETTLED_FLASH_MS } from "./settle";
 import { BidiText } from "../ui/BidiText";
 
-const TONE = { up: "text-up", down: "text-down", flat: "text-ink" } as const;
+const TONE = { up: "text-up", down: "text-down", flat: "text-ink", unknown: "text-ink" } as const;
 const CAPTION = {
   up: "יותר בנטו, בכל חודש",
   down: "פחות בנטו, בכל חודש",
   flat: "אין שינוי בנטו",
+  unknown: "הנטו בחלופה ידוע; ההפרש יוצג כשהרכב של היום יהיה ידוע",
 } as const;
 
 /**
@@ -126,12 +127,19 @@ export function HeroCard({
           <div className={`flex items-baseline gap-2 ${TONE[view.direction]}`}>
             {/* Only the large number is dimmed while provisional: the "זמני" tag and the caption
                 keep full contrast (axe color-contrast, Day 5 Stage 2). */}
-            <span className={`flex items-baseline gap-2 ${provisional ? "opacity-75" : ""}`}>
-              <span className={`${compact ? "text-[52px]" : "text-[64px]"} leading-none font-bold`}>
-                <Amount value={view.display_diff} signed />
+            {view.display_diff === null ? (
+              // today's car unknown: what the difference waits for, in its place
+              <span className="text-[28px] leading-tight font-bold">{view.diff_note}</span>
+            ) : (
+              <span className={`flex items-baseline gap-2 ${provisional ? "opacity-75" : ""}`}>
+                <span
+                  className={`${compact ? "text-[52px]" : "text-[64px]"} leading-none font-bold`}
+                >
+                  <Amount value={view.display_diff} signed />
+                </span>
+                <span className="text-[28px] font-bold">{SHEKEL}</span>
               </span>
-              <span className="text-[28px] font-bold">{SHEKEL}</span>
-            </span>
+            )}
             {view.pending ? <Tag>זמני</Tag> : null}
             {view.partial ? <Tag>חלקי</Tag> : null}
           </div>
@@ -140,7 +148,7 @@ export function HeroCard({
       </div>
 
       <div className="mt-6 flex flex-wrap items-stretch gap-3">
-        <NetTile label={`היום · ${view.today_title}`} net={view.today_net} />
+        <NetTile label={view.today_title ? `היום · ${view.today_title}` : "היום"} net={view.today_net} />
         <span className="flex items-center text-mist" aria-hidden="true">
           <Icon name="arrowLeft" size={22} />
         </span>
@@ -153,7 +161,7 @@ export function HeroCard({
         />
       </div>
 
-      {view.partial ? (
+      {view.partial && view.display_diff !== null ? (
         <Notice>
           ההפרש חלקי — חסרים: {view.missing.map((m) => m.label).join(", ")}
         </Notice>

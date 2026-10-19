@@ -21,7 +21,7 @@ describe("the options", () => {
     const options = optionList(state);
     const diffs = options.map((o) => o.comparison.view.display_diff);
     expect(options.length).toBeGreaterThan(2);
-    expect(diffs).toEqual([...diffs].sort((a, b) => b - a));
+    expect(diffs).toEqual([...diffs].sort((a, b) => (b ?? 0) - (a ?? 0)));
     expect(options[0]?.key).toBe("waiver:");
     expect(options.map((o) => o.comparison.view.alternative_title)).toContain("MG4");
   });

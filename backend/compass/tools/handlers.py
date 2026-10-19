@@ -477,7 +477,41 @@ def set_current_situation(
         "label": label,
     }
     services.store.set_today(session_id, payload)
+    refresh_without_today(services, session_id)
     return {"today": payload, "warnings": _warnings(services, session_id)}
+
+
+def refresh_without_today(services: Services, session_id: str) -> None:
+    """Today became known: what is on screen without it gets its diffs, with no model call.
+    The latest option set, if it was computed without today, is computed again (the same
+    stated participations), and so is the latest comparison, if it was. Each one exactly as
+    list_options and compare compute it."""
+    events = services.store.events_after(session_id)
+    sets = [e for e in events if e.type == "comparison_set_ready"]
+    if sets and sets[-1].payload.get("today_unknown"):
+        stated = {k: Decimal(v) for k, v in (sets[-1].payload.get("stated") or {}).items()}
+        try:
+            options = _engine_options(services, session_id, stated)
+        except ToolError as error:  # e.g. a contribution rate the diff depends on is unknown
+            log.info("option set not refreshed in %s: %s", session_id, error)
+        else:
+            _emit_option_set(services, session_id, options, stated)
+    comparisons = [e for e in events if e.type == "comparison_ready"]
+    latest = comparisons[-1] if comparisons else None
+    if latest is None or not latest.payload["comparison"].get("today_unknown"):
+        return
+    try:
+        scenario, payload = _comparison(
+            services,
+            session_id,
+            SCENARIO.validate_python(latest.payload["alternative"]),
+            explicit=False,
+        )
+    except ToolError as error:
+        log.info("comparison not refreshed in %s: %s", session_id, error)
+        return
+    refreshed = {**payload, "origin": "server", "recomputed_from": latest.seq}
+    _record_comparison(services, session_id, scenario, refreshed)
 
 
 # --- 5/6. alternatives: check_eligibility and compare -----------------------------------------
@@ -604,12 +638,12 @@ def _with_participation(
 
 def _today_for_engine(
     services: Services, session_id: str, slots: Mapping[str, Slot]
-) -> tuple[Scenario, dict[str, Any]]:
+) -> tuple[Scenario | None, dict[str, Any]]:
+    """Today with its participation resolved; None while it is not known (each alternative
+    then gets its own net and no diff: a partial comparison, never a refusal)."""
     today = _today(services, session_id)
     if today is None:
-        raise ToolError(
-            "missing_inputs", "set the current situation first", fields=["current_situation"]
-        )
+        return None, {"field": None, "pending_rep": False, "effective_from": None}
     return _with_participation(today, slots, CURRENT_PARTICIPATION, explicit=False)
 
 
@@ -651,7 +685,8 @@ def _comparison(
     except MissingInputs as error:
         raise _missing(services, session_id, error) from None
     eligibility = to_api_dict(engine_eligibility(profile, scenario, ctx), ctx.rules)
-    today_meta, alt_meta = result.today.metadata, result.alternative.metadata
+    alt_meta = result.alternative.metadata
+    today_source = None if result.today is None else result.today.metadata.participation_source
     payload = {
         "comparison": to_api_dict(result, ctx.rules),
         "eligibility": eligibility,
@@ -663,7 +698,7 @@ def _comparison(
         "pending_rep": alt_info["pending_rep"],
         "participation_effective_from": alt_info["effective_from"],
         "today_participation": {
-            "source": today_meta.participation_source,
+            "source": today_source,
             "pending_rep": today_info["pending_rep"],
             "effective_from": today_info["effective_from"],
         },
@@ -687,14 +722,42 @@ def list_options(services: Services, session_id: str, data: ListOptionsInput) ->
     unknown = sorted(set(data.participation) - set(ctx.catalog))
     if unknown:
         raise ToolError("not_found", "unknown catalog car id in participation", car_ids=unknown)
+    infos: dict[str, dict[str, Any]] = {}
+    options = _engine_options(services, session_id, data.participation, infos)
+    listed = to_api_dict(options, ctx.rules)
+    for option, data_out in zip(options, listed, strict=True):
+        info = infos.get(getattr(option.scenario, "car_id", ""), {})
+        data_out["participation_source"] = (
+            option.comparison.alternative.metadata.participation_source
+        )
+        data_out["pending_rep"] = info.get("pending_rep", False)
+        data_out["participation_effective_from"] = info.get("effective_from")
+        # Catalog facts, so the agent can offer same-drive alternatives without lookups.
+        car = ctx.catalog.get(getattr(option.scenario, "car_id", ""))
+        data_out["commercial_name"] = None if car is None else car.commercial_name
+        data_out["group"] = None if car is None else car.group
+        data_out["drive"] = None if car is None else car.drive
+    _emit_option_set(services, session_id, options, data.participation)
+    return {"options": listed}
+
+
+def _engine_options(
+    services: Services,
+    session_id: str,
+    participation: Mapping[str, Decimal],
+    infos: dict[str, dict[str, Any]] | None = None,
+) -> Any:
+    """The engine's options, each car's participation resolved as compare resolves it (the
+    stated amounts first). `infos` collects each car's resolution (pending, effective_from)."""
+    ctx = services.ctx
     slots = services.store.slots(session_id)
     today, _ = _today_for_engine(services, session_id, slots)
-    infos: dict[str, dict[str, Any]] = {}
+    infos = {} if infos is None else infos
 
     def adjust(candidate: Scenario) -> Scenario:
         if not isinstance(candidate, CompanyCar | FamilyCar):
             return candidate
-        stated = data.participation.get(candidate.car_id)
+        stated = participation.get(candidate.car_id)
         if stated is not None:
             candidate = candidate.model_copy(
                 update={"participation": stated, "participation_source": "employee_input"}
@@ -709,32 +772,21 @@ def list_options(services: Services, session_id: str, data: ListOptionsInput) ->
         return resolved
 
     try:
-        options = engine_options(profile_from_slots(slots), today, ctx, adjust=adjust)
+        return engine_options(profile_from_slots(slots), today, ctx, adjust=adjust)
     except MissingInputs as error:
         raise _missing(services, session_id, error) from None
-    listed = to_api_dict(options, ctx.rules)
-    for option, data_out in zip(options, listed, strict=True):
-        info = infos.get(getattr(option.scenario, "car_id", ""), {})
-        data_out["participation_source"] = (
-            option.comparison.alternative.metadata.participation_source
-        )
-        data_out["pending_rep"] = info.get("pending_rep", False)
-        data_out["participation_effective_from"] = info.get("effective_from")
-        # Catalog facts, so the agent can offer same-drive alternatives without lookups.
-        car = ctx.catalog.get(getattr(option.scenario, "car_id", ""))
-        data_out["commercial_name"] = None if car is None else car.commercial_name
-        data_out["group"] = None if car is None else car.group
-        data_out["drive"] = None if car is None else car.drive
-    _emit_option_set(services, session_id, options, set(data.participation))
-    return {"options": listed}
 
 
-def _emit_option_set(services: Services, session_id: str, options: Any, stated: set[str]) -> None:
+def _emit_option_set(
+    services: Services, session_id: str, options: Any, stated: Mapping[str, Decimal]
+) -> None:
     """Every eligible alternative, on screen: one comparison_set_ready event with each one's
     display-ready `view`, computed exactly as compare computes it (the same participation
     resolution, so pending is marked per car; the same view builder and invariants), by the
-    server, with no model call. Best first. Nothing is stored as a comparison: the model's own
-    compare stays the record of what it compared."""
+    server, with no model call. Best first (by net while today is unknown: the same order).
+    Nothing is stored as a comparison: the model's own compare stays the record of what it
+    compared. The event keeps the stated participations and whether today was unknown, so
+    refresh_without_today can compute the same set again once today is known."""
     entries = []
     for option in options:
         if option.eligibility.status != "eligible":
@@ -746,12 +798,24 @@ def _emit_option_set(services: Services, session_id: str, options: Any, stated: 
         alternative = scenario.model_dump(mode="json")
         view = build_view(services, session_id, alternative, {**payload, "origin": "server"})
         entries.append({"alternative": alternative, "view": view})
-    entries.sort(key=lambda e: -e["view"]["display_diff"])
+    entries.sort(key=lambda e: -_rank(e["view"]))
     services.store.append_event(
         session_id,
         "comparison_set_ready",
-        {"origin": "server", "tool": "list_options", "options": entries},
+        {
+            "origin": "server",
+            "tool": "list_options",
+            "options": entries,
+            "stated": plain_json(dict(stated)),
+            "today_unknown": any(o.comparison.today_unknown for o in options),
+        },
     )
+
+
+def _rank(view: Mapping[str, Any]) -> int:
+    """A view's place in the selector: its diff, or its own net while today is unknown."""
+    diff = view["display_diff"]
+    return view["alternative_net"] if diff is None else diff
 
 
 # --- 8. get_rule ------------------------------------------------------------------------------

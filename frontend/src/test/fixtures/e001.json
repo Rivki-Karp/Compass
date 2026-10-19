@@ -1,15 +1,15 @@
 [
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 1,
   "type": "session_created",
   "payload": {
    "status": "active"
   },
-  "created_at": "2026-10-19T15:04:41.956+00:00"
+  "created_at": "2026-10-19T17:02:02.755+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 2,
   "type": "user_message",
   "payload": {
@@ -18,19 +18,19 @@
     "text": "אני מנהלת מוצר, שכר בסיס 18,500"
    }
   },
-  "created_at": "2026-10-19T15:04:41.984+00:00"
+  "created_at": "2026-10-19T17:02:02.768+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 3,
   "type": "agent_started",
   "payload": {
    "trigger": "employee_turn"
   },
-  "created_at": "2026-10-19T15:04:42.038+00:00"
+  "created_at": "2026-10-19T17:02:02.791+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 4,
   "type": "tool_call",
   "payload": {
@@ -41,10 +41,10 @@
     "base_salary": 18500
    }
   },
-  "created_at": "2026-10-19T15:04:42.088+00:00"
+  "created_at": "2026-10-19T17:02:02.809+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 5,
   "type": "profile_updated",
   "payload": {
@@ -66,10 +66,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:42.101+00:00"
+  "created_at": "2026-10-19T17:02:02.822+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 6,
   "type": "tool_result",
   "payload": {
@@ -111,10 +111,10 @@
     "group_budget": "4500"
    }
   },
-  "created_at": "2026-10-19T15:04:42.132+00:00"
+  "created_at": "2026-10-19T17:02:02.834+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 7,
   "type": "guard_check",
   "payload": {
@@ -128,10 +128,10 @@
    },
    "action": "accept"
   },
-  "created_at": "2026-10-19T15:04:42.163+00:00"
+  "created_at": "2026-10-19T17:02:02.854+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 8,
   "type": "assistant_message",
   "payload": {
@@ -140,17 +140,17 @@
    "kind": "reply",
    "comparison_ref": null
   },
-  "created_at": "2026-10-19T15:04:42.195+00:00"
+  "created_at": "2026-10-19T17:02:02.871+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 9,
   "type": "agent_finished",
   "payload": {
    "outcome": "reply",
    "error": null,
    "rounds": 1,
-   "latency_ms": 219,
+   "latency_ms": 109,
    "model": "scripted",
    "usage": {
     "input_tokens": 0,
@@ -161,10 +161,10 @@
    "cost_usd": null,
    "limit": null
   },
-  "created_at": "2026-10-19T15:04:42.219+00:00"
+  "created_at": "2026-10-19T17:02:02.877+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 10,
   "type": "user_message",
   "payload": {
@@ -173,19 +173,19 @@
     "text": "אין לי עמלות או בונוסים. פנסיה 6%, קרן השתלמות 2.5%, 2.75 נקודות זיכוי, 2 ילדים מתחת לגיל 23. היום יש לי קורולה קרוס 2025 ואני משתתפת ב-300 ₪."
    }
   },
-  "created_at": "2026-10-19T15:04:42.261+00:00"
+  "created_at": "2026-10-19T17:02:02.904+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 11,
   "type": "agent_started",
   "payload": {
    "trigger": "employee_turn"
   },
-  "created_at": "2026-10-19T15:04:42.586+00:00"
+  "created_at": "2026-10-19T17:02:02.926+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 12,
   "type": "tool_call",
   "payload": {
@@ -200,10 +200,10 @@
     "children_under_23": 2
    }
   },
-  "created_at": "2026-10-19T15:04:42.639+00:00"
+  "created_at": "2026-10-19T17:02:02.947+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 13,
   "type": "profile_updated",
   "payload": {
@@ -240,10 +240,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:42.656+00:00"
+  "created_at": "2026-10-19T17:02:02.965+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 14,
   "type": "tool_result",
   "payload": {
@@ -279,10 +279,10 @@
     "group_budget": "4500"
    }
   },
-  "created_at": "2026-10-19T15:04:42.691+00:00"
+  "created_at": "2026-10-19T17:02:02.978+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 15,
   "type": "tool_call",
   "payload": {
@@ -297,10 +297,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:42.707+00:00"
+  "created_at": "2026-10-19T17:02:02.987+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 16,
   "type": "current_situation_set",
   "payload": {
@@ -320,10 +320,10 @@
     "label": "COROLLA CROSS"
    }
   },
-  "created_at": "2026-10-19T15:04:42.718+00:00"
+  "created_at": "2026-10-19T17:02:02.996+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 17,
   "type": "tool_result",
   "payload": {
@@ -351,10 +351,10 @@
     "warnings": []
    }
   },
-  "created_at": "2026-10-19T15:04:42.734+00:00"
+  "created_at": "2026-10-19T17:02:03.009+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 18,
   "type": "guard_check",
   "payload": {
@@ -368,10 +368,10 @@
    },
    "action": "accept"
   },
-  "created_at": "2026-10-19T15:04:42.756+00:00"
+  "created_at": "2026-10-19T17:02:03.036+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 19,
   "type": "assistant_message",
   "payload": {
@@ -380,17 +380,17 @@
    "kind": "reply",
    "comparison_ref": null
   },
-  "created_at": "2026-10-19T15:04:42.776+00:00"
+  "created_at": "2026-10-19T17:02:03.052+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 20,
   "type": "agent_finished",
   "payload": {
    "outcome": "reply",
    "error": null,
    "rounds": 1,
-   "latency_ms": 250,
+   "latency_ms": 156,
    "model": "scripted",
    "usage": {
     "input_tokens": 0,
@@ -401,10 +401,10 @@
    "cost_usd": null,
    "limit": null
   },
-  "created_at": "2026-10-19T15:04:42.786+00:00"
+  "created_at": "2026-10-19T17:02:03.063+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 21,
   "type": "user_message",
   "payload": {
@@ -413,19 +413,19 @@
     "text": "מה יקרה לנטו אם אעבור ל-ATTO 3? אני לא יודעת מה תהיה ההשתתפות שלי בו, אפשר לשאול את הנציג?"
    }
   },
-  "created_at": "2026-10-19T15:04:42.819+00:00"
+  "created_at": "2026-10-19T17:02:03.077+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 22,
   "type": "agent_started",
   "payload": {
    "trigger": "employee_turn"
   },
-  "created_at": "2026-10-19T15:04:42.855+00:00"
+  "created_at": "2026-10-19T17:02:03.108+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 23,
   "type": "tool_call",
   "payload": {
@@ -438,16 +438,16 @@
     ]
    }
   },
-  "created_at": "2026-10-19T15:04:42.871+00:00"
+  "created_at": "2026-10-19T17:02:03.125+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 24,
   "type": "ticket_opened",
   "payload": {
    "ticket": {
-    "id": "c27bcad0b8d24cd9a123a8bccd2d288f",
-    "session_id": "d27029bdc3d042319f90aadf34a84230",
+    "id": "89453ec5ac8c48b9aded8e2e08b4324f",
+    "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
     "question": "מה גובה ההשתתפות העצמית החודשית ב-ATTO 3?",
     "context": {
      "display_name": null,
@@ -463,23 +463,23 @@
     "questions": [],
     "status": "open",
     "answer": null,
-    "created_at": "2026-10-19T15:04:42.900+00:00",
+    "created_at": "2026-10-19T17:02:03.169+00:00",
     "answered_at": null
    }
   },
-  "created_at": "2026-10-19T15:04:42.902+00:00"
+  "created_at": "2026-10-19T17:02:03.172+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 25,
   "type": "session_status",
   "payload": {
    "status": "waiting_for_rep"
   },
-  "created_at": "2026-10-19T15:04:42.902+00:00"
+  "created_at": "2026-10-19T17:02:03.172+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 26,
   "type": "comparison_ready",
   "payload": {
@@ -706,7 +706,8 @@
     ],
     "warnings": [],
     "missing": [],
-    "partial": false
+    "partial": false,
+    "today_unknown": false
    },
    "eligibility": {
     "status": "eligible",
@@ -729,7 +730,7 @@
     "effective_from": null
    },
    "origin": "server",
-   "ticket_id": "c27bcad0b8d24cd9a123a8bccd2d288f",
+   "ticket_id": "89453ec5ac8c48b9aded8e2e08b4324f",
    "pending_field": "alternative_participation:CAR-10",
    "view": {
     "version": 1,
@@ -745,6 +746,7 @@
     "alternative_net": 11693,
     "display_diff": 661,
     "direction": "up",
+    "diff_note": null,
     "breakdown": [
      {
       "key": "electric_gross",
@@ -958,10 +960,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:42.944+00:00"
+  "created_at": "2026-10-19T17:02:03.212+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 27,
   "type": "tool_result",
   "payload": {
@@ -971,7 +973,7 @@
    "summary": {},
    "result": {
     "ok": true,
-    "ticket_id": "c27bcad0b8d24cd9a123a8bccd2d288f",
+    "ticket_id": "89453ec5ac8c48b9aded8e2e08b4324f",
     "status": "open",
     "context": {
      "display_name": null,
@@ -1200,7 +1202,8 @@
        ],
        "warnings": [],
        "missing": [],
-       "partial": false
+       "partial": false,
+       "today_unknown": false
       },
       "eligibility": {
        "status": "eligible",
@@ -1226,10 +1229,10 @@
     ]
    }
   },
-  "created_at": "2026-10-19T15:04:42.965+00:00"
+  "created_at": "2026-10-19T17:02:03.223+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 28,
   "type": "tool_call",
   "payload": {
@@ -1242,10 +1245,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:43.005+00:00"
+  "created_at": "2026-10-19T17:02:03.255+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 29,
   "type": "comparison_ready",
   "payload": {
@@ -1472,7 +1475,8 @@
     ],
     "warnings": [],
     "missing": [],
-    "partial": false
+    "partial": false,
+    "today_unknown": false
    },
    "eligibility": {
     "status": "eligible",
@@ -1508,6 +1512,7 @@
     "alternative_net": 11693,
     "display_diff": 661,
     "direction": "up",
+    "diff_note": null,
     "breakdown": [
      {
       "key": "electric_gross",
@@ -1721,10 +1726,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:43.027+00:00"
+  "created_at": "2026-10-19T17:02:03.278+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 30,
   "type": "tool_result",
   "payload": {
@@ -1956,7 +1961,8 @@
      ],
      "warnings": [],
      "missing": [],
-     "partial": false
+     "partial": false,
+     "today_unknown": false
     },
     "eligibility": {
      "status": "eligible",
@@ -1980,10 +1986,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:43.052+00:00"
+  "created_at": "2026-10-19T17:02:03.288+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 31,
   "type": "guard_check",
   "payload": {
@@ -2001,10 +2007,10 @@
    },
    "action": "accept"
   },
-  "created_at": "2026-10-19T15:04:43.087+00:00"
+  "created_at": "2026-10-19T17:02:03.311+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 32,
   "type": "assistant_message",
   "payload": {
@@ -2013,17 +2019,17 @@
    "kind": "reply",
    "comparison_ref": 29
   },
-  "created_at": "2026-10-19T15:04:43.130+00:00"
+  "created_at": "2026-10-19T17:02:03.326+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 33,
   "type": "agent_finished",
   "payload": {
    "outcome": "reply",
    "error": null,
    "rounds": 2,
-   "latency_ms": 313,
+   "latency_ms": 250,
    "model": "scripted",
    "usage": {
     "input_tokens": 0,
@@ -2034,14 +2040,14 @@
    "cost_usd": null,
    "limit": null
   },
-  "created_at": "2026-10-19T15:04:43.142+00:00"
+  "created_at": "2026-10-19T17:02:03.338+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 34,
   "type": "ticket_answered",
   "payload": {
-   "ticket_id": "c27bcad0b8d24cd9a123a8bccd2d288f",
+   "ticket_id": "89453ec5ac8c48b9aded8e2e08b4324f",
    "answer": {
     "text": null,
     "quick_answer_id": null,
@@ -2060,19 +2066,19 @@
    "partial": false,
    "pending": []
   },
-  "created_at": "2026-10-19T15:04:43.206+00:00"
+  "created_at": "2026-10-19T17:02:03.387+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 35,
   "type": "session_status",
   "payload": {
    "status": "active"
   },
-  "created_at": "2026-10-19T15:04:43.206+00:00"
+  "created_at": "2026-10-19T17:02:03.387+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 36,
   "type": "comparison_ready",
   "payload": {
@@ -2299,7 +2305,8 @@
     ],
     "warnings": [],
     "missing": [],
-    "partial": false
+    "partial": false,
+    "today_unknown": false
    },
    "eligibility": {
     "status": "eligible",
@@ -2323,7 +2330,7 @@
    },
    "origin": "server",
    "recomputed_from": 29,
-   "ticket_id": "c27bcad0b8d24cd9a123a8bccd2d288f",
+   "ticket_id": "89453ec5ac8c48b9aded8e2e08b4324f",
    "answered_field": "alternative_participation:CAR-10",
    "view": {
     "version": 1,
@@ -2339,6 +2346,7 @@
     "alternative_net": 11643,
     "display_diff": 611,
     "direction": "up",
+    "diff_note": null,
     "breakdown": [
      {
       "key": "electric_gross",
@@ -2560,19 +2568,19 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:43.237+00:00"
+  "created_at": "2026-10-19T17:02:03.419+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 37,
   "type": "agent_started",
   "payload": {
    "trigger": "rep_answer"
   },
-  "created_at": "2026-10-19T15:04:43.285+00:00"
+  "created_at": "2026-10-19T17:02:03.461+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 38,
   "type": "tool_call",
   "payload": {
@@ -2585,10 +2593,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:43.309+00:00"
+  "created_at": "2026-10-19T17:02:03.483+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 39,
   "type": "comparison_ready",
   "payload": {
@@ -2815,7 +2823,8 @@
     ],
     "warnings": [],
     "missing": [],
-    "partial": false
+    "partial": false,
+    "today_unknown": false
    },
    "eligibility": {
     "status": "eligible",
@@ -2851,6 +2860,7 @@
     "alternative_net": 11643,
     "display_diff": 611,
     "direction": "up",
+    "diff_note": null,
     "breakdown": [
      {
       "key": "electric_gross",
@@ -3072,10 +3082,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:43.330+00:00"
+  "created_at": "2026-10-19T17:02:03.510+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 40,
   "type": "tool_result",
   "payload": {
@@ -3307,7 +3317,8 @@
      ],
      "warnings": [],
      "missing": [],
-     "partial": false
+     "partial": false,
+     "today_unknown": false
     },
     "eligibility": {
      "status": "eligible",
@@ -3331,10 +3342,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:43.350+00:00"
+  "created_at": "2026-10-19T17:02:03.519+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 41,
   "type": "guard_check",
   "payload": {
@@ -3356,10 +3367,10 @@
    },
    "action": "accept"
   },
-  "created_at": "2026-10-19T15:04:43.383+00:00"
+  "created_at": "2026-10-19T17:02:03.547+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 42,
   "type": "assistant_message",
   "payload": {
@@ -3368,17 +3379,17 @@
    "kind": "reply",
    "comparison_ref": 39
   },
-  "created_at": "2026-10-19T15:04:43.408+00:00"
+  "created_at": "2026-10-19T17:02:03.569+00:00"
  },
  {
-  "session_id": "d27029bdc3d042319f90aadf34a84230",
+  "session_id": "9b02b0390e1347d8a4c8d9752e99729b",
   "seq": 43,
   "type": "agent_finished",
   "payload": {
    "outcome": "reply",
    "error": null,
    "rounds": 1,
-   "latency_ms": 172,
+   "latency_ms": 156,
    "model": "scripted",
    "usage": {
     "input_tokens": 0,
@@ -3389,6 +3400,6 @@
    "cost_usd": null,
    "limit": null
   },
-  "created_at": "2026-10-19T15:04:43.417+00:00"
+  "created_at": "2026-10-19T17:02:03.580+00:00"
  }
 ]

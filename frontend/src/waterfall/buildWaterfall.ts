@@ -66,6 +66,9 @@ export function buildWaterfall(view: ComparisonView): Waterfall {
     };
   });
 
+  if (view.display_diff === null) {
+    throw new WaterfallInvariantError("no difference to chart (today's car unknown)");
+  }
   // Invariant 2: the lines add up to the difference the hero shows.
   if (running !== view.display_diff) {
     throw new WaterfallInvariantError(
