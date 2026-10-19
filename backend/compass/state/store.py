@@ -31,7 +31,9 @@ TicketStatus = Literal["open", "answered"]
 #   session_created (status) · session_status (status) · user_message (seq, content)
 #   profile_updated (fields) · current_situation_set (scenario) · comparison_ready (comparison)
 #   ticket_opened (ticket) · ticket_answered (ticket_id, answer, fields, unknown, partial,
-#   pending): `partial` answers fill some fields and leave the ticket open with `pending` ones
+#   pending, questions?): `partial` answers fill some fields and leave the ticket open with
+#   `pending` ones (bound fields, and free questions' ids); `questions` is this part's answer
+#   to each question, display-ready
 EVENT_TYPES = frozenset(
     {
         "session_created",
@@ -470,6 +472,7 @@ class Store:
         pending: Sequence[str] = (),
         part: Any = None,
         questions: Sequence[Any] = (),
+        sources: Mapping[str, SlotSource] | None = None,
     ) -> Ticket:
         """Fill the given slots (source representative), mark `unknown` slots unknown (the
         representative answered without a value), and, unless fields are still `pending` (a
@@ -477,12 +480,17 @@ class Store:
 
         `answer` is stored as the ticket's answer so far (the caller merges earlier parts); the
         event carries this `part` of it (default: the whole answer) and its slot values, and
-        `questions`, this part's answer to each question (display-ready), when given."""
+        `questions`, this part's answer to each question (display-ready), when given. `sources`
+        overrides a filled slot's source (a group derived from the approved occupation)."""
         with self._write() as (conn, events):
             ticket = self._ticket(conn, ticket_id)
             if ticket.status != "open":
                 raise StateError(f"ticket {ticket_id} is already {ticket.status}")
-            filled = {f: SlotUpdate(value=v, source="representative") for f, v in values.items()}
+            source_of = sources or {}
+            filled = {
+                f: SlotUpdate(value=v, source=source_of.get(f, "representative"))
+                for f, v in values.items()
+            }
             filled |= {f: SlotUpdate(state="unknown", source="representative") for f in unknown}
             self._upsert_slots(conn, ticket.session_id, filled)
             if pending:

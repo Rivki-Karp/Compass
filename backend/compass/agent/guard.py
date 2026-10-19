@@ -4,7 +4,8 @@ words (or a representative's answer), or be harmless.
 Allowed, per session:
     - every number in every tool result (exact and display values, numbers inside strings such
       as "CAR-10" or "ATTO 3 2025"), plus the percentage form of fractions (0.065 -> 6.5)
-    - every number the employee wrote, and the values in representative answers
+    - every number the employee wrote, and the values in representative answers (with the
+      notes and the answers to free questions)
     - harmless: 1-9 (list markers, counts), years 2020-2030, and dates that appear in the above
       (or a plain day/month such as 1/1)
 
@@ -19,7 +20,7 @@ from decimal import Decimal
 from typing import Any
 
 from compass.agent.runner import Guard, GuardVerdict
-from compass.agent.transcript import is_server_event
+from compass.agent.transcript import REP_QUESTION_KEYS, is_server_event
 from compass.state import Store
 
 # Dates: ISO, day.month.year, day/month/year, or a plain day/month with a slash ("1/1").
@@ -146,10 +147,10 @@ def allowed_for_session(store: Store, session_id: str) -> Allowed:
             for result in content.get("results", []):
                 allowed.add_json(result.get("full"), result.get("name") or "tool")
         elif is_server_event(row, "rep_answer"):
-            allowed.add_json(
-                {k: content.get(k) for k in ("answer_text", "values", "effective_from")},
-                "representative",
-            )
+            # the representative's words: values, notes, answers to free questions
+            keys = ("answer_text", "values", "effective_from", *REP_QUESTION_KEYS)
+            allowed.add_json({k: content.get(k) for k in keys}, "representative")
+            allowed.add_json(content.get("profile_after"), "server")
             # what the model was shown of the server's settled comparisons, and nothing more
             allowed.add_json(content.get("server_comparisons"), "server")
     return allowed

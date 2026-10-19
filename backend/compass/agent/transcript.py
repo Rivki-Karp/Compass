@@ -48,6 +48,28 @@ def employee_block(text: str) -> str:
     return f"<{EMPLOYEE_TAG}>\n{escape_tags(text)}\n</{EMPLOYEE_TAG}>"
 
 
+# A representative's answers to the ticket's questions (compass/tools/questions.py): data the
+# model reads, never instructions. Free answers never change a value.
+REP_QUESTION_KEYS = (
+    "free_answers",
+    "free_unanswered",
+    "needs_checking",
+    "notes",
+    "pending_questions",
+)
+
+
+def _escaped(data: Any) -> Any:
+    """`data` with our tag names made inert in every string (keys and values)."""
+    if isinstance(data, str):
+        return escape_tags(data)
+    if isinstance(data, dict):
+        return {escape_tags(str(k)): _escaped(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return [_escaped(v) for v in data]
+    return data
+
+
 def rep_block(event: dict[str, Any]) -> str:
     """A representative's answer, as structured data the model can trust (server-written)."""
     payload = {
@@ -61,6 +83,12 @@ def rep_block(event: dict[str, Any]) -> str:
     if event.get("pending_fields"):
         # a partial answer: the representative has not answered these yet
         payload["pending_fields"] = event["pending_fields"]
+    for key in REP_QUESTION_KEYS:
+        if event.get(key):
+            payload[key] = _escaped(event[key])
+    if event.get("profile_after"):
+        # the occupation and group in effect after the answer, with the warnings (server)
+        payload["profile_after"] = _escaped(event["profile_after"])
     if event.get("server_comparisons"):
         # compare's own (compact) result, recomputed by the server with the answer
         payload["server_comparisons"] = event["server_comparisons"]

@@ -149,6 +149,15 @@ def save_profile(services: Services, session_id: str, data: SaveProfileInput) ->
         raise ToolError("invalid_input", "a field cannot be both given and unknown", fields=both)
     if "group" in given or "group" in data.unknown_fields:
         _require_group_not_with_rep(slots)
+    occupation_slot = slots.get("occupation")
+    if (data.occupation_query is not None or "occupation" in data.unknown_fields) and (
+        occupation_slot is not None and occupation_slot.state == "pending_rep"
+    ):
+        raise ToolError(
+            "invalid_input",
+            "a representative is reviewing the occupation; wait for the answer",
+            field="occupation_query",
+        )
 
     updates: dict[str, SlotUpdate] = {}
     errors = []
@@ -212,6 +221,32 @@ def save_profile(services: Services, session_id: str, data: SaveProfileInput) ->
         occupation_error.details["partial_result"] = summary
         raise occupation_error
     return summary
+
+
+def profile_after(services: Services, session_id: str) -> dict[str, Any]:
+    """The occupation and the group in effect, with their sources and the warnings: what a
+    representative's occupation or group answer left (for the rep notification)."""
+    slots = services.store.slots(session_id)
+
+    def part(field: str) -> tuple[Any, str | None]:
+        slot = slots.get(field)
+        if slot is None:
+            return None, None
+        return (slot.value if slot.state == "filled" else None), (
+            slot.source if slot.state == "filled" else slot.state
+        )
+
+    occupation, occupation_source = part("occupation")
+    group, group_source = part("group")
+    budget = services.ctx.rules.budgets.get(group) if group is not None else None
+    return {
+        "occupation": occupation,
+        "occupation_source": occupation_source,
+        "group": group,
+        "group_source": group_source,
+        "group_budget": plain_json(budget),
+        "warnings": _warnings(services, session_id),
+    }
 
 
 def _require_group_not_with_rep(slots: Mapping[str, Slot]) -> None:
@@ -869,10 +904,15 @@ def _provisional_comparisons(
     return results
 
 
+# Bound fields every comparison uses (the group in effect, eligibility, warnings, the waiver's
+# maintenance): a ticket on one of them affects the latest comparison, whatever it compared.
+_EVERY_COMPARISON = (GROUP_EXCEPTION, "occupation")
+
+
 def _uses_catalog_default(payload: Mapping[str, Any], field: str) -> bool | None:
     """Whether this comparison used `field` at the catalog default (None: it didn't use it).
-    A group exception: every comparison used the group in effect (eligibility, warnings)."""
-    if field == GROUP_EXCEPTION:
+    A group exception or the occupation: every comparison used it."""
+    if field in _EVERY_COMPARISON:
         return True
     if field == CURRENT_PARTICIPATION:
         return payload["today_participation"]["source"] == "catalog_default"
@@ -895,8 +935,8 @@ def _recompute_as_pending(
 
 def _uses_pending(payload: Mapping[str, Any], field: str) -> bool | None:
     """Whether this comparison waited for `field` (None: it didn't use it)."""
-    if field == GROUP_EXCEPTION:
-        return GROUP_EXCEPTION in payload.get("view", {}).get("pending_fields", [])
+    if field in _EVERY_COMPARISON:
+        return field in payload.get("view", {}).get("pending_fields", [])
     if field == CURRENT_PARTICIPATION:
         return bool(payload["today_participation"]["pending_rep"])
     if payload["alternative"].get("car_id") != field.removeprefix(ALTERNATIVE_PARTICIPATION):
@@ -957,7 +997,7 @@ def _recompute_latest(
     ]
     targets: dict[int, str] = {}  # event seq -> the field it concerns
     for field in fields:
-        if not (is_participation(field) or field == GROUP_EXCEPTION):
+        if not (is_participation(field) or field in _EVERY_COMPARISON):
             continue
         for event in reversed(comparisons):  # the latest comparison that used the field
             used = needs_recompute(event.payload, field)
