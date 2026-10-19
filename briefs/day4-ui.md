@@ -1,5 +1,10 @@
 # Day 4 Brief — Compass UI (employee, representative, judges mode)
 
+> **Layout note (2026-10-19, after v1.1):** the repo is now split into `backend/` and
+> `frontend/` (formerly `web/`). The commands below are updated to run from the repo root
+> (`uv run --project backend python tasks.py ...`); the narrative and file names describe the
+> repo as it was on the day.
+
 Branch: `day4/ui`, cut from `main` at tag `day3-complete`.
 Commit this file as `briefs/day4-ui.md` in the first commit of the branch.
 The logo is at `briefs/assets/compass-logo.png` (I put it there); in Stage 2 copy it to `web/src/assets/`.

@@ -1,27 +1,31 @@
-"""Cross-platform task runner (Windows / macOS / Linux).
+"""Cross-platform task runner (Windows / macOS / Linux), run from the repository root.
+
+Every task runs in the backend's environment (backend/uv.lock), so the command is
+`uv run --project backend python tasks.py <task>`. Below, `tasks.py` stands for that:
 
 Usage:
-    uv run python tasks.py install   # sync dependencies (uv.lock)
-    uv run python tasks.py data      # rebuild all generated data from raw/
-    uv run python tasks.py test      # run the test suite
-    uv run python tasks.py lint      # ruff check + ruff format --check
-    uv run python tasks.py fmt       # apply ruff formatting and safe fixes
-    uv run python tasks.py demo      # THE demo: reset, build if needed, serve on :8000 (no key)
-    uv run python tasks.py demo E-001  # Hebrew net breakdown of a golden reference employee
-    uv run python tasks.py calc      # interactive calculator: your own profile and scenarios
-    uv run python tasks.py serve     # API on http://127.0.0.1:8000 (docs at /docs), auto-reload
-    uv run python tasks.py demo-reset  # wipe demo mode's database (data/demo.db), never app.db
-    uv run python tasks.py build-web # build the UI (web/dist); `serve` then serves it at /
-    uv run python tasks.py web       # dev: API :8000 + Vite http://localhost:5173 (Ctrl+C: both)
-    uv run python tasks.py chat      # terminal chat with the agent (ANTHROPIC_API_KEY in .env)
-    uv run python tasks.py eval      # agent evals against the real model -> evals/report.md
-    uv run python tasks.py eval --only walkthrough,e001_rep_flow --repeat 3 --effort medium
-    uv run python tasks.py openapi   # write openapi.json (commit it with API changes)
-    uv run python tasks.py ts-types  # write web/src/api/generated.ts (commit it with view changes)
-    uv run python tasks.py test-counts  # write tests/counts.json (judges mode; pytest checks it)
-    uv run python tasks.py record-demo  # the backup video -> docs/video/*.webm (demo mode, no key)
-    uv run python tasks.py readme    # regenerate README.md's results block (pytest checks it)
-    uv run python tasks.py smoke --url https://compass.onrender.com  # check a deployed server
+    tasks.py install   # sync dependencies (backend/uv.lock)
+    tasks.py data      # rebuild all generated data from backend/raw/
+    tasks.py test      # run the test suite
+    tasks.py lint      # ruff check + ruff format --check
+    tasks.py fmt       # apply ruff formatting and safe fixes
+    tasks.py demo      # THE demo: reset, build if needed, serve on :8000 (no key)
+    tasks.py demo E-001  # Hebrew net breakdown of a golden reference employee
+    tasks.py calc      # interactive calculator: your own profile and scenarios
+    tasks.py serve     # API on http://127.0.0.1:8000 (docs at /docs), auto-reload
+    tasks.py demo-reset  # wipe demo mode's database (backend/data/demo.db), never app.db
+    tasks.py build-web # build the UI (frontend/dist); `serve` then serves it at /
+    tasks.py web       # dev: API :8000 + Vite http://localhost:5173 (Ctrl+C: both)
+    tasks.py chat      # terminal chat with the agent (ANTHROPIC_API_KEY in backend/.env)
+    tasks.py eval      # agent evals against the real model -> backend/evals/report.md
+    tasks.py eval --only walkthrough,e001_rep_flow --repeat 3 --effort medium
+    tasks.py openapi   # write backend/openapi.json (commit it with API changes)
+    tasks.py ts-types  # write frontend/src/api/generated.ts (commit it with view changes)
+    tasks.py test-counts  # write backend/tests/counts.json (judges mode; pytest checks it)
+    tasks.py record-demo  # the backup video -> docs/video/*.webm (demo mode, no key)
+    tasks.py readme    # regenerate README.md's results block (pytest checks it)
+    tasks.py smoke --api https://compass-api.onrender.com --web https://compass-web.onrender.com
+                       # check a deployment: the backend, and the frontend (--web optional)
 """
 
 import subprocess
@@ -31,8 +35,9 @@ from collections.abc import Callable
 from pathlib import Path
 
 REPO_ROOT: Path = Path(__file__).resolve().parent
+BACKEND: Path = REPO_ROOT / "backend"  # the Python project: its commands run from here
 
-# Order matters: later scripts may read outputs of earlier ones.
+# Order matters: later scripts may read outputs of earlier ones (the Dockerfile runs the same).
 DATA_SCRIPTS: list[str] = [
     "scripts/build_vehicles_db.py",
     "scripts/extract_excel.py",
@@ -41,7 +46,7 @@ DATA_SCRIPTS: list[str] = [
 
 def run(*args: str) -> None:
     print("$", " ".join(args), flush=True)
-    result = subprocess.run(args, cwd=REPO_ROOT)
+    result = subprocess.run(args, cwd=BACKEND)
     if result.returncode != 0:
         sys.exit(result.returncode)
 
@@ -52,21 +57,25 @@ def install() -> None:
 
 def data() -> None:
     for script in DATA_SCRIPTS:
-        run(sys.executable, str(REPO_ROOT / script))
+        run(sys.executable, str(BACKEND / script))
 
 
 def test() -> None:
     run(sys.executable, "-m", "pytest")
 
 
+# backend/ and this file, all with backend/pyproject.toml's settings (run() works in backend/)
+RUFF_ARGS = ("--config", "pyproject.toml", ".", str(REPO_ROOT / "tasks.py"))
+
+
 def lint() -> None:
-    run(sys.executable, "-m", "ruff", "check", ".")
-    run(sys.executable, "-m", "ruff", "format", "--check", ".")
+    run(sys.executable, "-m", "ruff", "check", *RUFF_ARGS)
+    run(sys.executable, "-m", "ruff", "format", "--check", *RUFF_ARGS)
 
 
 def fmt() -> None:
-    run(sys.executable, "-m", "ruff", "check", "--fix", ".")
-    run(sys.executable, "-m", "ruff", "format", ".")
+    run(sys.executable, "-m", "ruff", "check", "--fix", *RUFF_ARGS)
+    run(sys.executable, "-m", "ruff", "format", *RUFF_ARGS)
 
 
 def demo(*args: str) -> None:
@@ -82,14 +91,14 @@ DEMO_TOKENS = {"COMPASS_REP_TOKEN": "rep-demo", "COMPASS_ADMIN_TOKEN": "admin-de
 
 def demo_app() -> None:
     """One command for the demo: demo mode (the scripted model; no API key, no network), an
-    empty demo database, the UI built if web/dist is missing or older than its sources, then the
-    API and the UI on http://127.0.0.1:8000 until Ctrl+C."""
+    empty demo database, the UI built if frontend/dist is missing or older than its sources, then
+    the API and the UI on http://127.0.0.1:8000 until Ctrl+C."""
     import os
 
     from compass.api.settings import _env
 
     os.environ["COMPASS_LLM"] = "scripted"
-    configured = _env(REPO_ROOT / ".env")
+    configured = _env(BACKEND / ".env")
     tokens: dict[str, str] = {}
     for name, default in DEMO_TOKENS.items():
         if configured.get(name):
@@ -102,7 +111,7 @@ def demo_app() -> None:
     if _web_build_is_stale():
         build_web()
     else:
-        print("web/dist is up to date")
+        print("frontend/dist is up to date")
     print(
         "\nCompass demo (demo mode: scripted model, no API key, no network)\n"
         "  employee:       http://127.0.0.1:8000/\n"
@@ -122,7 +131,7 @@ WEB_SOURCES = ("src", "public", "index.html", "package.json", "package-lock.json
 
 
 def _web_build_is_stale() -> bool:
-    """Whether web/dist is missing, or older than any file the build reads."""
+    """Whether frontend/dist is missing, or older than any file the build reads."""
     index = WEB / "dist" / "index.html"
     if not index.is_file():
         return True
@@ -140,18 +149,18 @@ def calc() -> None:
 
 
 def _print_token_warnings() -> None:
-    """An empty rep or admin token (in .env or the environment): say which screen won't work.
-    Never prints a token's value."""
+    """An empty rep or admin token (in backend/.env or the environment): say which screen won't
+    work. Never prints a token's value."""
     from compass.api.settings import token_warnings_from_env
 
-    for warning in token_warnings_from_env(REPO_ROOT / ".env"):
+    for warning in token_warnings_from_env(BACKEND / ".env"):
         print(f"WARNING: {warning}", flush=True)
 
 
 def serve() -> None:
     from compass.api.settings import Settings, live_token_errors, live_token_message
 
-    errors = live_token_errors(Settings.from_env(REPO_ROOT / ".env"))
+    errors = live_token_errors(Settings.from_env(BACKEND / ".env"))
     if errors:  # the server would refuse anyway; say it before uvicorn's reloader starts
         sys.exit(live_token_message(errors))
     _print_token_warnings()
@@ -170,16 +179,19 @@ def serve() -> None:
 
 
 NPM = "npm.cmd" if sys.platform == "win32" else "npm"
-WEB = REPO_ROOT / "web"
+WEB = REPO_ROOT / "frontend"
 
 
 def build_web() -> None:
-    """Build the UI into web/dist (`npm ci` first when web/node_modules is missing). The API
+    """Build the UI into frontend/dist (`npm ci` first when its node_modules is missing). The API
     serves it at / with an SPA fallback: one URL, http://127.0.0.1:8000."""
     if not (WEB / "node_modules").is_dir():
         run_in(WEB, NPM, "ci")
     run_in(WEB, NPM, "run", "build")
-    print("built web/dist: `uv run python tasks.py serve`, then open http://127.0.0.1:8000")
+    print(
+        "built frontend/dist: `uv run --project backend python tasks.py serve`, "
+        "then open http://127.0.0.1:8000"
+    )
 
 
 def web() -> None:
@@ -199,7 +211,7 @@ def web() -> None:
             "--port",
             "8000",
         ],
-        cwd=REPO_ROOT,
+        cwd=BACKEND,
     )
     vite = subprocess.Popen([NPM, "run", "dev"], cwd=WEB)
     print("API http://127.0.0.1:8000 · UI http://localhost:5173 · Ctrl+C stops both", flush=True)
@@ -240,7 +252,8 @@ def run_in(cwd: Path, *args: str) -> None:
 
 def demo_reset() -> None:
     """Demo mode (COMPASS_LLM=scripted) keeps its sessions and tickets in its own database
-    (data/demo.db, or COMPASS_DEMO_DB); delete it so the next demo starts empty. Never app.db."""
+    (backend/data/demo.db, or COMPASS_DEMO_DB); delete it so the next demo starts empty. Never
+    app.db."""
     from compass.api.settings import SettingsError, demo_db_from_env
 
     try:
@@ -261,10 +274,10 @@ def readme() -> None:
 
 
 def record_demo() -> None:
-    """The backup demo video, recorded by Playwright at human pace (scripts/record_demo.py)."""
+    """The backup demo video, recorded by Playwright at human pace (backend/scripts/)."""
     if _web_build_is_stale():
         build_web()
-    run(sys.executable, str(REPO_ROOT / "scripts" / "record_demo.py"))
+    run(sys.executable, str(BACKEND / "scripts" / "record_demo.py"))
 
 
 def chat() -> None:
@@ -284,7 +297,7 @@ def ts_types() -> None:
 
 
 def test_counts() -> None:
-    """Count the pytest and vitest tests and write tests/counts.json, which judges mode shows."""
+    """Count the tests and write backend/tests/counts.json, which judges mode shows."""
     import datetime
     import json
     import re
@@ -295,18 +308,18 @@ def test_counts() -> None:
         capture_output=True,
         text=True,
         check=True,
-        cwd=REPO_ROOT,
+        cwd=BACKEND,
     ).stdout
     found = re.search(r"(\d+) tests? collected", collected)
     if found is None:
         sys.exit(f"test-counts: unexpected pytest output:\n{collected[-500:]}")
     npx = "npx.cmd" if sys.platform == "win32" else "npx"
-    report = REPO_ROOT / "web" / "node_modules" / ".vitest-counts.json"
+    report = WEB / "node_modules" / ".vitest-counts.json"
     subprocess.run(
         [npx, "vitest", "run", "--reporter=json", f"--outputFile={report}"],
         capture_output=True,
         check=True,
-        cwd=REPO_ROOT / "web",
+        cwd=WEB,
     )
     listed = subprocess.run(
         [npx, "playwright", "test", "--list"],
@@ -314,7 +327,7 @@ def test_counts() -> None:
         text=True,
         encoding="utf-8",
         check=True,
-        cwd=REPO_ROOT / "web",
+        cwd=WEB,
     ).stdout
     e2e = re.search(r"Total: (\d+) tests? in", listed)
     if e2e is None:
@@ -325,33 +338,56 @@ def test_counts() -> None:
         "e2e": int(e2e.group(1)),
         "as_of": datetime.date.today().isoformat(),
     }
-    path = REPO_ROOT / "tests" / "counts.json"
+    path = BACKEND / "tests" / "counts.json"
     path.write_text(json.dumps(counts, indent=1) + "\n", encoding="utf-8", newline="\n")
-    print(f"tests/counts.json: {counts}")
+    print(f"backend/tests/counts.json: {counts}")
 
 
 SMOKE_TIMEOUT_SECONDS = 30
 
 
 def smoke(*args: str) -> None:
-    """Check a running server from outside: /api/health answers ok, a session opens, and its
-    event stream delivers its first event. Sends no token and prints no secret: only statuses,
-    the model mode and the event's type. Exits non-zero on the first failure."""
+    """Check a running deployment from outside: /api/health answers ok, a CORS preflight from
+    the web origin is allowed, a session opens, its event stream delivers its first event, and
+    /rep loads from the web URL. Without --web (one origin: the demo, Docker) the CORS and /rep
+    steps are skipped. Sends no token and prints no secret: only statuses, the model mode, the
+    allowed origin and the event's type. Exits non-zero on the first failure."""
     import argparse
     import json
     import urllib.error
+    import urllib.parse
     import urllib.request
+    from email.message import Message
 
     parser = argparse.ArgumentParser(prog="tasks.py smoke")
-    parser.add_argument("--url", required=True, help="the server's base URL")
-    base = parser.parse_args(args).url.rstrip("/")
+    parser.add_argument("--api", "--url", dest="api", required=True, help="the backend's URL")
+    parser.add_argument("--web", help="the frontend's URL (the static site)")
+    options = parser.parse_args(args)
+    base = options.api.rstrip("/")
+    web = options.web.rstrip("/") if options.web else None
+    origin = None
+    if web:
+        parts = urllib.parse.urlsplit(web)
+        origin = f"{parts.scheme}://{parts.netloc}"
+    # what the browser sends from the web origin (nothing extra when there is one origin)
+    from_web = {"Origin": origin} if origin else {}
 
     def fail(step: str, error: object) -> None:
         sys.exit(f"smoke: FAIL at {step}: {error}")
 
+    def allowed(headers: Message, step: str) -> None:
+        got = headers.get("Access-Control-Allow-Origin")
+        if origin and got != origin:
+            fail(
+                step,
+                f"Access-Control-Allow-Origin is {got!r}, not the web origin (set "
+                "COMPASS_CORS_ORIGINS on the backend)",
+            )
+
     def call(method: str, path: str) -> tuple[int, dict[str, object]]:
-        request = urllib.request.Request(f"{base}{path}", method=method)
+        request = urllib.request.Request(f"{base}{path}", method=method, headers=from_web)
         with urllib.request.urlopen(request, timeout=SMOKE_TIMEOUT_SECONDS) as response:
+            allowed(response.headers, f"{method} {path}")
             return response.status, json.loads(response.read())
 
     try:
@@ -360,6 +396,29 @@ def smoke(*args: str) -> None:
             fail("health", f"status {status}")
         print(f"health: ok (llm: {health.get('llm')})")
 
+        if origin:
+            preflight = urllib.request.Request(
+                f"{base}/api/sessions",
+                method="OPTIONS",
+                headers={
+                    "Origin": origin,
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "authorization,content-type,last-event-id",
+                },
+            )
+            try:
+                with urllib.request.urlopen(preflight, timeout=SMOKE_TIMEOUT_SECONDS) as response:
+                    allowed(response.headers, "CORS preflight")
+            except urllib.error.HTTPError as error:
+                fail(
+                    "CORS preflight",
+                    f"status {error.code} for origin {origin} (set "
+                    "COMPASS_CORS_ORIGINS on the backend)",
+                )
+            print(f"cors: preflight from {origin} allowed")
+        else:
+            print("cors: skipped (no --web, one origin)")
+
         status, session = call("POST", "/api/sessions")
         session_id = str(session.get("id", ""))
         if status != 201 or not session_id:
@@ -367,9 +426,11 @@ def smoke(*args: str) -> None:
         print("session: opened")
 
         request = urllib.request.Request(
-            f"{base}/api/sessions/{session_id}/events", headers={"Accept": "text/event-stream"}
+            f"{base}/api/sessions/{session_id}/events",
+            headers={"Accept": "text/event-stream", **from_web},
         )
         with urllib.request.urlopen(request, timeout=SMOKE_TIMEOUT_SECONDS) as stream:
+            allowed(stream.headers, "event stream")
             kind = stream.headers.get("Content-Type", "")
             if not kind.startswith("text/event-stream"):
                 fail("event stream", f"content type {kind!r}")
@@ -384,6 +445,19 @@ def smoke(*args: str) -> None:
                 fail("event stream", "the stream ended before any event")
             print(f"event stream: first event {event!r}")
             print(f"  Cache-Control: {stream.headers.get('Cache-Control')}")
+
+        if web:
+            # a direct load of a client route: the static site's rewrite answers with index.html
+            with urllib.request.urlopen(f"{web}/rep", timeout=SMOKE_TIMEOUT_SECONDS) as page:
+                kind = page.headers.get("Content-Type", "")
+                body = page.read().decode("utf-8", errors="replace")
+                if page.status != 200 or not kind.startswith("text/html"):
+                    fail("web /rep", f"status {page.status}, content type {kind!r}")
+                if '<div id="root">' not in body:
+                    fail("web /rep", "not the UI's index.html")
+            print("web: /rep loads (status 200, the UI's index.html)")
+        else:
+            print("web: skipped (no --web)")
     except (urllib.error.URLError, TimeoutError, ValueError) as error:
         fail("request", error)
     print("smoke: OK")

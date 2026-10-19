@@ -1,5 +1,10 @@
 # Handoff — Day 5 (polish, packaging, rehearsal assets)
 
+> **Layout note (2026-10-19, after v1.1):** the repo is now split into `backend/` and
+> `frontend/` (formerly `web/`). The commands below are updated to run from the repo root
+> (`uv run --project backend python tasks.py ...`); the narrative and file names describe the
+> repo as it was on the day.
+
 Written 2026-10-18 and checked against git (`git log main..day5/polish`, every hash below) and a
 full test run. The brief is `briefs/day5-polish.md`. Feature freeze: Tue 20/10 18:00.
 
@@ -176,11 +181,11 @@ unchanged at $3.71 of $30.
 ## How to run (PowerShell)
 
 ```powershell
-uv run python tasks.py demo                      # the demo, no key (unchanged from Day 4)
-docker compose --profile demo up --build         # the same in Docker (NetFree: set COMPASS_BUILD_CA)
-docker compose --profile live up --build         # live, .env read at run time
-uv run python tasks.py record-demo               # re-record docs/video/
-uv run python tasks.py readme                    # refresh the README's results block
+uv run --project backend python tasks.py demo                      # the demo, no key (unchanged from Day 4)
+docker compose --profile demo up --build         # the API in Docker (the image has no UI since the split)
+docker compose --profile live up --build         # live, backend\.env read at run time
+uv run --project backend python tasks.py record-demo               # re-record docs/video/
+uv run --project backend python tasks.py readme                    # refresh the README's results block
 ```
 
 ## Open

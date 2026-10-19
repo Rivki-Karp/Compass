@@ -5,44 +5,48 @@ on:
   pull_request:
 
 jobs:
-  test:
+  backend:
+    # The API (backend/): lint and tests. tasks.py lives at the repo root, one level up.
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - uses: actions/checkout@v4
 
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-          cache-dependency-glob: uv.lock
+          cache-dependency-glob: backend/uv.lock
 
       - name: Install Python 3.12 and dependencies
         run: |
           uv python install 3.12
-          uv run python tasks.py install
+          uv run python ../tasks.py install
 
       - name: Build data from raw/
-        run: uv run python tasks.py data
+        run: uv run python ../tasks.py data
 
       - name: Lint
-        run: uv run python tasks.py lint
+        run: uv run python ../tasks.py lint
 
       - name: Test
-        run: uv run python tasks.py test
+        run: uv run python ../tasks.py test
 
-  web:
-    # The UI: no API calls, no network beyond npm. Node is pinned in web/.nvmrc.
+  frontend:
+    # The UI (frontend/): no API calls, no network beyond npm. Node is pinned in frontend/.nvmrc.
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: web
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version-file: web/.nvmrc
+          node-version-file: frontend/.nvmrc
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install
         run: npm ci
@@ -56,13 +60,13 @@ jobs:
       - name: Test
         run: npx vitest run --reporter=default --reporter=json --outputFile=vitest-results.json
 
-      - name: Test count matches tests/counts.json (judges mode shows it)
+      - name: Test count matches backend/tests/counts.json (judges mode shows it)
         run: |
           node -e '
             const ran = require("./vitest-results.json").numTotalTests;
-            const committed = require("../tests/counts.json").vitest;
+            const committed = require("../backend/tests/counts.json").vitest;
             if (ran !== committed) {
-              console.error(`vitest ran ${ran} tests, tests/counts.json says ${committed}: run uv run python tasks.py test-counts`);
+              console.error(`vitest ran ${ran} tests, backend/tests/counts.json says ${committed}: run uv run --project backend python tasks.py test-counts`);
               process.exit(1);
             }
             console.log(`vitest: ${ran} tests, as committed`);
@@ -74,45 +78,46 @@ jobs:
   e2e:
     # Playwright, demo mode: the real API (scripted model, no key, no network) serving the build.
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
 
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-          cache-dependency-glob: uv.lock
+          cache-dependency-glob: backend/uv.lock
 
       - name: Install Python 3.12 and dependencies, build data from raw/
+        working-directory: backend
         run: |
           uv python install 3.12
-          uv run python tasks.py install
-          uv run python tasks.py data
+          uv run python ../tasks.py install
+          uv run python ../tasks.py data
 
       - uses: actions/setup-node@v4
         with:
-          node-version-file: web/.nvmrc
+          node-version-file: frontend/.nvmrc
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install the UI and the browser
-        working-directory: web
         run: |
           npm ci
           npx playwright install --with-deps chromium
 
-      - name: Playwright test count matches tests/counts.json (the README shows it)
-        working-directory: web
+      - name: Playwright test count matches backend/tests/counts.json (the README shows it)
         run: |
           listed=$(npx playwright test --list | sed -n 's/^Total: \([0-9]*\) tests\? in.*/\1/p')
-          committed=$(node -p 'require("../tests/counts.json").e2e')
+          committed=$(node -p 'require("../backend/tests/counts.json").e2e')
           if [ "$listed" != "$committed" ]; then
-            echo "playwright lists $listed tests, tests/counts.json says $committed: run uv run python tasks.py test-counts"
+            echo "playwright lists $listed tests, backend/tests/counts.json says $committed: run uv run --project backend python tasks.py test-counts"
             exit 1
           fi
           echo "playwright: $listed tests, as committed"
 
       - name: End to end
-        working-directory: web
         run: npm run e2e
 
       - name: Keep the report on failure
@@ -120,11 +125,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: web/playwright-report
+          path: frontend/playwright-report
 
   docker:
-    # Build the image (never pushed), check it holds no secret, and that it starts healthy.
+    # Build the backend image from backend/ alone (never pushed), check it holds no secret, and
+    # that it starts healthy.
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - uses: actions/checkout@v4
 

@@ -8,33 +8,37 @@ the backup video (section 6).
 Fallbacks in order: live (section 3) → demo mode with `tasks.py demo` (5a) → demo mode in Docker
 (5b) → the backup video (6).
 
+Every `tasks.py` command runs from the repo root as `uv run --project backend python tasks.py ...`
+(the backend's environment). The backend lives in `backend\`, the UI in `frontend\`.
+
 ## 1. Before you go on stage
 
 The day before, in PowerShell, from the repo root:
 
 ```powershell
 git pull
-uv run python tasks.py data          # only if data/vehicles.db is missing
-uv run python tasks.py build-web     # the UI the server will serve
-uv run python tasks.py test          # optional sanity check
+uv run --project backend python tasks.py data        # only if backend\data\vehicles.db is missing
+uv run --project backend python tasks.py build-web   # the UI the server will serve
+uv run --project backend python tasks.py test        # optional sanity check
 ```
 
-Check `.env` has `ANTHROPIC_API_KEY`, `COMPASS_REP_TOKEN` and `COMPASS_ADMIN_TOKEN`. An empty
+Check `backend\.env` has `ANTHROPIC_API_KEY`, `COMPASS_REP_TOKEN` and `COMPASS_ADMIN_TOKEN`. An empty
 token disables its screen: `/rep` and the judges-mode dialog then say "טוקן לא הוגדר בשרת", and
 `tasks.py serve` prints a warning at startup naming the empty variable. To generate a token, run
-this in PowerShell once per token and paste the output after the `=` in `.env`:
+this in PowerShell once per token and paste the output after the `=` in `backend\.env`:
 
 ```powershell
 [guid]::NewGuid().ToString()
 ```
 
-Restart the server after changing `.env`. In live mode the server refuses to start while either
+Restart the server after changing `backend\.env`. In live mode the server refuses to start while either
 token is empty or a demo / placeholder value (`rep-demo`, `admin-demo`, or the `.env.example`
 placeholders), and says which one; demo mode (5a, 5b) keeps its `rep-demo` / `admin-demo`. Write the two tokens on a card: you'll type them on
 stage.
 
-Build the Docker image too, while there is network (it downloads npm and PyPI packages; on
-stage, `up` without `--build` needs no network). On a NetFree connection, point the build at its
+Build the Docker image too, while there is network (it downloads PyPI packages; on stage, `up`
+without `--build` needs no network). The image is the API only; 5b serves the screens from
+`frontend\` with Vite, whose packages `build-web` above already installed. On a NetFree connection, point the build at its
 CA first:
 
 ```powershell
@@ -57,10 +61,11 @@ Thirty minutes before:
 
    ```powershell
    $env:COMPASS_APP_DB="data\final.db"
-   uv run python tasks.py serve
+   uv run --project backend python tasks.py serve
    ```
 
-   (`final.db` is created on first use and is git-ignored. Delete it to start over.)
+   (Relative to `backend\`: `backend\data\final.db` is created on first use and is git-ignored.
+   Delete it to start over.)
 3. Open two browser windows, both at 100% zoom, side by side (or one per screen):
    - **Window A, the employee**, about 1440 px wide: http://127.0.0.1:8000/
    - **Window B, the representative**: http://127.0.0.1:8000/rep. Enter the rep token now; it is
@@ -167,7 +172,7 @@ Back to **Window A** (within a second, before the model has said anything):
 In the PowerShell window: stop the live server (Ctrl+C), then:
 
 ```powershell
-uv run python tasks.py demo
+uv run --project backend python tasks.py demo
 ```
 
 It empties the demo database, builds the UI if needed, and serves the same URLs on port 8000. It
@@ -187,14 +192,23 @@ guard, the tickets, the server's recomputation) runs for real.*
 
 ### 5b. In Docker (if `uv` or the Python environment misbehaves)
 
-Stop whatever is on port 8000, then, with the image built the day before (section 1):
+Stop whatever is on port 8000, then, with the image built the day before (section 1), start
+the API in one PowerShell window:
 
 ```powershell
 docker compose --profile demo up
 ```
 
-The same URLs and the same tokens (`rep-demo` / `admin-demo`, unless `.env` sets others); the
-health check turns "healthy" within a few seconds. Then continue as in 5a. Ctrl+C stops it. To
+The image serves the API only, so start the screens in a second PowerShell window (no network
+needed; Vite proxies `/api` to the container on :8000):
+
+```powershell
+cd frontend; npm run dev
+```
+
+Then use http://localhost:5173/ (employee) and http://localhost:5173/rep instead of port 8000,
+with the same tokens (`rep-demo` / `admin-demo`, unless the shell sets others); the container's
+health check turns "healthy" within a few seconds. Then continue as in 5a. Ctrl+C stops each. To
 start from an empty demo database: `docker compose --profile demo down -v`, then `up` again.
 
 ## 6. Last resort: the backup video
@@ -210,21 +224,21 @@ section 3.
 To re-record it (demo mode, no key; about two minutes):
 
 ```powershell
-uv run python tasks.py record-demo
+uv run --project backend python tasks.py record-demo
 ```
 
 ## 7. After the demo
 
 - Stop the server (Ctrl+C), or `docker compose --profile demo down`.
-- `data\final.db` and `data\demo.db` hold only the demo's sessions; delete them if you like.
-  `data\app.db` was not touched. Docker's sessions live in its own volumes.
+- `backend\data\final.db` and `backend\data\demo.db` hold only the demo's sessions; delete them
+  if you like. `backend\data\app.db` was not touched. Docker's sessions live in its own volumes.
 
 ## 8. Before a public deployment (live mode)
 
-Not deployed anywhere yet; section 9 has the Render steps. What the single container already does:
+Not deployed anywhere yet; section 9 has the steps. What the backend container already does:
 
 - **Configuration from the environment only.** The image sets `COMPASS_ENV_ONLY=1`: no `.env`
-  file is read, and none is in the image (`scripts/check_image_secrets.py`, run in CI). Set
+  file is read, and none is in the image (`backend/scripts/check_image_secrets.py`, run in CI). Set
   every variable on the host: `ANTHROPIC_API_KEY`, `COMPASS_REP_TOKEN`, `COMPASS_ADMIN_TOKEN`,
   and optionally the two below.
 - **Tokens.** A live server refuses to start while either token is empty or a demo / placeholder
@@ -232,7 +246,9 @@ Not deployed anywhere yet; section 9 has the Render steps. What the single conta
 - **A daily spend cap.** `COMPASS_DAILY_SPEND_CAP_USD` (default 5): every model call on the
   server, summed per UTC day in the session database, is checked before the next call. At the
   cap every conversation gets "השירות הגיע למכסת השימוש היומית שלו. אפשר לנסות שוב מחר." until
-  midnight UTC. It is kept on the `/data` volume, so a restart doesn't reset it.
+  midnight UTC. It is kept in the session database: on a host with a persistent disk (or Docker's
+  volume) a restart doesn't reset it; on Render's free plan (no disk) every restart does, so there
+  the hard limit is the Anthropic Console's workspace spend limit (section 9).
 - **A per-IP rate limit** on sending messages: `COMPASS_MESSAGE_RATE_PER_MINUTE` (default 20;
   429 with `Retry-After` beyond it). It counts the socket's client IP. Behind a platform's
   reverse proxy (Render), set `COMPASS_TRUST_PROXY=1`: it then counts the rightmost
@@ -240,78 +256,198 @@ Not deployed anywhere yet; section 9 has the Render steps. What the single conta
   left come from the browser and can be forged, so they are ignored). Otherwise every employee
   shares the proxy's limit. Never set it without such a proxy in front: anyone could then pick
   their own key. The count is per process, which is fine: the server runs one worker.
+- **CORS: one origin allowed, exactly.** The UI's static site is another origin, so the
+  backend allows it by name: `COMPASS_CORS_ORIGINS`, a comma-separated list of exact origins
+  (no wildcard, no trailing slash). Empty, the default, means the same origin only.
 
-## 9. Deploy to Render
+## 9. Deploy
 
-Prepared, not deployed. `render.yaml` at the repo root describes the service; Render reads it
-when you create a "Blueprint". You need about 20 minutes, a credit card (a persistent disk needs
-a paid plan: the Starter instance plus 1 GB of disk, a few dollars a month) and access to the
-GitHub repo.
+Prepared, not deployed. Both parts run on Render, and `render.yaml` at the repo root describes
+both, so one "Blueprint" creates them together:
 
-**What it creates:** one web service named `compass`, built from the repo's `Dockerfile`, one
-instance (never more: the agent keeps per-session state in memory), in Frankfurt, with a 1 GB
-disk mounted at `/data` for the session databases. Render checks `/api/health`. It does not
-redeploy on a push (`autoDeploy: false`): you deploy by hand.
+| Service | What it is | Address |
+|---|---|---|
+| `compass-api` | the backend (`backend/`): the API, the agent, the session databases. A Docker web service on the **free** plan, Frankfurt | https://compass-api.onrender.com |
+| `compass-web` | the UI (`frontend/`): a static site, files only, which call the backend | https://compass-web.onrender.com |
 
-**Before you start**, have these three secrets ready (in a password manager, never in a file in
-the repo). Render asks for them; nothing else needs typing:
+You need about 30 minutes, a GitHub account with access to the repo, and an Anthropic Console
+login. The free plan needs no credit card.
 
-| Variable | Value |
-|---|---|
-| `ANTHROPIC_API_KEY` | the live key |
-| `COMPASS_REP_TOKEN` | a new long random token (`python -c "import secrets; print(secrets.token_urlsafe(32))"`) |
-| `COMPASS_ADMIN_TOKEN` | another new one, different from the rep token |
+**What the free plan means, and why it is accepted:**
 
-`render.yaml` sets the rest: `COMPASS_LLM=anthropic`, `COMPASS_DAILY_SPEND_CAP_USD=5`,
-`COMPASS_MESSAGE_RATE_PER_MINUTE=20` and `COMPASS_TRUST_PROXY=1` (Render's proxy is in front;
-section 8). To change one for this deployment, edit it under **Environment** after the deploy.
+- **No persistent disk.** The sessions and tickets live in the container's own filesystem and
+  are **lost whenever the API restarts**: a deploy, a change of an environment variable, Render
+  putting an idle service to sleep (after about 15 minutes without a request; "Keep awake"
+  below prevents that) or Render restarting it for maintenance.
+- **The daily spend counter is lost with them.** `COMPASS_DAILY_SPEND_CAP_USD` (5) is counted in
+  the session database, so every restart starts it again from zero. It still stops a runaway
+  conversation within one day, but it is not a hard limit. **The hard limit is the Anthropic
+  Console's spend limit** on the workspace the key belongs to (9a).
+- **The first request after a sleep takes about a minute** while the API starts. The UI itself
+  (the static site) never sleeps.
 
-Never reuse the demo tokens: a live server refuses to start with them (section 1).
+Neither service redeploys on a push (`autoDeployTrigger: off`): you deploy by hand.
 
-**Steps:**
+### 9a. Before you start
+
+1. **Set the hard spend limit.** In <https://console.anthropic.com>: **Settings** →
+   **Workspaces** → the workspace the live key belongs to (create one named `compass` and a key in
+   it, to keep this key's spend apart) → **Limits** → set a **spend limit**, for example $20 for
+   the month. When it is reached, Anthropic refuses the key's calls and the API shows its error
+   reply; no restart of ours can reset it. (The menu names may differ slightly; look for the
+   workspace's limits.)
+2. **Have the three secrets ready** (in a password manager, never in a file in the repo):
+
+   | Variable | Value |
+   |---|---|
+   | `ANTHROPIC_API_KEY` | the live key (from the workspace above) |
+   | `COMPASS_REP_TOKEN` | a new long random token (`python -c "import secrets; print(secrets.token_urlsafe(32))"`) |
+   | `COMPASS_ADMIN_TOKEN` | another new one, different from the rep token |
+
+   Never reuse the demo tokens: a live server refuses to start with them (section 1).
+   `render.yaml` sets everything else: `COMPASS_LLM=anthropic`, `COMPASS_TRUST_PROXY=1`,
+   `COMPASS_DAILY_SPEND_CAP_USD=5`, `COMPASS_MESSAGE_RATE_PER_MINUTE=20`,
+   `COMPASS_CORS_ORIGINS=https://compass-web.onrender.com`, and for the UI `NODE_VERSION`,
+   `VITE_API_BASE_URL=https://compass-api.onrender.com` (public by design: it is in the UI's
+   JavaScript), the rewrite rule and the security headers.
+
+### 9b. The Blueprint (the normal way)
 
 1. Go to <https://dashboard.render.com> and sign up or log in. "Sign in with GitHub" is the
    simplest.
-2. Add a payment method: your account menu (top right) → **Billing** → add a card.
-3. Top right, click **New +** → **Blueprint**.
-4. Under "Connect a repository", click **Connect GitHub** (first time only), allow Render to
-   see the `Compass` repository (you can choose "Only select repositories"), then pick
+2. Top right, click **New +** → **Blueprint**.
+3. Under "Connect a repository", click **Connect GitHub** (first time only), allow Render to see
+   the `Compass` repository (you can choose "Only select repositories"), then pick
    `Rivki-Karp/Compass` in the list and click **Connect**.
-5. **Blueprint Name:** `compass`. **Branch:** the branch to deploy (the approved one; `main`
-   once the fixes are merged). Render shows what `render.yaml` will create: one web service
-   `compass` and its disk.
-6. Render lists the three secrets above, each with an empty box. Paste each value from the
-   table. Check for stray spaces. These are stored by Render, not in the repo.
-7. Click **Apply** (or **Deploy Blueprint**). The first build takes 5–10 minutes: open the
-   `compass` service → **Logs** to follow it. It is done when the service shows **Live**.
-8. At the top of the service page, copy its address (like `https://compass-xxxx.onrender.com`).
-9. From the repo on your machine, check it from outside:
+4. **Blueprint Name:** `compass`. **Branch:** the branch to deploy (the approved one; `main` once
+   it is merged). Render shows what `render.yaml` will create: the web service `compass-api` and
+   the static site `compass-web`.
+5. Render lists the three secrets, each with an empty box. Paste each value. Check for stray
+   spaces; they are stored by Render, not in the repo.
+6. Click **Apply** (or **Deploy Blueprint**). Both services build at once: the UI in 1–3
+   minutes, the API in 5–10. Open each one → **Logs** to follow it; each is done when it shows
+   **Live**.
+7. **Check the two addresses** at the top of each service's page. They must be exactly
+   `https://compass-api.onrender.com` and `https://compass-web.onrender.com`, because each one is
+   written into the other's settings. If Render added a suffix (the name was taken, e.g.
+   `https://compass-api-x1y2.onrender.com`), fix all three places, then deploy again:
+   - `compass-web` → **Environment**: `VITE_API_BASE_URL` = the API's real address;
+   - `compass-web` → **Headers**: in `Content-Security-Policy`, `connect-src 'self'` followed by
+     the API's real address;
+   - `compass-api` → **Environment**: `COMPASS_CORS_ORIGINS` = the UI's real address
+     (`https://`, no slash at the end);
 
-   ```powershell
-   uv run python tasks.py smoke --url https://compass-xxxx.onrender.com
-   ```
+   then `compass-web` → **Manual Deploy** → **Deploy latest commit** (the URL is baked in at
+   build time, so saving alone changes nothing). Better still, change the names in
+   `render.yaml` the same way, so the next Blueprint sync matches.
+8. Continue with "Keep awake" (9d) and "Check it from outside" (9f).
 
-   It checks `/api/health`, opens a session and reads its first event, and ends with
-   `smoke: OK`. It sends no token and prints no secret. `health: ok (llm: anthropic)` confirms
-   live mode. (It leaves one empty session behind; harmless.)
-10. Open the address in a browser: the employee screen, then `/rep` with the rep token. Send one
-    message to see a real reply.
+### 9c. By hand (if the Blueprint fails)
 
-**Later:**
+The same two services, created one at a time. **The API first:**
 
-- *Deploy a new version:* service page → **Manual Deploy** → **Deploy latest commit**. With a
-  disk, Render stops the old instance before it starts the new one: about a minute offline.
-- *Change a value* (a token, the cap): service page → **Environment** → edit → **Save
-  Changes**; Render restarts the service.
-- *Stop it:* service page → **Settings** → bottom → **Suspend Web Service** (or **Delete**). The
-  disk, with the sessions, is deleted only when the service is.
+1. **New +** → **Web Service** → pick `Rivki-Karp/Compass` (connect GitHub as in 9b, step 3).
+2. **Name:** `compass-api`. **Language:** Docker. **Branch:** the branch to deploy. **Region:**
+   Frankfurt. **Root Directory:** `backend`.
+3. **Dockerfile Path:** `./Dockerfile`, and the Docker build context `.` (both are inside the
+   root directory: not `backend/Dockerfile`).
+4. **Instance Type:** Free.
+5. **Environment Variables:** the three secrets (9a) and `COMPASS_LLM=anthropic`,
+   `COMPASS_TRUST_PROXY=1`, `COMPASS_DAILY_SPEND_CAP_USD=5`,
+   `COMPASS_MESSAGE_RATE_PER_MINUTE=20`, `COMPASS_CORS_ORIGINS=https://compass-web.onrender.com`.
+6. **Advanced:** **Health Check Path** `/api/health`; **Auto-Deploy** Off. No disk.
+7. **Create Web Service**, and wait for **Live**.
 
-**If the deploy fails:**
+**Then the UI:**
 
-- *The logs end with `sqlite3.OperationalError: unable to open database file`:* the server can't
-  write to `/data`. The entrypoint gives the app user (uid 10001) the mount at every start, even
-  a root-owned one (checked locally), so this means the disk is missing or not at `/data`:
-  service page → **Disks**.
+1. **New +** → **Static Site** → pick `Rivki-Karp/Compass`.
+2. **Name:** `compass-web`. **Branch:** the same one. **Root Directory:** `frontend`.
+3. **Build Command:** `npm ci && npm run build`. **Publish Directory:** `dist`.
+4. **Environment Variables:** `NODE_VERSION` = `22.19.0` (the version in `frontend/.nvmrc`) and
+   `VITE_API_BASE_URL` = `https://compass-api.onrender.com` (no `/api`, no slash at the end).
+5. **Create Static Site**, and wait for **Live**.
+6. **Redirects/Rewrites** (left menu) → **Add Rule**: Source `/*`, Destination `/index.html`,
+   Action **Rewrite** → **Save Changes**. Without it, opening `/rep` directly is a 404. (Files
+   that exist, like the JavaScript, are served as they are; only the rest gets the page.)
+7. **Headers** (left menu) → add five rules, each with Path `/*`:
+
+   | Name | Value |
+   |---|---|
+   | `Content-Security-Policy` | `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://compass-api.onrender.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'` |
+   | `X-Content-Type-Options` | `nosniff` |
+   | `X-Frame-Options` | `DENY` |
+   | `Referrer-Policy` | `strict-origin-when-cross-origin` |
+   | `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=()` |
+
+   **Save Changes**. (These are the values in `render.yaml`; copy them from there if in doubt.)
+8. **Settings** → **Auto-Deploy**: Off.
+
+### 9d. Keep awake
+
+A free web service sleeps after about 15 minutes without a request, and waking it is a restart:
+the sessions, the tickets and the spend counter are gone. A free monitor that calls it every five
+minutes keeps it awake (the health check makes no model call, so it costs nothing):
+
+1. Go to <https://uptimerobot.com> and sign up (the free plan is enough).
+2. **New monitor** (or **+ Add New Monitor**). **Monitor type:** HTTP(s).
+3. **URL:** `https://compass-api.onrender.com/api/health`. **Name:** `compass-api`.
+   **Monitoring interval:** 5 minutes.
+4. **Create monitor**. Within a few minutes it shows **Up**.
+
+The static site doesn't sleep, so `compass-web` needs no monitor. One service awake all month
+fits in the free plan's monthly instance hours.
+
+### 9e. The final day: no redeploy
+
+On the day of the final, **don't deploy and don't change any environment variable** on
+`compass-api`: either restarts it, and a restart wipes every session and ticket (and the spend
+counter). Deploy the day before, run 9f, and leave it running with the monitor on. If it is
+restarted anyway (Render maintenance), nothing needs doing: open a new conversation. The local
+fallbacks in sections 5 and 6 don't depend on Render at all.
+
+### 9f. Check it from outside
+
+From the repo root on your machine:
+
+```powershell
+uv run --project backend python tasks.py smoke --api https://compass-api.onrender.com --web https://compass-web.onrender.com
+```
+
+It checks, in order: `/api/health` answers ok; a CORS preflight from the UI's origin is allowed;
+a session opens; its event stream delivers the first event; and `/rep` loads from the UI's
+address (the UI's page, not a 404). It ends with `smoke: OK`, or stops at the first failure and
+says which step. It sends no token and prints no secret. `health: ok (llm: anthropic)` confirms
+live mode. (It leaves one empty session behind; harmless. If the API was asleep, the first step
+can take a minute.)
+
+Then open https://compass-web.onrender.com in a browser: the employee screen; send one message
+to see a real reply. Open https://compass-web.onrender.com/rep and enter the rep token.
+
+### Later
+
+- *Deploy a new version:* each service's page → **Manual Deploy** → **Deploy latest commit**.
+  A new API version restarts it: the sessions are gone (9e).
+- *Change a value* (a token, the cap): `compass-api` → **Environment** → edit → **Save
+  Changes**; Render restarts the service (the sessions are gone). A change to the UI's
+  `VITE_API_BASE_URL` needs a deploy of `compass-web` to take effect.
+- *Stop it:* each service's page → **Settings** → bottom → **Suspend** (or **Delete**). Pause
+  the UptimeRobot monitor too.
+
+### If something fails
+
+- *The API's build fails with `lstat /opt/render/project/src/backend/backend: no such file or
+  directory`:* the Dockerfile path or build context was given from the repo root. With the root
+  directory `backend`, they are `./Dockerfile` and `.`.
 - *`Compass will not start in live mode`, about a token:* a token is empty or a demo value;
   fix it under **Environment**.
-- *The health check times out:* look at **Logs** for the error above the timeout.
+- *The health check times out:* look at the API's **Logs** for the error above the timeout.
+- *The UI's build fails at `npm ci` or with an engine error:* check `NODE_VERSION` (22.19.0) and
+  that the root directory is `frontend`.
+- *The screens load but say they can't connect* (or the browser console shows "blocked by CORS
+  policy"): `COMPASS_CORS_ORIGINS` on `compass-api` isn't exactly the address in the browser's
+  address bar. `smoke` says the same at its CORS step.
+- *The console shows "violates the Content Security Policy ... connect-src":* the API's address
+  in the UI's `Content-Security-Policy` header isn't the one in `VITE_API_BASE_URL`.
+- *`/rep` is a 404 on `compass-web`:* the rewrite rule is missing (9c, UI step 6).
+- *Replies stop with an error and the Anthropic Console shows the workspace at its limit:* that
+  is the hard spend limit doing its job; raise it in the Console only if you mean to.

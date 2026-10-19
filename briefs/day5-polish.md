@@ -1,5 +1,10 @@
 # Day 5 Brief — Polish, packaging, rehearsal assets
 
+> **Layout note (2026-10-19, after v1.1):** the repo is now split into `backend/` and
+> `frontend/` (formerly `web/`). The commands below are updated to run from the repo root
+> (`uv run --project backend python tasks.py ...`); the narrative and file names describe the
+> repo as it was on the day.
+
 Branch: `day5/polish`, cut from `main` at tag `day4-complete` (plus `d9c84d2`).
 Commit this file as `briefs/day5-polish.md` in the first commit.
 Hard deadline: **feature freeze Tuesday 20/10 18:00.** After that only fixes to things that are broken.

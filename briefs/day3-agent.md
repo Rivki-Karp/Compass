@@ -1,5 +1,10 @@
 # Compass — Day 3: The Agent
 
+> **Layout note (2026-10-19, after v1.1):** the repo is now split into `backend/` and
+> `frontend/` (formerly `web/`). The commands below are updated to run from the repo root
+> (`uv run --project backend python tasks.py ...`); the narrative and file names describe the
+> repo as it was on the day.
+
 ## Where we are
 
 `main` has: the data layer (Day 0), the exact engine (Day 1), search, 9 tools, the SQLite session store, the FastAPI app with SSE, the representative ticket flow with token auth, and participation as a rep-fillable field (Day 2), plus the `list_options` participation fix. ~409 tests, CI green.
@@ -110,7 +115,7 @@ The developer runs Windows PowerShell, where `VAR=1 command` doesn't work.
 - CI runs the loop/guard/template unit tests with `ScriptedClient` only.
 
 ## Definition of done
-- [ ] PowerShell: `uv run python tasks.py chat` works with only `.env` configured.
+- [ ] PowerShell: `uv run --project backend python tasks.py chat` works with only `.env` configured.
 - [ ] `tasks.py chat` holds the walkthrough conversation end to end in Hebrew, including a rep answer via `/rep`.
 - [ ] `tasks.py eval`: target ≥ 12/13 scenarios passing, **0 numbers reaching the user that failed the guard**.
 - [ ] CI green without an API key.

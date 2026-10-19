@@ -5,7 +5,7 @@
 *.db binary
 *.webm binary
 *.mp4 binary
-# Raw challenge files are stored byte-for-byte (several use CRLF); raw/README.md lists their
-# SHA-256 and tests/test_raw_files.py checks them.
-raw/** -text
-raw/README.md text eol=lf
+# Raw challenge files are stored byte-for-byte (several use CRLF); backend/raw/README.md lists
+# their SHA-256 and backend/tests/test_raw_files.py checks them.
+backend/raw/** -text
+backend/raw/README.md text eol=lf
