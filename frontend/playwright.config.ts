@@ -10,14 +10,13 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
  * network) serving the production build, as `tasks.py demo` does. Its own port and a fresh demo
  * database per run, so it never touches a running demo or app.db.
  *
- *   npx playwright test            (from web/; builds the UI first)
+ *   npx playwright test            (from frontend/; builds the UI first)
  *
  * E2E_BASE_URL runs the same tests against a server that is already running instead (the Docker
  * image, Day 5 Stage 5): demo mode, with the rep and admin tokens from e2e/support.ts.
  */
 
 const PORT = 8765;
-const REPO = path.resolve(HERE, "..");
 const DEMO_DB = path.join(HERE, "test-results", `e2e-${Date.now()}.db`);
 const EXTERNAL = process.env.E2E_BASE_URL;
 
@@ -41,7 +40,7 @@ export default defineConfig({
     },
   ],
   webServer: EXTERNAL ? undefined : {
-    command: `npm run build && cd .. && uv run python -m uvicorn compass.api.main:app --workers 1 --port ${PORT}`,
+    command: `npm run build && cd ../backend && uv run python -m uvicorn compass.api.main:app --workers 1 --port ${PORT}`,
     cwd: HERE,
     url: `http://127.0.0.1:${PORT}/api/health`,
     reuseExistingServer: false,
@@ -55,7 +54,7 @@ export default defineConfig({
       COMPASS_DEMO_DB: DEMO_DB,
       COMPASS_REP_TOKEN: TOKENS.rep,
       COMPASS_ADMIN_TOKEN: TOKENS.admin,
-      COMPASS_WEB_DIST: path.join(REPO, "web", "dist"),
+      COMPASS_WEB_DIST: path.join(HERE, "dist"),
     },
   },
 });

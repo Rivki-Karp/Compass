@@ -197,8 +197,9 @@ def create_app(
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST"],
+        # Content-Type: the JSON bodies; Last-Event-ID: an SSE stream resuming (frontend sse.ts)
+        allow_headers=["Authorization", "Content-Type", "Last-Event-ID"],
     )
     app.state.settings = settings
     app.state.services = services

@@ -14,11 +14,11 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from compass.config import REPO_ROOT
+from compass.config import BACKEND_ROOT
 
-REPORT = REPO_ROOT / "evals" / "report.md"
-SPEND = REPO_ROOT / "evals" / "spend.jsonl"
-TEST_COUNTS = REPO_ROOT / "tests" / "counts.json"
+REPORT = BACKEND_ROOT / "evals" / "report.md"
+SPEND = BACKEND_ROOT / "evals" / "spend.jsonl"
+TEST_COUNTS = BACKEND_ROOT / "tests" / "counts.json"
 
 _RUN = re.compile(
     r"Run: (?P<at>[^·\n]+?) · model `(?P<model>[^`]+)` · effort `(?P<effort>[^`]+)`"

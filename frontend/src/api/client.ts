@@ -1,6 +1,20 @@
-/** The REST side of the API (same origin: Vite proxies /api in dev, FastAPI serves the build). */
+/**
+ * The one way to the API: every REST call and SSE stream URL is built here.
+ *
+ * VITE_API_BASE_URL is the backend's public URL (the UI on Cloudflare Pages, the API on Render),
+ * baked in at build time. Empty (dev, and the local single-origin demo) means the same origin:
+ * Vite proxies /api in dev, FastAPI serves the build in the demo.
+ */
 
 import type { AnswerError, Health, JudgesStats, TicketWithView } from "./types";
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+
+/** An API URL: `apiUrl("/health")` is `${VITE_API_BASE_URL}/api/health`. */
+export const apiUrl = (path: string) => `${API_BASE}/api${path}`;
+
+/** fetch() to the API, for a caller that needs the raw Response (its status). */
+export const apiFetch = (path: string, init: RequestInit = {}) => fetch(apiUrl(path), init);
 
 export class ApiError extends Error {
   constructor(
@@ -16,7 +30,7 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string |
   const headers = new Headers(init.headers);
   if (init.body) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const response = await fetch(`/api${path}`, { ...init, headers });
+  const response = await apiFetch(path, { ...init, headers });
   const body: unknown = response.headers.get("content-type")?.includes("json")
     ? await response.json()
     : null;
@@ -60,5 +74,5 @@ export const api = {
     ),
 };
 
-export const sessionEventsUrl = (sessionId: string) => `/api/sessions/${sessionId}/events`;
-export const ticketEventsUrl = "/api/tickets/events";
+export const sessionEventsUrl = (sessionId: string) => apiUrl(`/sessions/${sessionId}/events`);
+export const ticketEventsUrl = apiUrl("/tickets/events");

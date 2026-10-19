@@ -6,11 +6,11 @@ from pathlib import Path
 
 import httpx
 import pytest
+import tasks
 import yaml
 from helpers import ADMIN_TOKEN, REP, REP_TOKEN
 from live import live_server
 
-import tasks
 from compass.api import Settings, create_app
 
 
@@ -52,20 +52,29 @@ def test_smoke_fails_when_nothing_answers(capsys: pytest.CaptureFixture[str]) ->
     assert "smoke: OK" not in capsys.readouterr().out
 
 
-REPO = Path(__file__).resolve().parents[2]
+BACKEND = Path(__file__).resolve().parents[2]
+REPO = BACKEND.parent
 
 
 def test_render_blueprint() -> None:
     blueprint = yaml.safe_load((REPO / "render.yaml").read_text(encoding="utf-8"))
     (service,) = blueprint["services"]
     assert (service["type"], service["runtime"]) == ("web", "docker")
-    assert service["dockerfilePath"] == "./Dockerfile"
+    assert service["rootDir"] == "backend"
+    assert service["dockerfilePath"] == "./backend/Dockerfile"
+    assert service["dockerContext"] == "./backend"
     assert service["numInstances"] == 1 and "scaling" not in service
     assert service["healthCheckPath"] == "/api/health"
     assert service["disk"]["mountPath"] == "/data"
     variables = {v["key"]: v for v in service["envVars"]}
     # the secrets: names only, the values are set in the dashboard
-    for secret in ("ANTHROPIC_API_KEY", "COMPASS_REP_TOKEN", "COMPASS_ADMIN_TOKEN"):
+    # and the Pages origin, known only after the frontend is deployed
+    for secret in (
+        "ANTHROPIC_API_KEY",
+        "COMPASS_REP_TOKEN",
+        "COMPASS_ADMIN_TOKEN",
+        "COMPASS_CORS_ORIGINS",
+    ):
         assert variables.pop(secret) == {"key": secret, "sync": False}
     # the rest: set in the file
     assert {k: v["value"] for k, v in variables.items()} == {
@@ -77,14 +86,14 @@ def test_render_blueprint() -> None:
 
 
 def test_the_image_listens_on_port_with_one_worker() -> None:
-    dockerfile = (REPO / "Dockerfile").read_text(encoding="utf-8")
+    dockerfile = (BACKEND / "Dockerfile").read_text(encoding="utf-8")
     assert '--port \\"${PORT:-8000}\\" --workers 1' in dockerfile
     assert "os.environ.get('PORT') or 8000" in dockerfile  # the health check follows it
 
 
 def test_the_image_drops_root_after_the_entrypoint() -> None:
-    dockerfile = (REPO / "Dockerfile").read_text(encoding="utf-8")
-    entrypoint = (REPO / "docker" / "entrypoint.sh").read_text(encoding="utf-8")
+    dockerfile = (BACKEND / "Dockerfile").read_text(encoding="utf-8")
+    entrypoint = (BACKEND / "docker" / "entrypoint.sh").read_text(encoding="utf-8")
     assert 'ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]' in dockerfile
     assert 'CMD ["gosu", "compass", "python"' in dockerfile  # the health check, not as root
     # root only for the chown, then the server via gosu: the only commands run as root

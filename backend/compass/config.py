@@ -1,13 +1,15 @@
-"""Filesystem paths, resolved relative to the repository root (never the working directory)."""
+"""Filesystem paths, resolved relative to backend/ or the repository root (never the working
+directory)."""
 
 from pathlib import Path
 
-REPO_ROOT: Path = Path(__file__).resolve().parents[1]
+BACKEND_ROOT: Path = Path(__file__).resolve().parents[1]  # backend/ (/app in the image)
+REPO_ROOT: Path = BACKEND_ROOT.parent  # README.md, frontend/, docs/ (not in the image)
 
-RAW_DIR: Path = REPO_ROOT / "raw"
-DATA_DIR: Path = REPO_ROOT / "data"
-FIXTURES_DIR: Path = REPO_ROOT / "tests" / "fixtures"
-ENV_FILE: Path = REPO_ROOT / ".env"  # local settings and secrets (git-ignored; see .env.example)
+RAW_DIR: Path = BACKEND_ROOT / "raw"
+DATA_DIR: Path = BACKEND_ROOT / "data"
+FIXTURES_DIR: Path = BACKEND_ROOT / "tests" / "fixtures"
+ENV_FILE: Path = BACKEND_ROOT / ".env"  # local settings and secrets (git-ignored; see .env.example)
 
 # Raw inputs (not committed; see raw/README.md)
 RAW_RULES_JSON: Path = RAW_DIR / "strauss-rules.json"
@@ -16,7 +18,7 @@ RAW_CHALLENGE_XLSX: Path = RAW_DIR / "strauss_challenge_data.xlsx"
 
 # Generated / curated data
 VEHICLES_DB: Path = DATA_DIR / "vehicles.db"
-WEB_DIST: Path = REPO_ROOT / "web" / "dist"  # `tasks.py build-web` (git-ignored)
+WEB_DIST: Path = REPO_ROOT / "frontend" / "dist"  # `tasks.py build-web` (git-ignored)
 CATALOG_JSON: Path = DATA_DIR / "catalog.json"
 OCCUPATIONS_JSON: Path = DATA_DIR / "occupations.json"
 RULES_YAML: Path = DATA_DIR / "rules.yaml"

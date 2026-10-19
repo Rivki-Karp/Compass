@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { apiFetch } from "../api/client";
 import { clearToken, getToken, setToken } from "../lib/tokens";
 import { useHealth } from "../lib/useHealth";
 import { selectedTicket } from "../rep/inbox";
@@ -22,7 +23,7 @@ function useNow(ms: number): number {
 }
 
 async function verifyRep(token: string): Promise<TokenCheck> {
-  const response = await fetch("/api/tickets?status=open", {
+  const response = await apiFetch("/tickets?status=open", {
     headers: { Authorization: `Bearer ${token}` },
   });
   return tokenCheck(response.status);

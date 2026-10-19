@@ -2,8 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 /**
  * The backup demo video (Day 5 Stage 6). Not part of the test suite: `npm run e2e` never runs it
- * (testDir is e2e). `uv run python tasks.py record-demo` seeds and starts the demo server, then
- * runs this config with RECORD_BASE_URL and friends set.
+ * (testDir is e2e). `uv run --project backend python tasks.py record-demo` seeds and starts the
+ * demo server, then runs this config with RECORD_BASE_URL and friends set.
  */
 export default defineConfig({
   testDir: ".",

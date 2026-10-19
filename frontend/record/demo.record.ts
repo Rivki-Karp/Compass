@@ -1,7 +1,8 @@
 /**
  * The backup demo video (Day 5 Stage 6), at human pace: visible typing, about a second on each
- * key moment. Run by `uv run python tasks.py record-demo` (scripts/record_demo.py), never by the
- * test suite. Two recordings: the employee's page and the representative's.
+ * key moment. Run by `uv run --project backend python tasks.py record-demo`
+ * (backend/scripts/record_demo.py), never by the test suite. Two recordings: the employee's page
+ * and the representative's.
  *
  *   empty state -> the walkthrough to +2,914, the 802 line's provenance -> E-001 to +661 pending
  *   -> /rep answers 350 -> +611 final -> judges mode on the walkthrough's comparison turn, and on

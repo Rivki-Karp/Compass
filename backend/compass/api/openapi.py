@@ -11,9 +11,9 @@ from typing import Any
 
 from compass.api.app import create_app
 from compass.api.settings import Settings
-from compass.config import REPO_ROOT
+from compass.config import BACKEND_ROOT
 
-OPENAPI_JSON: Path = REPO_ROOT / "openapi.json"
+OPENAPI_JSON: Path = BACKEND_ROOT / "openapi.json"
 
 
 def schema() -> dict[str, Any]:

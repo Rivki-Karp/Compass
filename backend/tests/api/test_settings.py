@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from compass.api import Settings
-from compass.config import APP_DB, DEMO_DB, REPO_ROOT
+from compass.config import APP_DB, BACKEND_ROOT, DEMO_DB
 
 ENV_VARS = (
     "COMPASS_DEV_TOOLS",
@@ -39,7 +39,7 @@ def test_reads_the_env_file(tmp_path: Path) -> None:
     assert settings.dev_tools is True
     assert settings.rep_token == "rep-from-file"
     assert settings.admin_token == "admin from file"
-    assert settings.app_db == REPO_ROOT / "data" / "demo.db"  # relative to the repo, not cwd
+    assert settings.app_db == BACKEND_ROOT / "data" / "demo.db"  # relative to backend/, not cwd
 
 
 def test_real_environment_wins(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -61,7 +61,7 @@ def test_missing_file_and_empty_values(tmp_path: Path) -> None:
 
 
 def test_example_file_is_valid() -> None:
-    settings = Settings.from_env(env_file=REPO_ROOT / ".env.example")
+    settings = Settings.from_env(env_file=BACKEND_ROOT / ".env.example")
     assert settings.dev_tools is True
     assert settings.rep_token and settings.admin_token
     assert settings.rep_token != settings.admin_token

@@ -1,5 +1,10 @@
 # Handoff — Day 3 (the agent), complete pending review
 
+> **Layout note (2026-10-19, after v1.1):** the repo is now split into `backend/` and
+> `frontend/` (formerly `web/`). The commands below are updated to run from the repo root
+> (`uv run --project backend python tasks.py ...`); the narrative and file names describe the
+> repo as it was on the day.
+
 Updated 2026-10-15 from the real repo state (git, a full test run, the eval reports and the
 session event logs), not from memory. The brief and the approved plan decisions are in
 `briefs/day3-agent.md`.

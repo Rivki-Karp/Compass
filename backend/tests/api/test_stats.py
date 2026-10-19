@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from helpers import ADMIN
 
 from compass.api.stats import REPORT, SPEND, TEST_COUNTS, judges_stats
-from compass.config import REPO_ROOT
+from compass.config import BACKEND_ROOT
 
 
 def test_reads_the_committed_files() -> None:
@@ -76,7 +76,7 @@ def test_committed_test_counts_are_current(request: pytest.FixtureRequest) -> No
     `uv run python tasks.py test-counts` after adding tests). A partial run can't tell."""
     session = request.session
     collected = {Path(str(item.path)).resolve() for item in session.items}
-    every_file = {p.resolve() for p in (REPO_ROOT / "tests").rglob("test_*.py")}
+    every_file = {p.resolve() for p in (BACKEND_ROOT / "tests").rglob("test_*.py")}
     filtered = request.config.option.keyword or request.config.option.markexpr
     if filtered or not every_file <= collected:
         pytest.skip("not a full run")

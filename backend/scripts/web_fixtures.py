@@ -1,6 +1,6 @@
-"""Record real session event logs for the web UI's tests (web/src/test/fixtures/*.json).
+"""Record real session event logs for the web UI's tests (frontend/src/test/fixtures/*.json).
 
-    uv run python scripts/web_fixtures.py
+    uv run --project backend python backend/scripts/web_fixtures.py   (from the repo root)
 
 Runs the two demo scripts (walkthrough, E-001 with the representative's answer) through the
 real API in demo mode (scripted model, real tools, guard and tickets) and saves each session's
@@ -29,7 +29,7 @@ from compass.agent.llm import LLMResponse, ScriptedClient, text_response, tool_r
 from compass.api import Settings, create_app
 from compass.config import REPO_ROOT
 
-OUT = REPO_ROOT / "web" / "src" / "test" / "fixtures"
+OUT = REPO_ROOT / "frontend" / "src" / "test" / "fixtures"
 REP = {"Authorization": "Bearer rep"}
 
 

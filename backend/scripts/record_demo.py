@@ -1,10 +1,13 @@
-"""Record the backup demo video (Day 5 Stage 6): `uv run python tasks.py record-demo`.
+"""Record the backup demo video (Day 5 Stage 6), from the repo root:
+
+    uv run --project backend python tasks.py record-demo
 
 1. Seeds the guard-rejection session into a fresh demo database: the walkthrough with a first
-   draft that says +2,915, which the real guard rejects (scripts/web_fixtures.py,
+   draft that says +2,915, which the real guard rejects (backend/scripts/web_fixtures.py,
    guard_retry_steps; the same fixture judges mode is tested on).
 2. Serves that database in demo mode (scripted model, no key, no network) on its own port.
-3. Runs the Playwright recorder (web/record/, not part of the test suite) at human pace, 1440x900:
+3. Runs the Playwright recorder (frontend/record/, not part of the test suite) at human pace,
+   1440x900:
    docs/video/compass-demo-employee.webm and docs/video/compass-demo-rep.webm.
 4. Converts both to mp4 when ffmpeg is on PATH, and prints the sizes.
 """
@@ -24,9 +27,9 @@ from compass.agent.demo_llm import WALKTHROUGH
 from compass.agent.factory import build_claude_runner
 from compass.agent.llm import ScriptedClient
 from compass.api import Settings, create_app
-from compass.config import REPO_ROOT
+from compass.config import BACKEND_ROOT, REPO_ROOT
 
-sys.path.insert(0, str(REPO_ROOT / "scripts"))
+sys.path.insert(0, str(BACKEND_ROOT / "scripts"))
 from web_fixtures import guard_retry_steps  # noqa: E402
 
 PORT = 8777
@@ -108,8 +111,10 @@ def to_mp4() -> None:
 
 
 def main() -> int:
-    if not (REPO_ROOT / "web" / "dist" / "index.html").is_file():
-        sys.exit("record-demo: build the UI first (uv run python tasks.py build-web)")
+    if not (REPO_ROOT / "frontend" / "dist" / "index.html").is_file():
+        sys.exit(
+            "record-demo: build the UI first (uv run --project backend python tasks.py build-web)"
+        )
     with tempfile.TemporaryDirectory() as tmp:
         db = Path(tmp) / "record-demo.db"
         guard_sid = seed_guard_session(db)
@@ -119,13 +124,13 @@ def main() -> int:
             **os.environ,
             "COMPASS_LLM": "scripted",
             "COMPASS_DEMO_DB": str(db),
-            "COMPASS_WEB_DIST": str(REPO_ROOT / "web" / "dist"),
+            "COMPASS_WEB_DIST": str(REPO_ROOT / "frontend" / "dist"),
             **TOKENS,
         }
         server = subprocess.Popen(
             [sys.executable, "-m", "uvicorn", "compass.api.main:app", "--workers", "1",
              "--port", str(PORT)],
-            cwd=REPO_ROOT,
+            cwd=BACKEND_ROOT,
             env=env,
         )  # fmt: skip
         try:
@@ -134,7 +139,7 @@ def main() -> int:
             VIDEO_DIR.mkdir(parents=True, exist_ok=True)
             recorder = subprocess.run(
                 [NPX, "playwright", "test", "--config", "record/record.config.ts"],
-                cwd=REPO_ROOT / "web",
+                cwd=REPO_ROOT / "frontend",
                 env={
                     **os.environ,
                     "RECORD_BASE_URL": base,

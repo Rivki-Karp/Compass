@@ -1,4 +1,4 @@
-# Generated databases (rebuilt by `python tasks.py data`) and the app's session store
+# Generated databases (rebuilt by `tasks.py data` into backend/data/) and the app's session store
 *.db
 *.db-wal
 *.db-shm
@@ -20,12 +20,12 @@ __pycache__/
 build/
 dist/
 
-# Web UI (also in web/.gitignore): dependencies, builds, Playwright artifacts
-web/node_modules/
-web/dist/
-web/test-results/
-web/playwright-report/
-web/blob-report/
+# Web UI (also in frontend/.gitignore): dependencies, builds, Playwright artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
 
 # Backup video: the webm files are committed (under 25 MB); mp4 conversions are local only
 docs/video/*.mp4

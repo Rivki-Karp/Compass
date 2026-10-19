@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
+import { api, apiFetch } from "../api/client";
 import type { JudgesStats } from "../api/types";
 import { ChatPanel } from "../employee/ChatPanel";
 import { type EffectsMemory, EffectsMemoryContext } from "../employee/effects";
@@ -89,7 +89,7 @@ export function EmployeePage() {
 
   async function verifyAdmin(token: string): Promise<TokenCheck> {
     if (!session.sessionId) return "unavailable";
-    const response = await fetch(`/api/sessions/${session.sessionId}`, {
+    const response = await apiFetch(`/sessions/${session.sessionId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return tokenCheck(response.status, [401]);

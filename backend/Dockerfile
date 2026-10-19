@@ -1,35 +1,20 @@
 # syntax=docker/dockerfile:1
 #
-# Compass in one image: the API and the built UI, one process (the agent's per-session workers
-# and locks live in memory, so --workers 1). No secret is ever in the image: the API key and the
-# tokens come from the environment at run time (docker-compose.yml: `env_file: .env` for live,
-# demo mode needs none). CI builds this image and checks it (scripts/check_image_secrets.py).
+# The Compass API in one image, one process (the agent's per-session workers and locks live in
+# memory, so --workers 1). The build context is backend/ alone: no Node and no UI, which is
+# deployed separately (Cloudflare Pages, frontend/), so the image serves the API only. No secret
+# is ever in the image: the API key and the tokens come from the environment at run time
+# (docker-compose.yml: `env_file: backend/.env` for live, demo mode needs none). CI builds this
+# image and checks it (scripts/check_image_secrets.py).
 #
-#   docker compose --profile demo up --build     (PowerShell, from the repo root)
+#   docker build -t compass backend                 (PowerShell, from the repo root)
 
-ARG NODE_VERSION=22.19.0
 ARG PYTHON_VERSION=3.12
 ARG UV_VERSION=0.9.13
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
-# --- 1. the UI: web/dist ----------------------------------------------------------------------
-FROM node:${NODE_VERSION}-bookworm-slim AS web
-WORKDIR /web
-COPY web/package.json web/package-lock.json ./
-# build_ca (optional): extra CA certificates for a TLS-inspecting network (see docker-compose.yml).
-# A build secret, so it is used for the download only and never stored in a layer.
-RUN --mount=type=secret,id=build_ca,required=false <<'SH'
-set -e
-if grep -qs "BEGIN CERTIFICATE" /run/secrets/build_ca; then
-  export NODE_EXTRA_CA_CERTS=/run/secrets/build_ca
-fi
-npm ci --no-audit --no-fund
-SH
-COPY web/ ./
-RUN npm run build
-
-# --- 2. Python dependencies from the lockfile, and the generated data -------------------------
+# --- 1. Python dependencies from the lockfile, and the generated data -------------------------
 FROM python:${PYTHON_VERSION}-slim-bookworm AS app
 COPY --from=uv /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 \
@@ -39,6 +24,8 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /app
 # dependencies first (a cached layer while only the code changes)
 COPY pyproject.toml uv.lock ./
+# build_ca (optional): extra CA certificates for a TLS-inspecting network (see docker-compose.yml).
+# A build secret, so it is used for the download only and never stored in a layer.
 RUN --mount=type=secret,id=build_ca,required=false <<'SH'
 set -e
 if grep -qs "BEGIN CERTIFICATE" /run/secrets/build_ca; then
@@ -48,16 +35,17 @@ fi
 uv sync --frozen --no-dev --no-install-project
 rm -f /tmp/ca.pem
 SH
-COPY README.md tasks.py ./
 COPY compass/ compass/
 COPY scripts/ scripts/
 COPY raw/ raw/
 COPY data/ data/
-# the project itself, editable: compass.config resolves data/ and web/ from /app
+# the project itself, editable: compass.config resolves data/ from /app. Then the data scripts,
+# in the order `tasks.py data` runs them (tasks.py is at the repo root, outside this context).
 RUN uv sync --frozen --no-dev \
-    && /app/.venv/bin/python tasks.py data
+    && /app/.venv/bin/python scripts/build_vehicles_db.py \
+    && /app/.venv/bin/python scripts/extract_excel.py
 
-# --- 3. the runtime image ---------------------------------------------------------------------
+# --- 2. the runtime image ---------------------------------------------------------------------
 FROM python:${PYTHON_VERSION}-slim-bookworm
 # gosu: the entrypoint drops from root to the app user with it (docker/entrypoint.sh)
 RUN apt-get update \
@@ -72,19 +60,17 @@ WORKDIR /app
 COPY --from=app /app/.venv /app/.venv
 COPY --from=app /app/compass /app/compass
 COPY --from=app /app/data /app/data
-COPY --from=web /web/dist /app/web/dist
 # what judges mode's stats tiles read (compass/api/stats.py)
 COPY evals/report.md evals/spend.jsonl /app/evals/
 COPY tests/counts.json /app/tests/counts.json
 
 # Sessions live on the /data volume, never in the image (data/ holds only the read-only rules,
-# catalog and vehicles database).
+# catalog and vehicles database). No UI build in the image, so it serves the API only.
 ENV PATH=/app/.venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     COMPASS_APP_DB=/data/app.db \
     COMPASS_DEMO_DB=/data/demo.db \
-    COMPASS_WEB_DIST=/app/web/dist \
     COMPASS_ENV_ONLY=1
 COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 # No USER: the entrypoint starts as root only to chown the /data mount, then runs the server as

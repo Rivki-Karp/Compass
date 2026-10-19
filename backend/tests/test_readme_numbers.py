@@ -19,7 +19,7 @@ from compass.readme_numbers import (
 
 def test_the_committed_readme_block_is_current() -> None:
     """Fails after an eval run, a test-counts update or new spend: run
-    `uv run python tasks.py readme` and commit README.md."""
+    `uv run --project backend python tasks.py readme` and commit README.md."""
     readme = README.read_text(encoding="utf-8")
     assert render(readme, numbers_block()) == readme
 

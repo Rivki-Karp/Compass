@@ -6,7 +6,7 @@ import walkthroughLog from "../test/fixtures/walkthrough.json";
 import { must } from "../test/views";
 import { initialSession, reduce, type SessionState } from "./session";
 
-// Real event logs from a demo-mode run (scripts/web_fixtures.py).
+// Real event logs from a demo-mode run (backend/scripts/web_fixtures.py).
 const walkthrough = walkthroughLog as unknown as SessionEvent[];
 const e001 = e001Log as unknown as SessionEvent[];
 

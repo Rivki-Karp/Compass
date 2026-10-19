@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 import tasks
 
 
@@ -73,7 +72,7 @@ def test_demo_prints_the_urls_and_never_a_token_from_env(
     monkeypatch.delenv("COMPASS_LLM", raising=False)  # restored after the test
     monkeypatch.setenv("COMPASS_REP_TOKEN", "secret-rep-value")
     monkeypatch.delenv("COMPASS_ADMIN_TOKEN", raising=False)
-    monkeypatch.setattr(tasks, "REPO_ROOT", Path("/nonexistent-repo"))  # no .env
+    monkeypatch.setattr(tasks, "BACKEND", Path("/nonexistent-repo"))  # no .env
     tasks.demo()
     out = capsys.readouterr().out
     assert "http://127.0.0.1:8000/" in out and "http://127.0.0.1:8000/rep" in out
@@ -84,7 +83,7 @@ def test_demo_prints_the_urls_and_never_a_token_from_env(
 
 def _env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, text: str) -> None:
     (tmp_path / ".env").write_text(text, encoding="utf-8")
-    monkeypatch.setattr(tasks, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(tasks, "BACKEND", tmp_path)
     for name in ("COMPASS_REP_TOKEN", "COMPASS_ADMIN_TOKEN", "COMPASS_LLM", "COMPASS_DEMO_DB"):
         monkeypatch.delenv(name, raising=False)
 
@@ -133,6 +132,6 @@ def test_demo_has_no_token_warning_its_defaults_fill_them(
     monkeypatch.delenv("COMPASS_LLM", raising=False)
     monkeypatch.delenv("COMPASS_REP_TOKEN", raising=False)
     monkeypatch.delenv("COMPASS_ADMIN_TOKEN", raising=False)
-    monkeypatch.setattr(tasks, "REPO_ROOT", tmp_path)  # an empty .env-less repo
+    monkeypatch.setattr(tasks, "BACKEND", tmp_path)  # an empty .env-less repo
     tasks.demo()
     assert "WARNING" not in capsys.readouterr().out

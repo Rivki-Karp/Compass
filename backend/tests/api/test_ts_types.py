@@ -1,5 +1,5 @@
 """The web UI's TypeScript types are generated from the Pydantic models; the committed file
-must match them (run `uv run python tasks.py ts-types` and commit web/src/api/generated.ts)."""
+must match them (run `uv run python tasks.py ts-types` and commit frontend/src/api/generated.ts)."""
 
 from compass.api.ts_types import TS_FILE, render
 

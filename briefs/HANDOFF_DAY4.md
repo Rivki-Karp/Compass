@@ -1,5 +1,10 @@
 # Handoff — Day 4 (the UI), after Stage 9
 
+> **Layout note (2026-10-19, after v1.1):** the repo is now split into `backend/` and
+> `frontend/` (formerly `web/`). The commands below are updated to run from the repo root
+> (`uv run --project backend python tasks.py ...`); the narrative and file names describe the
+> repo as it was on the day.
+
 Written 2026-10-16, updated 2026-10-18 and checked against git (`git log main..day4/ui`, every
 hash below) and a full test run. The brief is
 `briefs/day4-ui.md`; the decisions approved during review are listed below.
@@ -50,7 +55,7 @@ All stages are done; the final report was approved and `day4/ui` is merged into 
   clean.
 - `web/`: `npm run lint`, `npm run typecheck` clean; `npm test` (vitest) **136 passed** (none
   at the start of Day 4); `npm run build` ok; `npm audit` 0 vulnerabilities.
-- Playwright (`web/e2e/`, `npm run e2e` from `web/`): **3 passed**, 24–35 s including the build
+- Playwright (`web/e2e/`, `npm run e2e` from `frontend/` today): **3 passed**, 24–35 s including the build
   and the server start, on Windows (34.7 s on the last run, after 8b).
 - CI (GitHub Actions) has three jobs: `test` (Python: data build, lint, pytest), `web` (npm ci,
   lint, typecheck, vitest, a check that the vitest count equals `tests/counts.json`, build) and
@@ -58,7 +63,7 @@ All stages are done; the final report was approved and `day4/ui` is merged into 
   No API calls in any of them. The new jobs haven't been seen running on GitHub yet: `gh` isn't
   installed on this machine.
 - `tests/counts.json` holds the counts judges mode shows. After adding tests run
-  `uv run python tasks.py test-counts`; a full `pytest` run fails while its pytest number is
+  `uv run --project backend python tasks.py test-counts`; a full `pytest` run fails while its pytest number is
   stale (a partial run skips that check). It counts vitest from a real `vitest run`
   (`vitest list` undercounts).
 
@@ -112,7 +117,7 @@ The last full run before the freeze: 15/15 on 2026-10-18 (`evals/report.md`).
 **For the final, one command** from the repo root (no API key, no network):
 
 ```powershell
-uv run python tasks.py demo
+uv run --project backend python tasks.py demo
 ```
 
 It sets demo mode (`COMPASS_LLM=scripted`), empties the demo database (`demo-reset`), runs
@@ -135,9 +140,9 @@ The same steps by hand, one terminal, one URL:
 $env:COMPASS_LLM="scripted"
 $env:COMPASS_ADMIN_TOKEN="admin-demo"
 $env:COMPASS_REP_TOKEN="rep-demo"
-uv run python tasks.py demo-reset   # optional: start from an empty demo database
-uv run python tasks.py build-web    # web/dist (npm ci first if web/node_modules is missing)
-uv run python tasks.py serve        # http://127.0.0.1:8000: the UI, /rep, the API, /docs
+uv run --project backend python tasks.py demo-reset   # optional: start from an empty demo database
+uv run --project backend python tasks.py build-web    # frontend/dist (npm ci first if frontend/node_modules is missing)
+uv run --project backend python tasks.py serve        # http://127.0.0.1:8000: the UI, /rep, the API, /docs
 ```
 
 The step-by-step script for the final (live first, demo mode as the fallback) is
@@ -147,26 +152,26 @@ Open http://127.0.0.1:8000 and click the suggestion chips; the representative is
 http://127.0.0.1:8000/rep in a second tab (token `rep-demo`); judges mode takes `admin-demo`.
 `tasks.py serve` serves the last build: run `build-web` again after UI changes.
 
-For UI development, `uv run python tasks.py web` runs the API (auto-reload, :8000) and Vite (hot
+For UI development, `uv run --project backend python tasks.py web` runs the API (auto-reload, :8000) and Vite (hot
 reload, http://localhost:5173, proxying `/api`) together; Ctrl+C stops both, including the node
 child (it uses `taskkill /T` on Windows, so 5173 isn't left listening).
 
 Demo mode has its own database, `data/demo.db` (git-ignored). It never reads or writes
 `data/app.db`: with `COMPASS_LLM=scripted`, `COMPASS_APP_DB` is ignored, and settings refuse to
-start if the demo database would be `app.db`. Move it with `$env:COMPASS_DEMO_DB="data\other.db"`.
+start if the demo database would be `app.db`. Move it with `$env:COMPASS_DEMO_DB="data\other.db"` (relative to `backend\`).
 `tasks.py demo-reset` deletes the demo database and its `-wal`/`-shm` files. Stop the demo API
 first: on Windows an open database can't be deleted, and the task says so.
 
 If port 8000 is taken in development, run the API on another port and point Vite at it before
-`npm run dev` (in `web/`): `$env:COMPASS_API_URL="http://127.0.0.1:8010"`.
+`npm run dev` (in `frontend/`): `$env:COMPASS_API_URL="http://127.0.0.1:8010"`.
 
 Regenerating committed artifacts:
-- `uv run python tasks.py ts-types` → `web/src/api/generated.ts` (pytest fails when stale)
-- `uv run python scripts/web_fixtures.py` → `web/src/test/fixtures/*.json` (real demo event logs,
+- `uv run --project backend python tasks.py ts-types` → `frontend/src/api/generated.ts` (pytest fails when stale)
+- `uv run --project backend python backend/scripts/web_fixtures.py` → `frontend/src/test/fixtures/*.json` (real demo event logs,
   the E-001 inbox as `GET /api/tickets` returns it, the real 422 body for a −50 answer, and
   `guard_retry`: the walkthrough with a +2,915 draft the real guard rejects)
-- `uv run python tasks.py openapi` → `openapi.json` (pytest fails when stale)
-- `uv run python tasks.py test-counts` → `tests/counts.json` (see above)
+- `uv run --project backend python tasks.py openapi` → `backend/openapi.json` (pytest fails when stale)
+- `uv run --project backend python tasks.py test-counts` → `backend/tests/counts.json` (see above)
 
 ## Stage 4 — what was built
 

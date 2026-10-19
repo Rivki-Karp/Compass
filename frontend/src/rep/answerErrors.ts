@@ -1,7 +1,7 @@
 /**
  * What the answer form shows when the server refuses an answer. Validation is the server's
- * (compass/tools/tickets.py); the form only places its Hebrew `errors[].message` next to the
- * field it names. The English `detail` is for logs and the model, never for the rep.
+ * (backend/compass/tools/tickets.py); the form only places its Hebrew `errors[].message` next to
+ * the field it names. The English `detail` is for logs and the model, never for the rep.
  */
 
 import { ApiError } from "../api/client";

@@ -186,11 +186,13 @@ def test_an_empty_rep_token_warns_at_startup_and_shows_in_health(
         assert client.get("/api/tickets").status_code == 503
 
 
-def test_cors_for_vite(client: TestClient) -> None:
-    response = client.options(
-        "/api/health",
-        headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "GET"},
-    )
+def test_cors_for_vite(make_settings: Callable[..., Settings]) -> None:
+    app = create_app(make_settings(cors_origins=("http://localhost:5173",)))
+    with TestClient(app) as client:
+        response = client.options(
+            "/api/health",
+            headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "GET"},
+        )
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
 
 

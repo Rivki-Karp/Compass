@@ -8,33 +8,37 @@ the backup video (section 6).
 Fallbacks in order: live (section 3) → demo mode with `tasks.py demo` (5a) → demo mode in Docker
 (5b) → the backup video (6).
 
+Every `tasks.py` command runs from the repo root as `uv run --project backend python tasks.py ...`
+(the backend's environment). The backend lives in `backend\`, the UI in `frontend\`.
+
 ## 1. Before you go on stage
 
 The day before, in PowerShell, from the repo root:
 
 ```powershell
 git pull
-uv run python tasks.py data          # only if data/vehicles.db is missing
-uv run python tasks.py build-web     # the UI the server will serve
-uv run python tasks.py test          # optional sanity check
+uv run --project backend python tasks.py data        # only if backend\data\vehicles.db is missing
+uv run --project backend python tasks.py build-web   # the UI the server will serve
+uv run --project backend python tasks.py test        # optional sanity check
 ```
 
-Check `.env` has `ANTHROPIC_API_KEY`, `COMPASS_REP_TOKEN` and `COMPASS_ADMIN_TOKEN`. An empty
+Check `backend\.env` has `ANTHROPIC_API_KEY`, `COMPASS_REP_TOKEN` and `COMPASS_ADMIN_TOKEN`. An empty
 token disables its screen: `/rep` and the judges-mode dialog then say "טוקן לא הוגדר בשרת", and
 `tasks.py serve` prints a warning at startup naming the empty variable. To generate a token, run
-this in PowerShell once per token and paste the output after the `=` in `.env`:
+this in PowerShell once per token and paste the output after the `=` in `backend\.env`:
 
 ```powershell
 [guid]::NewGuid().ToString()
 ```
 
-Restart the server after changing `.env`. In live mode the server refuses to start while either
+Restart the server after changing `backend\.env`. In live mode the server refuses to start while either
 token is empty or a demo / placeholder value (`rep-demo`, `admin-demo`, or the `.env.example`
 placeholders), and says which one; demo mode (5a, 5b) keeps its `rep-demo` / `admin-demo`. Write the two tokens on a card: you'll type them on
 stage.
 
-Build the Docker image too, while there is network (it downloads npm and PyPI packages; on
-stage, `up` without `--build` needs no network). On a NetFree connection, point the build at its
+Build the Docker image too, while there is network (it downloads PyPI packages; on stage, `up`
+without `--build` needs no network). The image is the API only; 5b serves the screens from
+`frontend\` with Vite, whose packages `build-web` above already installed. On a NetFree connection, point the build at its
 CA first:
 
 ```powershell
@@ -57,10 +61,11 @@ Thirty minutes before:
 
    ```powershell
    $env:COMPASS_APP_DB="data\final.db"
-   uv run python tasks.py serve
+   uv run --project backend python tasks.py serve
    ```
 
-   (`final.db` is created on first use and is git-ignored. Delete it to start over.)
+   (Relative to `backend\`: `backend\data\final.db` is created on first use and is git-ignored.
+   Delete it to start over.)
 3. Open two browser windows, both at 100% zoom, side by side (or one per screen):
    - **Window A, the employee**, about 1440 px wide: http://127.0.0.1:8000/
    - **Window B, the representative**: http://127.0.0.1:8000/rep. Enter the rep token now; it is
@@ -167,7 +172,7 @@ Back to **Window A** (within a second, before the model has said anything):
 In the PowerShell window: stop the live server (Ctrl+C), then:
 
 ```powershell
-uv run python tasks.py demo
+uv run --project backend python tasks.py demo
 ```
 
 It empties the demo database, builds the UI if needed, and serves the same URLs on port 8000. It
@@ -187,14 +192,23 @@ guard, the tickets, the server's recomputation) runs for real.*
 
 ### 5b. In Docker (if `uv` or the Python environment misbehaves)
 
-Stop whatever is on port 8000, then, with the image built the day before (section 1):
+Stop whatever is on port 8000, then, with the image built the day before (section 1), start
+the API in one PowerShell window:
 
 ```powershell
 docker compose --profile demo up
 ```
 
-The same URLs and the same tokens (`rep-demo` / `admin-demo`, unless `.env` sets others); the
-health check turns "healthy" within a few seconds. Then continue as in 5a. Ctrl+C stops it. To
+The image serves the API only, so start the screens in a second PowerShell window (no network
+needed; Vite proxies `/api` to the container on :8000):
+
+```powershell
+cd frontend; npm run dev
+```
+
+Then use http://localhost:5173/ (employee) and http://localhost:5173/rep instead of port 8000,
+with the same tokens (`rep-demo` / `admin-demo`, unless the shell sets others); the container's
+health check turns "healthy" within a few seconds. Then continue as in 5a. Ctrl+C stops each. To
 start from an empty demo database: `docker compose --profile demo down -v`, then `up` again.
 
 ## 6. Last resort: the backup video
@@ -210,21 +224,21 @@ section 3.
 To re-record it (demo mode, no key; about two minutes):
 
 ```powershell
-uv run python tasks.py record-demo
+uv run --project backend python tasks.py record-demo
 ```
 
 ## 7. After the demo
 
 - Stop the server (Ctrl+C), or `docker compose --profile demo down`.
-- `data\final.db` and `data\demo.db` hold only the demo's sessions; delete them if you like.
-  `data\app.db` was not touched. Docker's sessions live in its own volumes.
+- `backend\data\final.db` and `backend\data\demo.db` hold only the demo's sessions; delete them
+  if you like. `backend\data\app.db` was not touched. Docker's sessions live in its own volumes.
 
 ## 8. Before a public deployment (live mode)
 
-Not deployed anywhere yet; section 9 has the Render steps. What the single container already does:
+Not deployed anywhere yet; section 9 has the steps. What the backend container already does:
 
 - **Configuration from the environment only.** The image sets `COMPASS_ENV_ONLY=1`: no `.env`
-  file is read, and none is in the image (`scripts/check_image_secrets.py`, run in CI). Set
+  file is read, and none is in the image (`backend/scripts/check_image_secrets.py`, run in CI). Set
   every variable on the host: `ANTHROPIC_API_KEY`, `COMPASS_REP_TOKEN`, `COMPASS_ADMIN_TOKEN`,
   and optionally the two below.
 - **Tokens.** A live server refuses to start while either token is empty or a demo / placeholder
@@ -240,21 +254,36 @@ Not deployed anywhere yet; section 9 has the Render steps. What the single conta
   left come from the browser and can be forged, so they are ignored). Otherwise every employee
   shares the proxy's limit. Never set it without such a proxy in front: anyone could then pick
   their own key. The count is per process, which is fine: the server runs one worker.
+- **CORS: one origin allowed, exactly.** The UI on Cloudflare Pages is another origin, so the
+  backend allows it by name: `COMPASS_CORS_ORIGINS`, a comma-separated list of exact origins
+  (no wildcard, no trailing slash). Empty, the default, means the same origin only.
 
-## 9. Deploy to Render
+## 9. Deploy
 
-Prepared, not deployed. `render.yaml` at the repo root describes the service; Render reads it
-when you create a "Blueprint". You need about 20 minutes, a credit card (a persistent disk needs
-a paid plan: the Starter instance plus 1 GB of disk, a few dollars a month) and access to the
-GitHub repo.
+Prepared, not deployed. Two services, in this order:
 
-**What it creates:** one web service named `compass`, built from the repo's `Dockerfile`, one
-instance (never more: the agent keeps per-session state in memory), in Frankfurt, with a 1 GB
-disk mounted at `/data` for the session databases. Render checks `/api/health`. It does not
-redeploy on a push (`autoDeploy: false`): you deploy by hand.
+1. **Render** runs the backend (`backend/`): the API, the agent and the session databases.
+2. **Cloudflare Pages** serves the UI (`frontend/`): static files only, which call the backend.
+
+Render goes first because the UI needs the backend's address when it is built, and the backend
+needs the UI's address before it lets the browser in (CORS). You need about 40 minutes, a credit
+card for Render (a persistent disk needs a paid plan: the Starter instance plus 1 GB of disk, a
+few dollars a month), a free Cloudflare account, and access to the GitHub repo.
+
+Do every step on the branch you deploy (the approved one; `main` once it is merged). Neither
+service redeploys by itself on a push to it (Render: `autoDeploy: false`; Pages: you can turn
+automatic deploys off in its settings, see "Later").
+
+### 9a. Render: the backend
+
+**What it creates:** one web service named `compass`, built from `backend/Dockerfile` with
+`backend/` as the build context (no Node in it), one instance (never more: the agent keeps
+per-session state in memory), in Frankfurt, with a 1 GB disk at `/data` for the session
+databases. Render checks `/api/health`. `render.yaml` at the repo root describes all of it;
+Render reads it when you create a "Blueprint".
 
 **Before you start**, have these three secrets ready (in a password manager, never in a file in
-the repo). Render asks for them; nothing else needs typing:
+the repo):
 
 | Variable | Value |
 |---|---|
@@ -262,11 +291,11 @@ the repo). Render asks for them; nothing else needs typing:
 | `COMPASS_REP_TOKEN` | a new long random token (`python -c "import secrets; print(secrets.token_urlsafe(32))"`) |
 | `COMPASS_ADMIN_TOKEN` | another new one, different from the rep token |
 
-`render.yaml` sets the rest: `COMPASS_LLM=anthropic`, `COMPASS_DAILY_SPEND_CAP_USD=5`,
-`COMPASS_MESSAGE_RATE_PER_MINUTE=20` and `COMPASS_TRUST_PROXY=1` (Render's proxy is in front;
-section 8). To change one for this deployment, edit it under **Environment** after the deploy.
-
-Never reuse the demo tokens: a live server refuses to start with them (section 1).
+A fourth variable, `COMPASS_CORS_ORIGINS`, is the UI's address. You don't know it yet: leave it
+empty now and fill it in at step 9c. `render.yaml` sets the rest: `COMPASS_LLM=anthropic`,
+`COMPASS_DAILY_SPEND_CAP_USD=5`, `COMPASS_MESSAGE_RATE_PER_MINUTE=20` and `COMPASS_TRUST_PROXY=1`
+(Render's proxy is in front; section 8). Never reuse the demo tokens: a live server refuses to
+start with them (section 1).
 
 **Steps:**
 
@@ -277,41 +306,111 @@ Never reuse the demo tokens: a live server refuses to start with them (section 1
 4. Under "Connect a repository", click **Connect GitHub** (first time only), allow Render to
    see the `Compass` repository (you can choose "Only select repositories"), then pick
    `Rivki-Karp/Compass` in the list and click **Connect**.
-5. **Blueprint Name:** `compass`. **Branch:** the branch to deploy (the approved one; `main`
-   once the fixes are merged). Render shows what `render.yaml` will create: one web service
-   `compass` and its disk.
-6. Render lists the three secrets above, each with an empty box. Paste each value from the
-   table. Check for stray spaces. These are stored by Render, not in the repo.
+5. **Blueprint Name:** `compass`. **Branch:** the branch to deploy. Render shows what
+   `render.yaml` will create: one web service `compass` (root directory `backend`) and its disk.
+6. Render lists four variables, each with an empty box. Paste the three secrets from the table.
+   Check for stray spaces; they are stored by Render, not in the repo. Leave
+   `COMPASS_CORS_ORIGINS` empty. (If Render insists on a value, type the address the UI will
+   most likely get, `https://compass.pages.dev`, and correct it at step 9c.)
 7. Click **Apply** (or **Deploy Blueprint**). The first build takes 5–10 minutes: open the
    `compass` service → **Logs** to follow it. It is done when the service shows **Live**.
-8. At the top of the service page, copy its address (like `https://compass-xxxx.onrender.com`).
-9. From the repo on your machine, check it from outside:
+8. At the top of the service page, copy its address, like `https://compass-xxxx.onrender.com`.
+   This is the **backend URL**. Open `<backend URL>/api/health` in a browser: a short JSON with
+   `"ok": true`. (The backend has no screens: `/` is a 404. The screens are on Pages.)
 
-   ```powershell
-   uv run python tasks.py smoke --url https://compass-xxxx.onrender.com
-   ```
+### 9b. Cloudflare Pages: the UI
 
-   It checks `/api/health`, opens a session and reads its first event, and ends with
-   `smoke: OK`. It sends no token and prints no secret. `health: ok (llm: anthropic)` confirms
-   live mode. (It leaves one empty session behind; harmless.)
-10. Open the address in a browser: the employee screen, then `/rep` with the rep token. Send one
-    message to see a real reply.
+The UI is built on Cloudflare from `frontend/`. Its one setting, `VITE_API_BASE_URL`, is the
+backend URL; it is written into the JavaScript when the site is built, so anyone can read it.
+That is fine for a URL and the reason nothing secret ever goes there (no key, no token).
 
-**Later:**
+1. Go to <https://dash.cloudflare.com> and sign up or log in (the free plan is enough).
+2. In the left menu, click **Workers & Pages** → **Create** (or **Create application**) → the
+   **Pages** tab → **Connect to Git** (or **Import an existing Git repository**).
+3. Connect your GitHub account (first time only), allow Cloudflare to see the `Compass`
+   repository, select `Rivki-Karp/Compass` and click **Begin setup**.
+4. **Project name:** `compass`. The site's address will be `https://compass.pages.dev` (if that
+   name is taken, Cloudflare adds a suffix; the address shows on the next screen). **Production
+   branch:** the branch to deploy.
+5. **Build settings:**
+   - **Framework preset:** None (or "React (Vite)"; then check the two fields below).
+   - **Build command:** `npm run build`
+   - **Build output directory:** `dist`
+   - **Root directory (advanced):** `frontend`
+6. **Environment variables (advanced)** → add two, as plain text (not "Encrypt"):
+   - `NODE_VERSION` = `22.19.0` (the version in `frontend/.nvmrc`)
+   - `VITE_API_BASE_URL` = the backend URL from 9a step 8, e.g.
+     `https://compass-xxxx.onrender.com` (no `/api`, no slash at the end)
+7. Click **Save and Deploy**. The build takes 1–3 minutes. When it says **Success**, the site's
+   address is shown: this is the **web URL**, e.g. `https://compass.pages.dev`.
 
-- *Deploy a new version:* service page → **Manual Deploy** → **Deploy latest commit**. With a
-  disk, Render stops the old instance before it starts the new one: about a minute offline.
-- *Change a value* (a token, the cap): service page → **Environment** → edit → **Save
-  Changes**; Render restarts the service.
-- *Stop it:* service page → **Settings** → bottom → **Suspend Web Service** (or **Delete**). The
-  disk, with the sessions, is deleted only when the service is.
+The build also writes the two Pages files from `frontend/public/`: `_redirects` sends every path
+to the UI (so `/rep` opens directly), and `_headers` adds the security headers and a Content
+Security Policy that lets the page connect only to itself and to the backend URL.
 
-**If the deploy fails:**
+The screens won't work yet: the backend still refuses the web URL. That is the next step.
 
-- *The logs end with `sqlite3.OperationalError: unable to open database file`:* the server can't
-  write to `/data`. The entrypoint gives the app user (uid 10001) the mount at every start, even
-  a root-owned one (checked locally), so this means the disk is missing or not at `/data`:
+### 9c. Back to Render: let the UI in
+
+1. Render → the `compass` service → **Environment**.
+2. Set `COMPASS_CORS_ORIGINS` to the web URL exactly, e.g. `https://compass.pages.dev`: with
+   `https://`, without a slash or a path at the end. (Several origins: separate them with commas.
+   A `*` is refused.)
+3. **Save Changes**. Render restarts the service (about a minute, with the disk).
+
+Only that exact address is allowed. Pages also publishes each build at its own preview address
+(like `https://1a2b3c4d.compass.pages.dev`); those are refused unless you add them too.
+
+### 9d. Check it from outside
+
+From the repo root on your machine:
+
+```powershell
+uv run --project backend python tasks.py smoke --api https://compass-xxxx.onrender.com --web https://compass.pages.dev
+```
+
+It checks, in order: `/api/health` answers ok; a CORS preflight from the web URL's origin is
+allowed; a session opens; its event stream delivers the first event; and `/rep` loads from the
+web URL (the UI's page, not a 404). It ends with `smoke: OK`, or stops at the first failure and
+says which step. It sends no token and prints no secret. `health: ok (llm: anthropic)` confirms
+live mode. (It leaves one empty session behind; harmless.)
+
+Then open the web URL in a browser: the employee screen; send one message to see a real reply.
+Open `<web URL>/rep` and enter the rep token.
+
+### Later
+
+- *Deploy a new backend version:* Render service page → **Manual Deploy** → **Deploy latest
+  commit**. With a disk, Render stops the old instance before it starts the new one: about a
+  minute offline.
+- *Deploy a new UI version:* Pages builds every push to the production branch by itself. To
+  deploy only by hand: the Pages project → **Settings** → **Builds** (or **Build & deployments**)
+  → turn automatic production deployments off; then **Deployments** → **Retry deployment** (or
+  create one) when you want it.
+- *Change the backend URL:* change `VITE_API_BASE_URL` in the Pages project's **Settings** →
+  **Environment variables**, then deploy again: it is baked in at build time, so a saved value
+  alone changes nothing.
+- *Change a backend value* (a token, the cap, the allowed origin): Render service page →
+  **Environment** → edit → **Save Changes**; Render restarts the service.
+- *Stop it:* Render service page → **Settings** → bottom → **Suspend Web Service** (or
+  **Delete**; the disk, with the sessions, is deleted only then). Pages: the project →
+  **Settings** → **Delete project**.
+
+### If something fails
+
+- *Render's logs end with `sqlite3.OperationalError: unable to open database file`:* the server
+  can't write to `/data`. The entrypoint gives the app user (uid 10001) the mount at every start,
+  even a root-owned one (checked locally), so this means the disk is missing or not at `/data`:
   service page → **Disks**.
 - *`Compass will not start in live mode`, about a token:* a token is empty or a demo value;
   fix it under **Environment**.
-- *The health check times out:* look at **Logs** for the error above the timeout.
+- *Render's health check times out:* look at **Logs** for the error above the timeout.
+- *The Pages build fails at `npm ci` or with an engine error:* check `NODE_VERSION` (22.19.0) and
+  that the root directory is `frontend`.
+- *The screens load but say they can't connect* (or the browser console shows "blocked by CORS
+  policy"): `COMPASS_CORS_ORIGINS` on Render isn't exactly the address in the browser's address
+  bar. `smoke` says the same at its CORS step.
+- *The console shows "violates the Content Security Policy ... connect-src":* the UI was built
+  with another `VITE_API_BASE_URL`, or none. Fix it on Pages and deploy again.
+- *`/rep` is a 404 on Pages:* the build output is missing `_redirects`; check the output
+  directory is `dist` and the root directory `frontend`.

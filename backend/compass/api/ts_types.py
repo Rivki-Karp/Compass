@@ -1,10 +1,10 @@
 """TypeScript types for the web UI, generated from the Pydantic models (one source of truth).
 
-    uv run python tasks.py ts-types      # writes web/src/api/generated.ts
+    uv run python tasks.py ts-types      # writes frontend/src/api/generated.ts
 
 The view models (compass/tools/view.py) and the event type names (compass/state/store.py) are
 emitted; the event envelope and the payloads that are not models are hand-written next to it in
-web/src/api/types.ts. tests/api/test_ts_types.py fails when the committed file is stale.
+frontend/src/api/types.ts. tests/api/test_ts_types.py fails when the committed file is stale.
 """
 
 import sys
@@ -16,7 +16,7 @@ from compass.config import REPO_ROOT
 from compass.state.store import EVENT_TYPES
 from compass.tools.view import ComparisonView, TicketView
 
-TS_FILE = REPO_ROOT / "web" / "src" / "api" / "generated.ts"
+TS_FILE = REPO_ROOT / "frontend" / "src" / "api" / "generated.ts"
 MODELS = (ComparisonView, TicketView)
 
 

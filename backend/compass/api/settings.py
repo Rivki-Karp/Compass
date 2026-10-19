@@ -1,6 +1,6 @@
 """API settings, from the environment (COMPASS_*) or passed explicitly (tests).
 
-`from_env()` also reads the repo's .env file, so no shell (PowerShell, cmd, bash) needs
+`from_env()` also reads backend/.env, so no shell (PowerShell, cmd, bash) needs
 variables set by hand. A variable set in the real environment wins over the file.
 """
 
@@ -13,9 +13,9 @@ from dotenv import dotenv_values
 from compass.config import (
     ALIASES_YAML,
     APP_DB,
+    BACKEND_ROOT,
     DEMO_DB,
     ENV_FILE,
-    REPO_ROOT,
     RULES_YAML,
     VEHICLES_DB,
     WEB_DIST,
@@ -23,11 +23,11 @@ from compass.config import (
 
 
 def _path(value: str | None, default: Path) -> Path:
-    """Relative paths are relative to the repo root, not the current directory."""
+    """Relative paths are relative to backend/, not the current directory."""
     if not value:
         return default
     path = Path(value)
-    return path if path.is_absolute() else REPO_ROOT / path
+    return path if path.is_absolute() else BACKEND_ROOT / path
 
 
 DEFAULT_MODEL = "claude-sonnet-5-5"
@@ -85,7 +85,17 @@ def _llm(value: str | None) -> str:
     return value
 
 
-DEFAULT_CORS_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")  # Vite dev server
+# Cross-origin callers (the UI on Cloudflare Pages): none by default, same origin only. In dev the
+# Vite proxy keeps the browser on one origin, so it needs none either.
+DEFAULT_CORS_ORIGINS: tuple[str, ...] = ()
+
+
+def _cors_origins(value: str | None) -> tuple[str, ...]:
+    """COMPASS_CORS_ORIGINS: a comma-separated list of exact origins, never a wildcard."""
+    origins = tuple(o.strip() for o in (value or "").split(",") if o.strip())
+    if any("*" in o for o in origins):
+        raise SettingsError("COMPASS_CORS_ORIGINS takes exact origins, never a wildcard")
+    return origins or DEFAULT_CORS_ORIGINS
 
 
 def _env(env_file: Path | None) -> dict[str, str]:
@@ -201,7 +211,6 @@ class Settings:
     @classmethod
     def from_env(cls, env_file: Path | None = ENV_FILE) -> "Settings":
         env = _env(env_file)
-        origins = env.get("COMPASS_CORS_ORIGINS")
         llm = _llm(env.get("COMPASS_LLM"))
         return cls(
             # Demo mode never touches app.db: COMPASS_APP_DB is ignored there.
@@ -242,7 +251,5 @@ class Settings:
                 DEFAULT_MESSAGE_RATE_PER_MINUTE,
             ),
             trust_proxy=env.get("COMPASS_TRUST_PROXY") == "1",
-            cors_origins=tuple(o.strip() for o in origins.split(","))
-            if origins
-            else DEFAULT_CORS_ORIGINS,
+            cors_origins=_cors_origins(env.get("COMPASS_CORS_ORIGINS")),
         )

@@ -1,4 +1,4 @@
-"""Serve the built web UI (web/dist) from the API: one URL for the demo and for Docker.
+"""Serve the built web UI (frontend/dist) from the API: one URL for the demo and for Docker.
 
 Registered after every API route, as the last GET route, so it never shadows one: /api/*,
 /docs and /openapi.json match first. An unknown /api path stays the API's JSON 404, never the

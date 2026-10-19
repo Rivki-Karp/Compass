@@ -1,6 +1,6 @@
 """Check a built image for secrets (Day 5 Stage 5). CI runs it after `docker build`.
 
-    uv run python scripts/check_image_secrets.py compass:ci
+    uv run python scripts/check_image_secrets.py compass:ci     (from backend/)
 
 Exports the image's filesystem (docker create + docker export) and fails when:
   - any file named .env or .env.* exists (.env.example, the template, is allowed);

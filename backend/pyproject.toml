@@ -2,7 +2,6 @@
 name = "compass"
 version = "0.1.0"
 description = "Hebrew assistant that explains how a company-car change affects an employee's monthly net salary."
-readme = "README.md"
 requires-python = "==3.12.*"
 dependencies = [
     "anthropic>=1.14.0",
@@ -43,4 +42,5 @@ testpaths = ["tests"]
 addopts = "-ra"
 # Starlette now suggests httpx2 for its TestClient; we use httpx as specified.
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
-pythonpath = ["."]
+# "..": tasks.py lives at the repo root, one level up
+pythonpath = [".", ".."]

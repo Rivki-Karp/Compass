@@ -188,7 +188,7 @@ test("judges mode: with the admin token a guard card; without it, no judges data
     }
     return byType;
   }, sessionId);
-  // judges-only fields are absent (the server's allowlist, compass/api/redact.py)
+  // judges-only fields are absent (the server's allowlist, backend/compass/api/redact.py)
   expect(keys.tool_call).toEqual(["name", "tool_use_id"]);
   expect(keys.tool_result).toEqual(["name", "ok", "tool_use_id"]);
   expect(keys.guard_check).toEqual(["action", "passed"]);

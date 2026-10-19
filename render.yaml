@@ -1,20 +1,24 @@
-# Render Blueprint for Compass (prep only: nothing is deployed until someone creates the
-# Blueprint in the dashboard; docs/demo-runbook.md, "Deploy to Render").
+# Render Blueprint for the Compass backend (prep only: nothing is deployed until someone creates
+# the Blueprint in the dashboard; docs/demo-runbook.md, "Deploy").
 #
-# One web service from the repo's Dockerfile: one instance, no autoscaling (the agent's
+# One web service from backend/Dockerfile, built from backend/ alone (rootDir; Render resolves
+# dockerfilePath and dockerContext from the repo root, so both name backend/). It serves the API
+# only: the UI is on Cloudflare Pages (frontend/). One instance, no autoscaling (the agent's
 # per-session workers and locks live in memory, so one process: the image runs --workers 1).
 # The session databases live on a persistent disk at /data (the image's COMPASS_APP_DB).
 # The image listens on $PORT, which Render sets.
 #
-# The three secrets are declared by name only (sync: false): Render asks for each value when
-# the Blueprint is created, and they are never in the repo. The other settings are set here.
+# Set in the dashboard, never in the repo (sync: false: Render asks for each value when the
+# Blueprint is created): the three secrets, and COMPASS_CORS_ORIGINS, the Pages URL, known only
+# once the frontend is deployed. The other settings are set here.
 
 services:
   - type: web
     name: compass
     runtime: docker
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    rootDir: backend
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     plan: starter # a persistent disk needs a paid plan
     region: frankfurt
     numInstances: 1 # and no `scaling` block: never more than one
@@ -30,6 +34,8 @@ services:
       - key: COMPASS_REP_TOKEN
         sync: false
       - key: COMPASS_ADMIN_TOKEN
+        sync: false
+      - key: COMPASS_CORS_ORIGINS # the Pages origin, e.g. https://compass.pages.dev (no slash)
         sync: false
       - key: COMPASS_LLM
         value: anthropic

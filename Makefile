@@ -2,16 +2,16 @@
 .PHONY: install data test lint fmt
 
 install:
-	uv run python tasks.py install
+	uv run --project backend python tasks.py install
 
 data:
-	uv run python tasks.py data
+	uv run --project backend python tasks.py data
 
 test:
-	uv run python tasks.py test
+	uv run --project backend python tasks.py test
 
 lint:
-	uv run python tasks.py lint
+	uv run --project backend python tasks.py lint
 
 fmt:
-	uv run python tasks.py fmt
+	uv run --project backend python tasks.py fmt
