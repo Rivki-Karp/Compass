@@ -196,3 +196,5 @@ uv run --project backend python tasks.py readme                    # refresh the
   `git push origin main v1.0`.
 
 Released v1.0 at 81abaa3.
+
+Released v1.2 at 47af506 (backend/ + frontend/ split, Render Blueprint).
