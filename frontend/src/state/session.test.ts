@@ -169,6 +169,10 @@ describe("the representative's note", () => {
         text: "מעודכן מנובמבר, 400 ₪ אחרי השנה הראשונה",
         kind: null,
         turn: null,
+        rep: {
+          kind: "note",
+          items: [{ question: null, answer: null, note: "מעודכן מנובמבר, 400 ₪ אחרי השנה הראשונה" }],
+        },
       },
     ]);
     const index = state.messages.findIndex((m) => m.role === "rep");

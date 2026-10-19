@@ -167,17 +167,36 @@ function MessageItem({ message, tools }: { message: ChatMessage; tools: ToolActi
     );
   }
   if (message.role === "rep") {
+    // the answers to free questions, or the rep's notes: never a value of the calculation
+    const title = message.rep?.kind === "answer" ? "תשובת הנציג" : "הערת הנציג";
+    const items = message.rep?.items ?? [{ question: null, answer: null, note: message.text }];
     return (
       <li className="flex flex-col items-start">
         <div
           role="note"
-          aria-label="הערת הנציג"
-          className="max-w-[85%] rounded-[14px] rounded-es-[4px] border border-chip-rep bg-chip-rep-bg px-4 py-2.5 text-ink"
+          aria-label={title}
+          className="flex max-w-[85%] flex-col gap-1.5 rounded-[14px] rounded-es-[4px] border border-chip-rep bg-chip-rep-bg px-4 py-2.5 text-ink"
         >
-          <p className="text-[13px] font-semibold text-chip-rep">הערת הנציג</p>
-          <p className="whitespace-pre-wrap">
-            <BidiText text={message.text} />
-          </p>
+          <p className="text-[13px] font-semibold text-chip-rep">{title}</p>
+          {items.map((item, i) => (
+            <div key={i} className="flex flex-col">
+              {item.question ? (
+                <p className="text-[13px] text-muted">
+                  <BidiText text={item.question} />
+                </p>
+              ) : null}
+              {item.answer ? (
+                <p className="font-semibold">
+                  <BidiText text={item.answer} />
+                </p>
+              ) : null}
+              {item.note ? (
+                <p className="whitespace-pre-wrap">
+                  <BidiText text={item.note} />
+                </p>
+              ) : null}
+            </div>
+          ))}
         </div>
       </li>
     );
