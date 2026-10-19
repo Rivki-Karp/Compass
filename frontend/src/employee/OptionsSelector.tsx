@@ -68,7 +68,8 @@ export function OptionsSelector({
         {options.map((option, index) => {
           const { view } = option.comparison;
           const checked = option.key === selected;
-          const state = view.pending ? "זמני" : "סופי";
+          // no difference yet (today's car unknown): partial, never final
+          const state = view.pending ? "זמני" : view.display_diff === null ? "חלקי" : "סופי";
           return (
             <button
               key={option.key}
@@ -115,7 +116,7 @@ export function OptionsSelector({
                 </span>
                 <span
                   className={`rounded-chip border px-1.5 text-[11px] ${
-                    view.pending
+                    view.pending || view.display_diff === null
                       ? "border-dashed border-chip-pending-border bg-chip-pending-bg text-chip-pending"
                       : "border-transparent bg-chip-rep-bg text-chip-rep"
                   }`}

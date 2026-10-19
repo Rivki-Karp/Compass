@@ -45,6 +45,8 @@ describe("before today's car is known", () => {
     expect(radios).toHaveLength(options.length);
     const first = options[0]?.comparison.view;
     expect(radios[0]).toHaveTextContent(NOTE);
+    expect(radios[0]).toHaveTextContent("חלקי"); // not final: no difference yet
+    expect(radios[0]).not.toHaveTextContent("סופי");
     expect(radios[0]).toHaveTextContent((first?.alternative_net ?? 0).toLocaleString("en-US"));
     expect(radios[0]?.getAttribute("aria-label")).toContain(NOTE);
   });
