@@ -24,6 +24,10 @@ function respond(status: number, body: unknown) {
 
 afterEach(() => vi.unstubAllGlobals());
 
+/** The element whose whole text is `text`, across the <bdi> pieces BidiText splits it into. */
+const wholeText = (text: string) => (_: string, el: Element | null) =>
+  el?.textContent === text && [...el.children].every((child) => child.textContent !== text);
+
 function renderDetail(t: TicketWithView = ticket, onAnswered = vi.fn(), onReauth = vi.fn()) {
   render(<TicketDetail ticket={t} token="rep" onAnswered={onAnswered} onReauth={onReauth} />);
   return { onAnswered, onReauth };
@@ -38,8 +42,8 @@ describe("TicketDetail: the E-001 ticket from the real inbox", () => {
   it("titles it from its fields; the model's question is secondary", () => {
     renderDetail();
     expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("השתתפות עצמית · ATTO 3");
-    expect(screen.getByText(ticket.question)).toHaveClass("line-clamp-3");
-    expect(screen.getByText("מנהל/ת מוצר · קבוצה ג׳ · היום: COROLLA CROSS")).toBeInTheDocument();
+    expect(screen.getByText(wholeText(ticket.question))).toHaveClass("line-clamp-3");
+    expect(screen.getByText(wholeText("מנהל/ת מוצר · קבוצה ג׳ · היום: COROLLA CROSS"))).toBeInTheDocument();
     const section = screen.getByRole("region", { name: /ATTO 3/ });
     expect(within(section).getByText("CAR-10")).toBeInTheDocument();
     expect(within(section).getByText("300")).toBeInTheDocument(); // catalog default
@@ -252,7 +256,7 @@ describe("TicketDetail: today's participation and a group approval", () => {
     const section = screen.getByRole("region", { name: /השתתפות עצמית ברכב של היום/ });
     expect(within(section).getAllByText(/COROLLA CROSS 2025/).length).toBeGreaterThan(0);
     expect(within(section).getByText("300")).toBeInTheDocument();
-    expect(within(section).getByText(/ההפרש אצל העובד\/ת · ATTO 3/)).toBeInTheDocument();
+    expect(within(section).getByText(wholeText("ההפרש אצל העובד/ת · ATTO 3"))).toBeInTheDocument();
   });
 
   it("a car outside the catalog: no default, said in words, no default button", () => {

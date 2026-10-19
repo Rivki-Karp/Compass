@@ -2,6 +2,7 @@ import { useRef, type KeyboardEvent } from "react";
 import { spokenSigned } from "../lib/format";
 import { Amount } from "../ui/Amount";
 import type { OptionItem } from "./options";
+import { BidiText } from "../ui/BidiText";
 
 const TONE = { up: "text-up", down: "text-down", flat: "text-ink" } as const;
 
@@ -80,9 +81,13 @@ export function OptionsSelector({
                   : "border-line bg-surface hover:border-steel"
               }`}
             >
-              <span className="text-[14px] font-semibold text-navy">{view.alternative_title}</span>
+              <span className="text-[14px] font-semibold text-navy">
+                <BidiText text={view.alternative_title} />
+              </span>
               {view.alternative_details ? (
-                <span className="text-[12px] text-muted">{view.alternative_details}</span>
+                <span className="text-[12px] text-muted">
+                  <BidiText text={view.alternative_details} />
+                </span>
               ) : null}
               <span className="flex items-center gap-2">
                 <span className={`text-[15px] font-bold ${TONE[view.direction]}`}>

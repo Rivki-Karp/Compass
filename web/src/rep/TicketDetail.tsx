@@ -5,6 +5,7 @@ import { SHEKEL } from "../lib/format";
 import { Amount } from "../ui/Amount";
 import { Button } from "../ui/Button";
 import { answerErrors, NO_ERRORS, type FormErrors } from "./answerErrors";
+import { BidiText } from "../ui/BidiText";
 
 const FILL_ONE = "צריך למלא לפחות שדה אחד.";
 // today's car outside the catalog: no default participation to fall back on
@@ -53,7 +54,9 @@ function FieldHeading({ field, id }: { field: TicketFieldView; id: string }) {
       id={id}
       className="flex flex-wrap items-baseline gap-x-2 text-[17px] font-semibold text-navy"
     >
-      <span>{text}</span>
+      <span>
+        <BidiText text={text} />
+      </span>
       {field.car_id ? (
         <code className="font-mono text-[13px] font-normal text-steel">{field.car_id}</code>
       ) : null}
@@ -77,7 +80,7 @@ function Question({ text }: { text: string }) {
         id="ticket-question"
         className={`text-[15px] whitespace-pre-wrap text-ink ${open ? "" : "line-clamp-3"}`}
       >
-        {text}
+        <BidiText text={text} />
       </p>
       {overflows || open ? (
         <button
@@ -115,9 +118,13 @@ export function TicketDetail({
     >
       <div>
         <h2 id="ticket-title" className="text-[22px] font-bold text-navy">
-          {ticket.view.title}
+          <BidiText text={ticket.view.title} />
         </h2>
-        {context ? <p className="mt-1 text-muted">{context}</p> : null}
+        {context ? (
+          <p className="mt-1 text-muted">
+            <BidiText text={context} />
+          </p>
+        ) : null}
         <Question text={ticket.question} />
       </div>
 
@@ -135,7 +142,9 @@ export function TicketDetail({
 function Tile({ label, note, children }: { label: string; note?: string; children: ReactNode }) {
   return (
     <div className="min-w-[160px] flex-1 rounded-tile border border-line px-4 py-3">
-      <div className="text-[13px] text-muted">{label}</div>
+      <div className="text-[13px] text-muted">
+        <BidiText text={label} />
+      </div>
       <div className="mt-1 text-[20px] font-semibold text-ink">{children}</div>
       {note ? <div className="text-[12px] text-chip-pending">{note}</div> : null}
     </div>
@@ -173,7 +182,7 @@ function FieldTiles({ field }: { field: TicketFieldView }) {
         <>
           {!isCar(field) ? (
             <Tile label="רכב">
-              <span>{field.car_name ?? "—"}</span>
+              <span>{field.car_name ? <BidiText text={field.car_name} /> : "—"}</span>
             </Tile>
           ) : null}
           <Tile label="ברירת מחדל מהקטלוג">
@@ -200,7 +209,9 @@ function Answered({ field }: { field: TicketFieldView }) {
       {typeof field.answer === "number" ? (
         <Amount value={field.answer} currency />
       ) : (
-        <span>{field.answer}</span>
+        <span>
+          <BidiText text={field.answer ?? ""} />
+        </span>
       )}
     </p>
   );
@@ -289,7 +300,9 @@ function AnswerForm({
                   aria-describedby={invalid ? `${id}-error` : undefined}
                   className="flex flex-col gap-2"
                 >
-                  <legend className="mb-1 font-medium text-ink">{fieldLabel(field)}</legend>
+                  <legend className="mb-1 font-medium text-ink">
+                    <BidiText text={fieldLabel(field)} />
+                  </legend>
                   {field.options.map((option) => (
                     <label key={option.value} className="flex items-center gap-2 text-ink">
                       <input
@@ -300,14 +313,14 @@ function AnswerForm({
                         onChange={() => set(option.value)}
                         className="h-4 w-4 accent-royal"
                       />
-                      {option.label}
+                      <BidiText text={option.label} />
                     </label>
                   ))}
                 </fieldset>
               ) : (
                 <>
                   <label htmlFor={id} className="font-medium text-ink">
-                    {fieldLabel(field)}
+                    <BidiText text={fieldLabel(field)} />
                   </label>
                   <div className="flex flex-wrap items-center gap-3">
                     <input

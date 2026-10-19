@@ -2,6 +2,7 @@ import { spokenSigned } from "../lib/format";
 import type { ComparisonState } from "../state/session";
 import { Amount } from "../ui/Amount";
 import { FinalChip, Tag } from "./HeroCard";
+import { BidiText } from "../ui/BidiText";
 
 const TONE = { up: "text-up", down: "text-down", flat: "text-ink" } as const;
 
@@ -39,7 +40,7 @@ export function PhoneBar({
       className={`${hidden ? "invisible" : ""} sticky top-0 z-20 flex min-h-12 w-full items-center gap-3 border-b border-line bg-surface/95 px-4 py-2 text-start shadow-sm backdrop-blur`}
     >
       <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-navy">
-        {view.alternative_title}
+        <BidiText text={view.alternative_title} />
       </span>
       <span className={`text-[20px] leading-none font-bold ${TONE[view.direction]}`}>
         <Amount value={view.display_diff} signed currency />

@@ -1,13 +1,13 @@
 import type { ReactNode } from "react";
 import { parseReply } from "../lib/replyFormat";
-import { NumberText } from "./NumberText";
+import { BidiText } from "./BidiText";
 
 /**
  * An agent reply, with a small safe subset of Markdown (round 2, item 5): **bold**, bulleted
  * ("- ", "* ", "• ") and numbered ("1. ") lists, and line breaks. Nothing else is interpreted:
  * a table, a heading, a link or HTML stays plain text, exactly as written. Every piece goes
  * through React as text (never innerHTML), so nothing in a reply can become markup, and every
- * number stays isolated in <bdi> (NumberText).
+ * number stays isolated in <bdi> (BidiText).
  */
 
 /** **bold** inside one line; an unmatched "**" stays as typed. */
@@ -17,15 +17,15 @@ function Inline({ text }: { text: string }) {
   let last = 0;
   for (const match of text.matchAll(bold)) {
     if (match.index > last)
-      parts.push(<NumberText key={last} text={text.slice(last, match.index)} />);
+      parts.push(<BidiText key={last} text={text.slice(last, match.index)} />);
     parts.push(
       <strong key={`b${match.index}`} className="font-semibold">
-        <NumberText text={match[1] ?? ""} />
+        <BidiText text={match[1] ?? ""} />
       </strong>,
     );
     last = match.index + match[0].length;
   }
-  if (last < text.length) parts.push(<NumberText key={last} text={text.slice(last)} />);
+  if (last < text.length) parts.push(<BidiText key={last} text={text.slice(last)} />);
   return <>{parts}</>;
 }
 

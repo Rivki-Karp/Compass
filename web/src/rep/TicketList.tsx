@@ -1,6 +1,7 @@
 import type { MouseEvent } from "react";
 import type { TicketWithView } from "../api/types";
 import { ticketAge } from "./inbox";
+import { BidiText } from "../ui/BidiText";
 
 /** "טיקטים פתוחים" (brief §4.6): one link row per open ticket, updated live. */
 export function TicketList({
@@ -52,7 +53,9 @@ export function TicketList({
                   }`}
                 >
                   <span className="flex items-baseline gap-3">
-                    <span className="font-medium text-ink">{ticket.view.title}</span>
+                    <span className="font-medium text-ink">
+                      <BidiText text={ticket.view.title} />
+                    </span>
                     <span className="ms-auto shrink-0 text-[12px] text-muted">
                       {ticketAge(ticket.created_at, now)}
                     </span>
