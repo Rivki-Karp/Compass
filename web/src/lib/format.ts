@@ -22,6 +22,19 @@ function assertWhole(value: number): void {
   }
 }
 
+// A hyphen-minus directly before an amount, at the start or after a space, an opening
+// parenthesis or an LRM (the model writes "(\u200E-286 ₪)"); the LRM goes too, since the <bdi>
+// around the number keeps its direction. Not "CAR-10" or "ב-300": a letter before the hyphen.
+const TYPED_MINUS = /(^|[\s(])\u200E?-(?=\d)/g;
+
+/**
+ * A reply's text for display only (round 4, item 3): a typed minus becomes U+2212, as every
+ * amount the UI formats itself has. The number guard checks the server's original text.
+ */
+export function displayMinus(text: string): string {
+  return text.replace(TYPED_MINUS, `$1${MINUS}`);
+}
+
 /** 11000 -> "11,000"; -50 -> "−50". */
 export function formatAmount(value: number): string {
   assertWhole(value);

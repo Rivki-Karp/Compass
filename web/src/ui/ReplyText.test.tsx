@@ -54,3 +54,13 @@ describe("ReplyText: a safe subset only", () => {
     ]);
   });
 });
+
+describe("ReplyText: a typed minus shows as U+2212", () => {
+  it("isolates the amount with its minus in front", () => {
+    const out = html("MAZDA 3 (\u200E-286 ₪) ומעבר ל-CAR-10 ב-300 ₪\n-286 ₪");
+    const numbers = [...out.querySelectorAll("bdi:not([dir])")].map((b) => b.textContent);
+    expect(numbers).toEqual(["−286", "300", "−286"]);
+    expect(out.textContent).toBe("MAZDA 3 (−286 ₪) ומעבר ל-CAR-10 ב-300 ₪−286 ₪");
+    expect(out.querySelector('bdi[dir="ltr"]')?.textContent).toBe("MAZDA 3");
+  });
+});

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { displayMinus } from "../lib/format";
 import { parseReply } from "../lib/replyFormat";
 import { BidiText } from "./BidiText";
 
@@ -7,7 +8,8 @@ import { BidiText } from "./BidiText";
  * ("- ", "* ", "• ") and numbered ("1. ") lists, and line breaks. Nothing else is interpreted:
  * a table, a heading, a link or HTML stays plain text, exactly as written. Every piece goes
  * through React as text (never innerHTML), so nothing in a reply can become markup, and every
- * number stays isolated in <bdi> (BidiText).
+ * number stays isolated in <bdi> (BidiText). A typed minus before an amount shows as U+2212
+ * (displayMinus); display only.
  */
 
 /** **bold** inside one line; an unmatched "**" stays as typed. */
@@ -32,7 +34,7 @@ function Inline({ text }: { text: string }) {
 export function ReplyText({ text }: { text: string }) {
   return (
     <>
-      {parseReply(text).map((block, i) => {
+      {parseReply(displayMinus(text)).map((block, i) => {
         if (block.kind === "bullets" || block.kind === "numbers") {
           const List = block.kind === "bullets" ? "ul" : "ol";
           return (

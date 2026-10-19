@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MINUS, formatAmount, formatInput, formatSigned, spokenSigned } from "./format";
+import { MINUS, displayMinus, formatAmount, formatInput, formatSigned, spokenSigned } from "./format";
 
 describe("formatSigned", () => {
   it("puts the sign first, with a real minus", () => {
@@ -50,5 +50,21 @@ describe("formatInput", () => {
     expect(formatInput("2", "count")).toBe("2");
     expect(formatInput("COROLLA CROSS 2025", "text")).toBe("COROLLA CROSS 2025");
     expect(formatInput(null, "ils")).toBe("—");
+  });
+});
+
+describe("displayMinus (bot bubbles, display only)", () => {
+  it("a typed minus before an amount becomes U+2212", () => {
+    expect(displayMinus("-286 ₪")).toBe("−286 ₪");
+    expect(displayMinus("למשל MAZDA 3 (\u200E-286 ₪) ו-TUCSON (\u200E-440 ₪)")).toBe(
+      "למשל MAZDA 3 (−286 ₪) ו-TUCSON (−440 ₪)",
+    );
+    expect(displayMinus("הפרש של -1,047 ₪ ו-(-50)")).toBe("הפרש של −1,047 ₪ ו-(−50)");
+  });
+
+  it("leaves a code, a Hebrew prefix and a list dash alone", () => {
+    for (const text of ["CAR-10", "ב-300", "משתתפת ב-300 ₪", "- ויתור: +3,199 ₪", "2025-10"]) {
+      expect(displayMinus(text)).toBe(text);
+    }
   });
 });
