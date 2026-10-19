@@ -63,18 +63,17 @@ def test_render_blueprint() -> None:
     assert service["numInstances"] == 1 and "scaling" not in service
     assert service["healthCheckPath"] == "/api/health"
     assert service["disk"]["mountPath"] == "/data"
-    names = {v["key"] for v in service["envVars"]}
-    assert names == {
-        "ANTHROPIC_API_KEY",
-        "COMPASS_REP_TOKEN",
-        "COMPASS_ADMIN_TOKEN",
-        "COMPASS_LLM",
-        "COMPASS_DAILY_SPEND_CAP_USD",
-        "COMPASS_MESSAGE_RATE_PER_MINUTE",
-        "COMPASS_TRUST_PROXY",
+    variables = {v["key"]: v for v in service["envVars"]}
+    # the secrets: names only, the values are set in the dashboard
+    for secret in ("ANTHROPIC_API_KEY", "COMPASS_REP_TOKEN", "COMPASS_ADMIN_TOKEN"):
+        assert variables.pop(secret) == {"key": secret, "sync": False}
+    # the rest: set in the file
+    assert {k: v["value"] for k, v in variables.items()} == {
+        "COMPASS_LLM": "anthropic",
+        "COMPASS_DAILY_SPEND_CAP_USD": "5",
+        "COMPASS_MESSAGE_RATE_PER_MINUTE": "20",
+        "COMPASS_TRUST_PROXY": "1",
     }
-    # names only: no value in the repo
-    assert all(v == {"key": v["key"], "sync": False} for v in service["envVars"])
 
 
 def test_the_image_listens_on_port_with_one_worker() -> None:

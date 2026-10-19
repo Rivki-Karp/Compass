@@ -253,18 +253,18 @@ instance (never more: the agent keeps per-session state in memory), in Frankfurt
 disk mounted at `/data` for the session databases. Render checks `/api/health`. It does not
 redeploy on a push (`autoDeploy: false`): you deploy by hand.
 
-**Before you start**, have these values ready (in a password manager, never in a file in the
-repo):
+**Before you start**, have these three secrets ready (in a password manager, never in a file in
+the repo). Render asks for them; nothing else needs typing:
 
 | Variable | Value |
 |---|---|
 | `ANTHROPIC_API_KEY` | the live key |
 | `COMPASS_REP_TOKEN` | a new long random token (`python -c "import secrets; print(secrets.token_urlsafe(32))"`) |
 | `COMPASS_ADMIN_TOKEN` | another new one, different from the rep token |
-| `COMPASS_LLM` | `anthropic` |
-| `COMPASS_DAILY_SPEND_CAP_USD` | `5` (or the day's budget) |
-| `COMPASS_MESSAGE_RATE_PER_MINUTE` | `20` |
-| `COMPASS_TRUST_PROXY` | `1` (Render's proxy is in front; section 8) |
+
+`render.yaml` sets the rest: `COMPASS_LLM=anthropic`, `COMPASS_DAILY_SPEND_CAP_USD=5`,
+`COMPASS_MESSAGE_RATE_PER_MINUTE=20` and `COMPASS_TRUST_PROXY=1` (Render's proxy is in front;
+section 8). To change one for this deployment, edit it under **Environment** after the deploy.
 
 Never reuse the demo tokens: a live server refuses to start with them (section 1).
 
@@ -280,7 +280,7 @@ Never reuse the demo tokens: a live server refuses to start with them (section 1
 5. **Blueprint Name:** `compass`. **Branch:** the branch to deploy (the approved one; `main`
    once the fixes are merged). Render shows what `render.yaml` will create: one web service
    `compass` and its disk.
-6. Render lists the seven variables above, each with an empty box. Paste each value from the
+6. Render lists the three secrets above, each with an empty box. Paste each value from the
    table. Check for stray spaces. These are stored by Render, not in the repo.
 7. Click **Apply** (or **Deploy Blueprint**). The first build takes 5–10 minutes: open the
    `compass` service → **Logs** to follow it. It is done when the service shows **Live**.

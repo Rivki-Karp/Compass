@@ -6,8 +6,8 @@
 # The session databases live on a persistent disk at /data (the image's COMPASS_APP_DB).
 # The image listens on $PORT, which Render sets.
 #
-# Every variable is declared by name only (sync: false): Render asks for each value when the
-# Blueprint is created, and they are never in the repo.
+# The three secrets are declared by name only (sync: false): Render asks for each value when
+# the Blueprint is created, and they are never in the repo. The other settings are set here.
 
 services:
   - type: web
@@ -31,11 +31,11 @@ services:
         sync: false
       - key: COMPASS_ADMIN_TOKEN
         sync: false
-      - key: COMPASS_LLM # anthropic
-        sync: false
-      - key: COMPASS_DAILY_SPEND_CAP_USD # e.g. 5
-        sync: false
-      - key: COMPASS_MESSAGE_RATE_PER_MINUTE # e.g. 20
-        sync: false
-      - key: COMPASS_TRUST_PROXY # 1: behind Render's proxy
-        sync: false
+      - key: COMPASS_LLM
+        value: anthropic
+      - key: COMPASS_DAILY_SPEND_CAP_USD
+        value: "5"
+      - key: COMPASS_MESSAGE_RATE_PER_MINUTE
+        value: "20"
+      - key: COMPASS_TRUST_PROXY # Render's proxy is in front (runbook section 8)
+        value: "1"
