@@ -309,10 +309,9 @@ Never reuse the demo tokens: a live server refuses to start with them (section 1
 **If the deploy fails:**
 
 - *The logs end with `sqlite3.OperationalError: unable to open database file`:* the server can't
-  write to `/data`. The image runs as a non-root user (uid 10001) and Render's documentation
-  doesn't say who owns a disk's mount; if it is root, this is the result (reproduced locally with
-  a root-owned `/data`). Nothing is lost; the fix (giving that user the mount at startup) changes
-  the image and needs approval first.
+  write to `/data`. The entrypoint gives the app user (uid 10001) the mount at every start, even
+  a root-owned one (checked locally), so this means the disk is missing or not at `/data`:
+  service page → **Disks**.
 - *`Compass will not start in live mode`, about a token:* a token is empty or a demo value;
   fix it under **Environment**.
 - *The health check times out:* look at **Logs** for the error above the timeout.

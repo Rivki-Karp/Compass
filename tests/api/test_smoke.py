@@ -81,3 +81,18 @@ def test_the_image_listens_on_port_with_one_worker() -> None:
     dockerfile = (REPO / "Dockerfile").read_text(encoding="utf-8")
     assert '--port \\"${PORT:-8000}\\" --workers 1' in dockerfile
     assert "os.environ.get('PORT') or 8000" in dockerfile  # the health check follows it
+
+
+def test_the_image_drops_root_after_the_entrypoint() -> None:
+    dockerfile = (REPO / "Dockerfile").read_text(encoding="utf-8")
+    entrypoint = (REPO / "docker" / "entrypoint.sh").read_text(encoding="utf-8")
+    assert 'ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]' in dockerfile
+    assert 'CMD ["gosu", "compass", "python"' in dockerfile  # the health check, not as root
+    # root only for the chown, then the server via gosu: the only commands run as root
+    root_part = entrypoint.split('if [ "$(id -u)" = 0 ]; then', 1)[1].split("\nfi\n", 1)[0]
+    commands = [line.strip() for line in root_part.splitlines() if line.strip()]
+    commands = [c for c in commands if not c.startswith("#")]
+    assert commands == [
+        "find /data -xdev ! -user compass -exec chown compass:compass {} +",
+        'exec gosu compass "$@"',
+    ]
