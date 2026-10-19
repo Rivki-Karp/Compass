@@ -35,7 +35,7 @@ from compass.agent.transcript import (
     model_view,
 )
 from compass.tools import ToolRunner, tool_definitions
-from compass.tools.handlers import profile_after, settled_compare_results
+from compass.tools.handlers import profile_after, settled_compare_results, today_after
 from compass.tools.services import Services
 
 log = logging.getLogger(__name__)
@@ -320,6 +320,8 @@ class ClaudeAgentRunner:
                 content["unknown_fields"]
             ):
                 content["profile_after"] = profile_after(self.services, session_id)
+            if "current_car" in values or "current_car" in content["unknown_fields"]:
+                content["today_after"] = today_after(self.services, session_id)
             # The comparisons the server settled with this answer, as compare would have
             # returned them to the model: it may state them without calling compare, and the
             # guard allows their numbers (source "server").

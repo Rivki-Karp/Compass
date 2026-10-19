@@ -32,6 +32,7 @@ from compass.search import SearchResult
 from compass.state import Slot, SlotUpdate
 from compass.tools.profile import (
     ALTERNATIVE_PARTICIPATION,
+    CURRENT_CAR,
     CURRENT_PARTICIPATION,
     GROUP_EXCEPTION,
     PROFILE_FIELDS,
@@ -262,6 +263,20 @@ def profile_after(services: Services, session_id: str) -> dict[str, Any]:
     }
 
 
+def today_after(services: Services, session_id: str) -> dict[str, Any]:
+    """Today's situation after a current_car answer, for the rep notification: the car (its
+    label and catalog id) and who said it, or None when the representative found it outside
+    the catalog; with the warnings (current_car_above_group, say)."""
+    stored = services.store.scenarios(session_id).get("today")
+    scenario = (stored or {}).get("scenario") or {}
+    return {
+        "current_situation": None if stored is None else stored.get("label"),
+        "car_id": scenario.get("car_id"),
+        "source": None if stored is None else stored.get("source", "employee"),
+        "warnings": _warnings(services, session_id),
+    }
+
+
 def _require_group_not_with_rep(slots: Mapping[str, Slot]) -> None:
     """Only a representative's ticket answer changes a group the representative approved, or
     one a group-exception ticket is waiting on: never the employee's words (a claimed approval
@@ -470,22 +485,48 @@ def _today_scenario(services: Services, today: Any) -> tuple[Scenario, str]:
 def set_current_situation(
     services: Services, session_id: str, data: SetCurrentSituationInput
 ) -> dict[str, Any]:
-    scenario, label = _today_scenario(services, data.today)
-    payload = {
-        "input": data.today.model_dump(mode="json"),
-        "scenario": scenario.model_dump(mode="json"),
-        "label": label,
-    }
+    pending = services.store.slots(session_id).get(CURRENT_CAR)
+    if pending is not None and pending.state == "pending_rep":
+        raise ToolError(
+            "invalid_input",
+            "a representative is identifying today's car (current_car); wait for the answer",
+            field="today",
+        )
+    payload = today_payload(services, data.today, source="employee")
     services.store.set_today(session_id, payload)
     refresh_without_today(services, session_id)
     return {"today": payload, "warnings": _warnings(services, session_id)}
 
 
-def refresh_without_today(services: Services, session_id: str) -> None:
-    """Today became known: what is on screen without it gets its diffs, with no model call.
-    The latest option set, if it was computed without today, is computed again (the same
-    stated participations), and so is the latest comparison, if it was. Each one exactly as
-    list_options and compare compute it."""
+def today_payload(services: Services, today: Any, source: str) -> dict[str, Any]:
+    """Today's situation as stored: what was given, the engine scenario, its label, and who
+    said it ("employee", or "representative" for a current_car answer)."""
+    scenario, label = _today_scenario(services, today)
+    return {
+        "input": today.model_dump(mode="json"),
+        "scenario": scenario.model_dump(mode="json"),
+        "label": label,
+        "source": source,
+    }
+
+
+def representative_today(services: Services, car_id: str) -> dict[str, Any]:
+    """A representative's current_car answer as today's situation: the catalog car, at its
+    catalog participation unless a current_participation answer says otherwise."""
+    return today_payload(
+        services, CompanyCarToday(kind="company_car", car_id=car_id), source="representative"
+    )
+
+
+def refresh_without_today(
+    services: Services, session_id: str, extra: Mapping[str, Any] | None = None
+) -> None:
+    """What is on screen without today's car, computed again with no model call: once today
+    is known (the diffs appear), or when a current_car ticket opens or is answered without a
+    car (the pending chip comes and goes). The latest option set, if it was computed without
+    today, is computed again (the same stated participations), and so is the latest
+    comparison, if it was; each one exactly as list_options and compare compute it. `extra`
+    goes into the comparison's event (the ticket that caused it)."""
     events = services.store.events_after(session_id)
     sets = [e for e in events if e.type == "comparison_set_ready"]
     if sets and sets[-1].payload.get("today_unknown"):
@@ -510,7 +551,7 @@ def refresh_without_today(services: Services, session_id: str) -> None:
     except ToolError as error:
         log.info("comparison not refreshed in %s: %s", session_id, error)
         return
-    refreshed = {**payload, "origin": "server", "recomputed_from": latest.seq}
+    refreshed = {**payload, "origin": "server", "recomputed_from": latest.seq, **(extra or {})}
     _record_comparison(services, session_id, scenario, refreshed)
 
 
@@ -883,13 +924,19 @@ class QuestionInput(_Input):
         None,
         description=(
             "Only for a value the calculation needs: current_participation, "
-            "alternative_participation:<catalog car id>, group_exception or occupation"
+            "alternative_participation:<catalog car id>, group_exception, occupation or "
+            "current_car"
         ),
     )
     occupation_query: str | None = Field(
         None,
         max_length=200,
         description="bound_field occupation only: the occupation in the employee's words",
+    )
+    car_query: str | None = Field(
+        None,
+        max_length=200,
+        description="bound_field current_car only: today's car in the employee's words",
     )
     type: Literal["yes_no", "choice", "text"] | None = Field(
         None, description="Free questions only"
@@ -975,6 +1022,12 @@ def _ticket_questions(
                     f"{where}: occupation_query is for bound_field occupation only",
                     question=i - 1,
                 )
+            if field != CURRENT_CAR and q.car_query is not None:
+                raise _invalid(
+                    f"{where}: car_query is for bound_field current_car only", question=i - 1
+                )
+            if field == CURRENT_CAR:
+                _check_current_car_question(services, session_id, where, i - 1, q.car_query)
             out.append(
                 bound_question(
                     services,
@@ -985,6 +1038,7 @@ def _ticket_questions(
                     occupation_query=None
                     if q.occupation_query is None
                     else q.occupation_query.strip(),
+                    car_query=None if q.car_query is None else q.car_query.strip(),
                 )
             )
             continue
@@ -992,6 +1046,8 @@ def _ticket_questions(
             raise _invalid(
                 f"{where}: occupation_query needs bound_field occupation", question=i - 1
             )
+        if q.car_query is not None:
+            raise _invalid(f"{where}: car_query needs bound_field current_car", question=i - 1)
         if prompt is None:
             raise _invalid(
                 f"{where}: a free question needs prompt_he (the question, in Hebrew)",
@@ -1018,6 +1074,25 @@ def _ticket_questions(
             raise _invalid(f"{where}: options are for type choice only", question=i - 1)
         out.append(free_question(qid, prompt, q.type, labels))
     return out
+
+
+def _check_current_car_question(
+    services: Services, session_id: str, where: str, index: int, car_query: str | None
+) -> None:
+    """Which car the employee has today: only while it is not recorded (the employee could not
+    name it), with the employee's words for the representative's list."""
+    if not (car_query or "").strip():
+        raise _invalid(
+            f"{where}: a current_car question needs car_query (today's car in the employee's "
+            "words, as they wrote it); the representative picks from the catalog",
+            question=index,
+        )
+    if services.store.scenarios(session_id).get("today") is not None:
+        raise _invalid(
+            f"{where}: today's situation is already recorded; ask current_car only when the "
+            "employee cannot identify today's car",
+            question=index,
+        )
 
 
 def _check_group_question(services: Services, session_id: str, fields: list[str]) -> None:
@@ -1120,6 +1195,10 @@ def ask_representative(
         questions=questions,
     )
     _recompute_as_pending(services, session_id, ticket.id, blocking)
+    if CURRENT_CAR in blocking:  # what is on screen without today's car now waits for it
+        refresh_without_today(
+            services, session_id, {"ticket_id": ticket.id, "pending_field": CURRENT_CAR}
+        )
     provisional = _provisional_comparisons(services, session_id, ticket.id, blocking)
     result: dict[str, Any] = {"ticket_id": ticket.id, "status": ticket.status, "context": context}
     if questions:

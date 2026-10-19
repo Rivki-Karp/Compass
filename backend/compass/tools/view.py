@@ -22,6 +22,7 @@ from compass.engine.decimal_math import to_display
 from compass.engine.models import DeltaLineName
 from compass.labels import (
     COMPUTED_BY_LABELS,
+    CURRENT_CAR_QUESTION_TITLE,
     DELTA_LABELS,
     DIFF_WAITS_FOR_TODAY,
     FREE_ANSWER_LABELS,
@@ -39,14 +40,19 @@ from compass.labels import (
 from compass.state import Slot, Ticket
 from compass.tools.profile import (
     ALTERNATIVE_PARTICIPATION,
+    CURRENT_CAR,
     CURRENT_PARTICIPATION,
     GROUP_EXCEPTION,
     SLOT_OF,
 )
 from compass.tools.questions import (
+    NOTE_FOR_OTHER,
     OCCUPATION,
+    OTHER,
     YES_NO_LABELS,
     answer_label,
+    car_detail,
+    car_option_label,
     group_exception_bounds,
     group_exception_options,
     is_free,
@@ -239,10 +245,23 @@ def _scenario_inputs(
     services: Services,
     payload: Mapping[str, Any],
     today_label: str | None,
+    today_source: ChipSource = "employee_input",
+    today_pending: bool = False,
 ) -> list[ViewInput]:
     comparison = payload["comparison"]
     today, alt = comparison["today"], comparison["alternative"]
     inputs: list[ViewInput] = []
+    if today is None and today_pending:  # a representative is identifying today's car
+        inputs.append(
+            ViewInput(
+                id="today_car",
+                label=field_label("today_car"),
+                value=None,
+                unit="text",
+                source="pending_rep",
+                ticket_field=CURRENT_CAR,
+            )
+        )
 
     today_scenario = {} if today is None else today["scenario"]  # None: today unknown
     if today_scenario.get("kind") in ("company_car", "family_car", "external_car"):
@@ -253,7 +272,7 @@ def _scenario_inputs(
                 label=field_label("today_car"),
                 value=name,
                 unit="text",
-                source="employee_input",
+                source=today_source,
             )
         )
         info = payload["today_participation"]
@@ -362,7 +381,14 @@ def build_view(
                 ticket_field=GROUP_EXCEPTION,
             ),
         )
-    inputs += _scenario_inputs(services, payload, today_label)
+    car_slot = slots.get(CURRENT_CAR)
+    inputs += _scenario_inputs(
+        services,
+        payload,
+        today_label,
+        today_source=_SLOT_SOURCE.get(today_stored.get("source") or "employee", "employee_input"),
+        today_pending=car_slot is not None and car_slot.state == "pending_rep",
+    )
     present = {i.id for i in inputs}
 
     breakdown: list[ViewLine] = []
@@ -515,7 +541,15 @@ class TicketQuestionView(_View):
     options: list[TicketOptionView] = []  # choice and yes_no
     # An occupation question: every title in the occupations table, for the picker's search
     # box (the options are the closest ones). The answer is always one of these, or "other".
+    # A current_car question: every catalog car, the same way.
     search_options: list[TicketOptionView] = []
+    search_label: str | None = None  # the search box's label
+    search_empty: str | None = None  # what the search says when nothing matches
+    # The option that needs a note ("other"), and the note's label then.
+    note_required_for: str | None = None
+    note_required_label: str | None = None
+    # A tile with the chosen option's detail (an occupation's group, a car's drive and group).
+    detail_label: str | None = None
     facts: list[TicketFactView] = []
     car_id: str | None = None
     car_name: str | None = None
@@ -671,6 +705,49 @@ def _occupation_field(question: Mapping[str, Any]) -> TicketFieldView:
     )
 
 
+def _which_car_field(services: Services, question: Mapping[str, Any]) -> TicketFieldView:
+    """A bound current_car question: the employee's words, and the catalog cars they may mean."""
+    query = question.get("car_query")
+    facts = [] if not query else [TicketFactView(label="איך העובד/ת תיאר/ה", value=query)]
+    options = [TicketOptionView(**o) for o in question["answer"]["options"]]
+    return TicketFieldView(
+        field=CURRENT_CAR,
+        title=CURRENT_CAR_QUESTION_TITLE
+        if not query
+        else f"{CURRENT_CAR_QUESTION_TITLE} · {query}",
+        label="הרכב מהקטלוג שיש לעובד/ת היום",
+        unit="text",
+        car_id=None,
+        car_name=None,
+        catalog_default=None,
+        options=[_with_car_detail(services, o) for o in options],
+        facts=facts,
+    )
+
+
+def _with_car_detail(services: Services, option: TicketOptionView) -> TicketOptionView:
+    """A current_car option with the drive and group of that car (none for "not in catalog")."""
+    detail = car_detail(services, option.value)
+    return option if detail is None else option.model_copy(update={"detail": detail})
+
+
+# What a choice with a search box and a noted "other" says, per bound field.
+_PICKERS: dict[str, dict[str, str]] = {
+    OCCUPATION: {
+        "search_label": "לא ברשימה? חיפוש ברשימת העיסוקים המלאה",
+        "search_empty": "אין עיסוק כזה ברשימה.",
+        "note_required_label": "הערה (חובה: מה העיסוק)",
+        "detail_label": "הקבוצה לפי הבחירה",
+    },
+    CURRENT_CAR: {
+        "search_label": "לא ברשימה? חיפוש בקטלוג המלא",
+        "search_empty": "אין רכב כזה בקטלוג.",
+        "note_required_label": "הערה (חובה: איזה רכב, ושנת הרישום אם ידועה)",
+        "detail_label": "הקבוצה וההנעה לפי הבחירה",
+    },
+}
+
+
 def _with_group(services: Services, option: TicketOptionView) -> TicketOptionView:
     """An occupation option with the group it gives (none for "other")."""
     occupation = services.ctx.occupations.get(option.value)
@@ -750,11 +827,20 @@ def build_ticket_view(services: Services, ticket: Ticket) -> dict[str, Any]:
                 _with_group(services, TicketOptionView(value=t, label=t))
                 for t in services.ctx.occupations
             ]
-        field = (
-            _occupation_field(question)
-            if name == OCCUPATION and "occupation_query" in question
-            else _ticket_field(services, ticket, name)
-        )
+        if name == CURRENT_CAR:
+            options = [_with_car_detail(services, o) for o in options]
+            search = [
+                _with_car_detail(
+                    services, TicketOptionView(value=c, label=car_option_label(services, c))
+                )
+                for c in services.ctx.catalog
+            ]
+        if name == OCCUPATION and "occupation_query" in question:
+            field = _occupation_field(question)
+        elif name == CURRENT_CAR:
+            field = _which_car_field(services, question)
+        else:
+            field = _ticket_field(services, ticket, name)
         car_view = (
             latest_for(field.car_id) if field.car_id and name != CURRENT_PARTICIPATION else latest
         )
@@ -775,6 +861,11 @@ def build_ticket_view(services: Services, ticket: Ticket) -> dict[str, Any]:
                 label=_participation_label(field) if participation else field.label,
                 options=options or field.options,
                 search_options=search,
+                **(
+                    {**_PICKERS[name], "note_required_for": OTHER}
+                    if name in NOTE_FOR_OTHER and search
+                    else {}
+                ),
                 facts=field.facts,
                 car_id=field.car_id,
                 car_name=field.car_name,

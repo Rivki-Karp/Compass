@@ -473,6 +473,7 @@ class Store:
         part: Any = None,
         questions: Sequence[Any] = (),
         sources: Mapping[str, SlotSource] | None = None,
+        today: Any = None,
     ) -> Ticket:
         """Fill the given slots (source representative), mark `unknown` slots unknown (the
         representative answered without a value), and, unless fields are still `pending` (a
@@ -481,7 +482,8 @@ class Store:
         `answer` is stored as the ticket's answer so far (the caller merges earlier parts); the
         event carries this `part` of it (default: the whole answer) and its slot values, and
         `questions`, this part's answer to each question (display-ready), when given. `sources`
-        overrides a filled slot's source (a group derived from the approved occupation)."""
+        overrides a filled slot's source (a group derived from the approved occupation). `today`,
+        when given, becomes today's situation in the same write (a current_car answer)."""
         with self._write() as (conn, events):
             ticket = self._ticket(conn, ticket_id)
             if ticket.status != "open":
@@ -493,6 +495,11 @@ class Store:
             }
             filled |= {f: SlotUpdate(state="unknown", source="representative") for f in unknown}
             self._upsert_slots(conn, ticket.session_id, filled)
+            if today is not None:
+                self._put_scenario(conn, ticket.session_id, "today", today)
+                self._event(
+                    conn, events, ticket.session_id, "current_situation_set", {"scenario": today}
+                )
             if pending:
                 conn.execute(
                     "UPDATE tickets SET answer_json = ? WHERE id = ?", (_dump(answer), ticket_id)

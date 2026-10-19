@@ -151,6 +151,7 @@ def allowed_for_session(store: Store, session_id: str) -> Allowed:
             keys = ("answer_text", "values", "effective_from", *REP_QUESTION_KEYS)
             allowed.add_json({k: content.get(k) for k in keys}, "representative")
             allowed.add_json(content.get("profile_after"), "server")
+            allowed.add_json(content.get("today_after"), "server")
             # what the model was shown of the server's settled comparisons, and nothing more
             allowed.add_json(content.get("server_comparisons"), "server")
     return allowed

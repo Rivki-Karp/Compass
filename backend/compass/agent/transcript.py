@@ -89,6 +89,9 @@ def rep_block(event: dict[str, Any]) -> str:
     if event.get("profile_after"):
         # the occupation and group in effect after the answer, with the warnings (server)
         payload["profile_after"] = _escaped(event["profile_after"])
+    if event.get("today_after"):
+        # today's situation after a current_car answer, with the warnings (server)
+        payload["today_after"] = _escaped(event["today_after"])
     if event.get("server_comparisons"):
         # compare's own (compact) result, recomputed by the server with the answer
         payload["server_comparisons"] = event["server_comparisons"]

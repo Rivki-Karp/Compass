@@ -1,7 +1,7 @@
 [
  {
-  "id": "206bbaf01c504a228488e3ce60eafb9f",
-  "session_id": "c9a9d3c16fc14ee198ba4f77b3eaa051",
+  "id": "542f180a1380429b99ca5c116d76558e",
+  "session_id": "facb0b1566f04394b2233c049ad8ce09",
   "question": "העובד מתאר את עצמו כ'מפתח AI', עיסוק שלא מופיע בטבלה, ושואל על חניה לעובדים.",
   "context": {
    "display_name": null,
@@ -62,7 +62,7 @@
   ],
   "status": "open",
   "answer": null,
-  "created_at": "2026-10-19T17:02:04.264+00:00",
+  "created_at": "2026-10-19T17:17:55.927+00:00",
   "answered_at": null,
   "view": {
    "version": 1,
@@ -232,6 +232,11 @@
        "detail": "קבוצה ד׳"
       }
      ],
+     "search_label": "לא ברשימה? חיפוש ברשימת העיסוקים המלאה",
+     "search_empty": "אין עיסוק כזה ברשימה.",
+     "note_required_for": "other",
+     "note_required_label": "הערה (חובה: מה העיסוק)",
+     "detail_label": "הקבוצה לפי הבחירה",
      "facts": [
       {
        "label": "איך העובד/ת תיאר/ה",
@@ -267,6 +272,11 @@
       }
      ],
      "search_options": [],
+     "search_label": null,
+     "search_empty": null,
+     "note_required_for": null,
+     "note_required_label": null,
+     "detail_label": null,
      "facts": [],
      "car_id": null,
      "car_name": null,

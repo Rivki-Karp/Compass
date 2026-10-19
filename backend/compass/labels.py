@@ -65,6 +65,7 @@ FIELD_LABELS: dict[str, str] = {
     "alternative_maintenance": "אחזקה בוויתור",
     "current_participation": "השתתפות היום",  # ticket field names
     "group_exception": "אישור חריג לקבוצה",
+    "current_car": "הרכב של היום",
 }
 
 
@@ -95,6 +96,8 @@ GROUP_NOT_APPROVED_LABEL = "לא מאושר"
 
 # Ticket questions (compass/tools/questions.py): the rep's choices and the section headings.
 OTHER_OCCUPATION_LABEL = "עיסוק אחר (לפרט בהערה)"
+NOT_IN_CATALOG_LABEL = "הרכב לא בקטלוג (לפרט בהערה)"
+CURRENT_CAR_QUESTION_TITLE = "הרכב של היום"
 NEEDS_CHECKING_LABEL = "לא ידוע לי / צריך לבדוק"
 OCCUPATION_QUESTION_TITLE = "סיווג עיסוק"
 FREE_ANSWER_LABELS = {"yes_no": "התשובה", "choice": "התשובה", "text": "התשובה"}

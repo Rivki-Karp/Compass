@@ -1,0 +1,223 @@
+[
+ {
+  "id": "9e79a6f55c4e4e2886d7cb903a16c75d",
+  "session_id": "9cfb14f345424c369dcc9879ff454512",
+  "question": "העובדת לא מזהה את הרכב הצמוד שלה (כתבה 'מאזדה'). איזה רכב יש לה היום?",
+  "context": {
+   "display_name": null,
+   "occupation": "מפתח/ת תוכנה",
+   "group": "ב",
+   "current_situation": null,
+   "requested_alternative": null
+  },
+  "blocking_fields": [
+   "current_car"
+  ],
+  "quick_answers": [],
+  "questions": [
+   {
+    "id": "q1",
+    "prompt_he": "",
+    "bound_field": "current_car",
+    "answer": {
+     "type": "choice",
+     "options": [
+      {
+       "value": "CAR-13",
+       "label": "MAZDA 3 2025 · בנזין · קבוצה ג׳"
+      },
+      {
+       "value": "other",
+       "label": "הרכב לא בקטלוג (לפרט בהערה)"
+      }
+     ]
+    },
+    "car_query": "מאזדה"
+   }
+  ],
+  "status": "open",
+  "answer": null,
+  "created_at": "2026-10-19T17:17:55.036+00:00",
+  "answered_at": null,
+  "view": {
+   "version": 1,
+   "title": "הרכב של היום · מאזדה",
+   "fields": [
+    {
+     "field": "current_car",
+     "title": "הרכב של היום · מאזדה",
+     "label": "הרכב מהקטלוג שיש לעובד/ת היום",
+     "unit": "text",
+     "car_id": null,
+     "car_name": null,
+     "catalog_default": null,
+     "options": [
+      {
+       "value": "CAR-13",
+       "label": "MAZDA 3 2025 · בנזין · קבוצה ג׳",
+       "detail": "בנזין · קבוצה ג׳"
+      },
+      {
+       "value": "other",
+       "label": "הרכב לא בקטלוג (לפרט בהערה)",
+       "detail": null
+      }
+     ],
+     "facts": [
+      {
+       "label": "איך העובד/ת תיאר/ה",
+       "value": "מאזדה"
+      }
+     ],
+     "answered": false,
+     "answer": null,
+     "comparison": null
+    }
+   ],
+   "questions": [
+    {
+     "id": "q1",
+     "kind": "bound",
+     "bound_field": "current_car",
+     "type": "choice",
+     "title": "הרכב של היום · מאזדה",
+     "prompt_he": "",
+     "label": "הרכב מהקטלוג שיש לעובד/ת היום",
+     "options": [
+      {
+       "value": "CAR-13",
+       "label": "MAZDA 3 2025 · בנזין · קבוצה ג׳",
+       "detail": "בנזין · קבוצה ג׳"
+      },
+      {
+       "value": "other",
+       "label": "הרכב לא בקטלוג (לפרט בהערה)",
+       "detail": null
+      }
+     ],
+     "search_options": [
+      {
+       "value": "CAR-01",
+       "label": "PICANTO 2025",
+       "detail": "בנזין · קבוצה א׳"
+      },
+      {
+       "value": "CAR-02",
+       "label": "YARIS CROSS HSD 2025",
+       "detail": "היברידי · קבוצה א׳"
+      },
+      {
+       "value": "CAR-03",
+       "label": "BYD DOLPHIN 2025",
+       "detail": "חשמלי · קבוצה א׳"
+      },
+      {
+       "value": "CAR-04",
+       "label": "LEON 2025",
+       "detail": "בנזין · קבוצה א׳"
+      },
+      {
+       "value": "CAR-05",
+       "label": "NIRO 2025",
+       "detail": "היברידי · קבוצה ב׳"
+      },
+      {
+       "value": "CAR-06",
+       "label": "MG4 2025",
+       "detail": "חשמלי · קבוצה ב׳"
+      },
+      {
+       "value": "CAR-07",
+       "label": "COROLLA 2026",
+       "detail": "בנזין · קבוצה ב׳"
+      },
+      {
+       "value": "CAR-08",
+       "label": "KONA EV 2026",
+       "detail": "חשמלי · קבוצה ב׳"
+      },
+      {
+       "value": "CAR-09",
+       "label": "COROLLA CROSS 2025",
+       "detail": "היברידי · קבוצה ג׳"
+      },
+      {
+       "value": "CAR-10",
+       "label": "ATTO 3 2025",
+       "detail": "חשמלי · קבוצה ג׳"
+      },
+      {
+       "value": "CAR-11",
+       "label": "EV3 2025",
+       "detail": "חשמלי · קבוצה ג׳"
+      },
+      {
+       "value": "CAR-12",
+       "label": "TUCSON 2025",
+       "detail": "בנזין · קבוצה ג׳"
+      },
+      {
+       "value": "CAR-13",
+       "label": "MAZDA 3 2025",
+       "detail": "בנזין · קבוצה ג׳"
+      },
+      {
+       "value": "CAR-14",
+       "label": "MODEL 3 2025",
+       "detail": "חשמלי · קבוצה ד׳"
+      },
+      {
+       "value": "CAR-15",
+       "label": "OCTAVIA 2025",
+       "detail": "בנזין · קבוצה ד׳"
+      },
+      {
+       "value": "CAR-16",
+       "label": "SPORTAGE HEV 2026",
+       "detail": "פלאג-אין · קבוצה ד׳"
+      },
+      {
+       "value": "CAR-17",
+       "label": "SEAL 2025",
+       "detail": "חשמלי · קבוצה ד׳"
+      },
+      {
+       "value": "CAR-18",
+       "label": "RAV4 2025",
+       "detail": "היברידי · קבוצה ד׳"
+      },
+      {
+       "value": "CAR-19",
+       "label": "CARNIVAL 2025",
+       "detail": "בנזין · מסלול משפחתי"
+      },
+      {
+       "value": "CAR-20",
+       "label": "SANTA FE 2025",
+       "detail": "בנזין · מסלול משפחתי"
+      }
+     ],
+     "search_label": "לא ברשימה? חיפוש בקטלוג המלא",
+     "search_empty": "אין רכב כזה בקטלוג.",
+     "note_required_for": "other",
+     "note_required_label": "הערה (חובה: איזה רכב, ושנת הרישום אם ידועה)",
+     "detail_label": "הקבוצה וההנעה לפי הבחירה",
+     "facts": [
+      {
+       "label": "איך העובד/ת תיאר/ה",
+       "value": "מאזדה"
+      }
+     ],
+     "car_id": null,
+     "car_name": null,
+     "catalog_default": null,
+     "comparison": null,
+     "status": "pending",
+     "answer": null,
+     "note": null
+    }
+   ],
+   "comparison": null
+  }
+ }
+]

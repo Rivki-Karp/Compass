@@ -7,7 +7,8 @@ A ticket is a list of at most MAX_QUESTIONS questions, stored as JSON:
      "bound_field": "occupation" | None,
      "answer": {"type": "amount" | "choice" | "yes_no" | "text",
                 "options": [{"value": "מפתח/ת תוכנה", "label": "מפתח/ת תוכנה · קבוצה ב׳"}]},
-     "occupation_query": "מפתח AI"}          # a bound occupation question only
+     "occupation_query": "מפתח AI",          # a bound occupation question only
+     "car_query": "מציון"}                   # a bound current_car question only
 
 Two kinds:
 
@@ -28,13 +29,16 @@ from typing import Any, Literal
 
 from compass.labels import (
     GROUP_NOT_APPROVED_LABEL,
+    NOT_IN_CATALOG_LABEL,
     OTHER_OCCUPATION_LABEL,
+    car_details,
     group_approved_label,
     group_label,
 )
 from compass.state import Ticket
 from compass.tools.profile import (
     ALTERNATIVE_PARTICIPATION,
+    CURRENT_CAR,
     CURRENT_PARTICIPATION,
     GROUP_EXCEPTION,
     NOT_APPROVED,
@@ -54,8 +58,12 @@ MAX_TEXT_ANSWER = 2000
 MAX_NOTE = 1000
 OCCUPATION = "occupation"
 # The representative's "none of these": the occupation is answered, but not with a title from
-# the table (the note says what it is). The slot becomes unknown.
+# the table (the note says what it is). The slot becomes unknown. The same value answers a
+# current_car question with "not in the catalog".
 OTHER_OCCUPATION = "other"
+OTHER = OTHER_OCCUPATION
+# Bound questions whose "other" needs a note, and what the representative picks from.
+NOTE_FOR_OTHER = ("occupation", CURRENT_CAR)
 YES, NO = "yes", "no"
 YES_NO_LABELS = {YES: "כן", NO: "לא"}
 
@@ -66,7 +74,7 @@ _ILS_PROFILE_FIELDS = frozenset({"base_salary", "commissions", "bonus"})
 
 def is_bound_field(field: str, ctx: Any) -> bool:
     """The server registry: the fields a question may be bound to (questions[] input)."""
-    if field in (CURRENT_PARTICIPATION, GROUP_EXCEPTION, OCCUPATION):
+    if field in (CURRENT_PARTICIPATION, GROUP_EXCEPTION, OCCUPATION, CURRENT_CAR):
         return True
     return field.startswith(ALTERNATIVE_PARTICIPATION) and is_fillable(field, ctx)
 
@@ -75,7 +83,7 @@ def bound_field_names() -> str:
     """For error messages: the registry, as the model writes it."""
     return (
         f"{CURRENT_PARTICIPATION}, {ALTERNATIVE_PARTICIPATION}<catalog car id>, "
-        f"{GROUP_EXCEPTION}, {OCCUPATION}"
+        f"{GROUP_EXCEPTION}, {OCCUPATION}, {CURRENT_CAR}"
     )
 
 
@@ -126,6 +134,31 @@ def occupation_options(services: Services, query: str) -> list[dict[str, str]]:
     return options
 
 
+def car_option_label(services: Services, car_id: str) -> str:
+    """A catalog car as the representative picks it: "MAZDA 3 2025"."""
+    car = services.ctx.catalog[car_id]
+    return f"{car.commercial_name} {car.registration_year}"
+
+
+def current_car_options(services: Services, query: str) -> list[dict[str, str]]:
+    """The catalog cars the employee's words may mean (search_catalog, the same list the
+    employee is offered), each with its drive and group ("MAZDA 3 2025 · בנזין · קבוצה ג׳", as
+    an occupation's option carries its group), then "not in the catalog" (with a note)."""
+    cars = services.searcher.search_catalog(query)
+    options = [
+        option(c.id, f"{car_option_label(services, c.id)} · {car_detail(services, c.id)}")
+        for c in cars
+    ]
+    options.append(option(OTHER, NOT_IN_CATALOG_LABEL))
+    return options
+
+
+def car_detail(services: Services, car_id: str) -> str | None:
+    """The drive and group a current_car choice gives ("בנזין · קבוצה ג׳")."""
+    car = services.ctx.catalog.get(car_id)
+    return None if car is None else car_details(car.drive, car.group)
+
+
 def bound_question(
     services: Services,
     session_id: str,
@@ -134,6 +167,7 @@ def bound_question(
     qid: str,
     prompt_he: str | None = None,
     occupation_query: str | None = None,
+    car_query: str | None = None,
 ) -> dict[str, Any]:
     """A question bound to `field`, with the answer schema and options the server builds."""
     answer: dict[str, Any]
@@ -143,6 +177,8 @@ def bound_question(
         answer = {"type": "choice", "options": group_exception_options(services, session_id)}
     elif field == OCCUPATION and occupation_query is not None:
         answer = {"type": "choice", "options": occupation_options(services, occupation_query)}
+    elif field == CURRENT_CAR:
+        answer = {"type": "choice", "options": current_car_options(services, car_query or "")}
     elif field in _ILS_PROFILE_FIELDS:
         answer = {"type": "amount", "options": []}
     else:  # a legacy profile field (or a legacy occupation, typed as its exact title)
@@ -155,6 +191,8 @@ def bound_question(
     }
     if occupation_query is not None:
         question["occupation_query"] = occupation_query
+    if car_query is not None:
+        question["car_query"] = car_query
     return question
 
 

@@ -17,6 +17,9 @@ Also records `options_without_today`: list_options before today's car is known (
 net, "חסר הרכב של היום" for the diff), then set_current_situation, after which the server puts
 the same options on screen again with their diffs.
 
+Also records `current_car_inbox`: the representative's inbox with a current_car question (today's
+car unknown; the employee wrote "מאזדה").
+
 Also records `guard_retry`: the walkthrough with a first draft of the last reply that has a number
 no tool produced, so the real guard rejects it and the model rewrites it (judges mode's rejected
 draft card).
@@ -49,6 +52,11 @@ NO_TODAY_PROFILE = {
     "credit_points": 3,
 }
 COROLLA_CROSS_TODAY = {"kind": "company_car", "car_id": "CAR-09", "participation": 300}
+# current_car_inbox: the same profile, no today's car, and a current_car question
+ASK_CURRENT_CAR = {
+    "question": "העובדת לא מזהה את הרכב הצמוד שלה (כתבה 'מאזדה'). איזה רכב יש לה היום?",
+    "questions": [{"bound_field": "current_car", "car_query": "מאזדה"}],
+}
 REP = {"Authorization": "Bearer rep"}
 
 
@@ -217,6 +225,17 @@ def main() -> int:
                 headers=REP,
             )
             assert agent.wait_idle(30)
+            which_car = client.post("/api/sessions").json()["id"]
+            for name, body in (
+                ("save_profile", NO_TODAY_PROFILE),
+                ("list_options", {}),
+                ("ask_representative", ASK_CURRENT_CAR),
+            ):
+                done = client.post(f"/api/sessions/{which_car}/tools/{name}", json=body)
+                assert done.json()["ok"], done.text
+            current_car_inbox = client.get(
+                "/api/tickets", params={"status": "open"}, headers=REP
+            ).json()
             OUT.mkdir(parents=True, exist_ok=True)
             outputs: dict[str, Any] = {
                 "walkthrough": _events(app, walkthrough),
@@ -224,6 +243,7 @@ def main() -> int:
                 "options": _events(app, options),
                 "options_without_today": _events(app, no_today),
                 "e001_inbox": inbox,  # GET /api/tickets?status=open before the answer
+                "current_car_inbox": current_car_inbox,
                 "e001_answer_negative": refused.json(),  # the 422 body for -50
                 "guard_retry": _guard_retry_log(),
             }

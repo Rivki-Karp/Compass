@@ -91,6 +91,11 @@ export interface TicketQuestionView {
   label: string;
   options: TicketOptionView[];
   search_options: TicketOptionView[];
+  search_label: string | null;
+  search_empty: string | null;
+  note_required_for: string | null;
+  note_required_label: string | null;
+  detail_label: string | null;
   facts: TicketFactView[];
   car_id: string | null;
   car_name: string | null;
