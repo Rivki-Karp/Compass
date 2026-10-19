@@ -577,6 +577,8 @@ def _summary(name: str, result: dict[str, Any]) -> dict[str, Any]:
         }
     if name in ("lookup_vehicle", "lookup_occupation"):
         return {"confident": result["confident"], "candidates": len(result["candidates"])}
+    if name == "search_catalog":
+        return {"cars": len(result["cars"])}
     if name == "save_profile":
         return {"saved": sorted(result["saved"]), "missing": result["missing"]}
     if name == "list_options":

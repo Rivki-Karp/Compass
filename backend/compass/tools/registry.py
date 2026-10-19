@@ -71,6 +71,20 @@ TOOLS: tuple[Tool, ...] = (
         h.lookup_vehicle,
     ),
     Tool(
+        "search_catalog",
+        "List the company catalog cars the employee may mean by today's car: part of a name, a "
+        "manufacturer ('קיה') or the name in Hebrew letters, every registration year. Use it "
+        "when lookup_vehicle does not identify today's car, instead of asking to rephrase. "
+        "Returns numbered cars (choice, car_id, name, registration_year, group, drive, "
+        "details_he) and other_choices: not_in_list ('הרכב שלי לא ברשימה': then lookup_vehicle "
+        "with the registration year for a car outside the catalog) and no_car ('אין לי רכב "
+        "היום': set_current_situation kind none). Offer them all as one short numbered list, "
+        "in this order, and let the employee pick; never pick for them. A car whose year "
+        "differs from the employee's is a different vehicle.",
+        h.SearchCatalogInput,
+        h.search_catalog,
+    ),
+    Tool(
         "set_current_situation",
         "Record what the employee has today: a company car (catalog id or a Tax Authority key "
         "from lookup_vehicle, with their participation), a maintenance payment, or none. "

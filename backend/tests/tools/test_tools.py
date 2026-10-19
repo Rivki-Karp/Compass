@@ -62,7 +62,7 @@ def _ready(runner: ToolRunner, sid: str) -> None:
 def test_definitions_are_anthropic_format() -> None:
     definitions = tool_definitions()
     assert [d["name"] for d in definitions] == list(REGISTRY)
-    assert len(definitions) == 9
+    assert len(definitions) == 10
     for d in definitions:
         assert set(d) == {"name", "description", "input_schema"}
         assert d["input_schema"]["type"] == "object" and d["description"]

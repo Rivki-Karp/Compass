@@ -3,7 +3,7 @@ import pytest
 from compass.data.catalog import load_catalog
 from compass.engine.context import EngineContext, build_context
 from compass.search import Searcher, load_aliases, normalize
-from compass.search.search import CONFIDENT_LEAD, CONFIDENT_SCORE
+from compass.search.search import CONFIDENT_LEAD, CONFIDENT_SCORE, latin_skeleton
 
 
 @pytest.fixture(scope="module")
@@ -153,3 +153,42 @@ def test_tax_authority_only_when_catalog_has_no_match(searcher: Searcher) -> Non
 def test_nothing_matches(searcher: Searcher) -> None:
     result = searcher.search_vehicles("zzzzqqqq")
     assert result.candidates == () and not result.confident
+
+
+# --- search_catalog (a list to pick from) -----------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("query", "car_ids"),
+    [
+        ("קיה", ["CAR-01", "CAR-05", "CAR-11", "CAR-16", "CAR-19"]),  # the manufacturer
+        ("יונדאי", ["CAR-08", "CAR-12", "CAR-20"]),
+        ("קורולה", ["CAR-07", "CAR-09"]),  # the exact name first, then the longer one
+        ("קרוס", ["CAR-02", "CAR-09"]),  # part of a name
+        ("אקטביה", ["CAR-15"]),  # a Hebrew spelling no alias has
+        ("פיקאנטו", ["CAR-01"]),
+    ],
+)
+def test_search_catalog_lists_every_car_the_words_may_mean(
+    searcher: Searcher, query: str, car_ids: list[str]
+) -> None:
+    assert [c.id for c in searcher.search_catalog(query)] == car_ids
+
+
+def test_search_catalog_ignores_the_registration_year(searcher: Searcher) -> None:
+    assert [c.label for c in searcher.search_catalog("מאזדה 3 2024")] == ["MAZDA 3 2025"]
+
+
+@pytest.mark.parametrize("query", ["מציון", "golf", "zzzz", "  "])
+def test_search_catalog_lists_nothing_for_a_car_not_in_the_catalog(
+    searcher: Searcher, query: str
+) -> None:
+    assert searcher.search_catalog(query) == []
+
+
+@pytest.mark.parametrize(
+    ("hebrew", "latin"),
+    [("קודיאק", "kodiaq"), ("אוקטביה", "octavia"), ("פיקנטו", "picanto"), ("קרניבל", "carnival")],
+)
+def test_a_transliteration_and_the_latin_name_share_a_skeleton(hebrew: str, latin: str) -> None:
+    assert latin_skeleton(normalize(hebrew)) == latin_skeleton(normalize(latin))

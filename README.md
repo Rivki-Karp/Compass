@@ -123,7 +123,7 @@ server's.
 
 Per-scenario figures are averages over the repeats.
 
-**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-19): pytest **766** · vitest **198** · Playwright **10**. CI runs all of them on every push.
+**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-19): pytest **786** · vitest **198** · Playwright **10**. CI runs all of them on every push.
 
 **Cost per conversation:** **$0.0321**, the last report's run cost over its 19 scenario runs.
 
@@ -476,6 +476,7 @@ Tools return numbers **only** from the engine or the data files; none calculates
 | `save_profile` | Stores any stated details (percentages in percent: 6.5 → 0.065). `occupation_query` is searched; if confident it also sets the group (source `derived`) unless the employee stated one. Returns `saved`, `missing`, `unknown`, `warnings` and the group in effect with its source and budget (`group`, `group_source`, `group_budget`). |
 | `lookup_occupation` | Search result plus each occupation's group, car_mandatory, waiver_allowed and waiver_maintenance. |
 | `lookup_vehicle` | Search result plus each car's group, drive, value of use, default participation and `in_catalog`. |
+| `search_catalog` | Today's car when `lookup_vehicle` does not identify it: the catalog cars matching part of a name, a manufacturer or a Hebrew transliteration (every registration year), numbered, with id, name, year, group and drive, then two more choices, "הרכב שלי לא ברשימה" (a car outside the catalog, via `lookup_vehicle`) and "אין לי רכב היום". The employee picks; the tool never does. |
 | `set_current_situation` | Today: a company car (catalog id, or a Tax Authority key from `lookup_vehicle`, which needs the participation), a maintenance payment, or none. Returns warnings such as `current_car_above_group` / `current_car_not_in_catalog`. |
 | `check_eligibility` | Engine verdict for an alternative; `not_eligible` with the reason, or `missing_inputs`. |
 | `compare` | Engine comparison of today vs an alternative (`to_api_dict`), stored as the session's last comparison (`comparison_ready`). Ineligible alternatives are still calculated and marked `hypothetical`; unknown contribution rates give a partial result. Also returns the alternative's `participation_source` and `pending_rep` (see below). |

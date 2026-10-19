@@ -27,6 +27,7 @@ from compass.engine.models import (
 )
 from compass.engine.options import list_options as engine_options
 from compass.engine.serialize import plain_json, to_api_dict
+from compass.labels import car_details
 from compass.search import SearchResult
 from compass.state import Slot, SlotUpdate
 from compass.tools.profile import (
@@ -351,6 +352,55 @@ def lookup_vehicle(services: Services, session_id: str, data: LookupVehicleInput
             }
         candidates.append({**base, **facts})
     return {"confident": result.confident, "truncated": result.truncated, "candidates": candidates}
+
+
+# --- 3b. search_catalog -----------------------------------------------------------------------
+
+
+class SearchCatalogInput(_Input):
+    query: str = Field(
+        min_length=1,
+        max_length=200,
+        description="The car as the employee wrote it: part of the name, the manufacturer, or "
+        "the name in Hebrew letters",
+    )
+
+
+# The two choices after the catalog cars, in this order (the employee may pick either).
+NOT_IN_LIST, NO_CAR = "not_in_list", "no_car"
+CATALOG_EXTRA_CHOICES = (
+    (NOT_IN_LIST, "הרכב שלי לא ברשימה"),
+    (NO_CAR, "אין לי רכב היום"),
+)
+
+
+def search_catalog(services: Services, session_id: str, data: SearchCatalogInput):  # type: ignore[no-untyped-def]
+    """The catalog cars the employee may mean, as numbered choices, then "not in the list" and
+    "no car today". Never a pick: the employee chooses."""
+    ctx = services.ctx
+    choices: list[dict[str, Any]] = []
+    for number, candidate in enumerate(services.searcher.search_catalog(data.query), start=1):
+        car = ctx.catalog[candidate.id]
+        choices.append(
+            {
+                "choice": number,
+                "car_id": car.id,
+                "name": car.commercial_name,
+                "registration_year": car.registration_year,
+                "group": car.group,
+                "drive": car.drive,
+                "details_he": car_details(car.drive, car.group),
+            }
+        )
+    first_extra = len(choices) + 1
+    return {
+        "query": data.query,
+        "cars": choices,
+        "other_choices": [
+            {"choice": first_extra + i, "id": key, "label_he": label}
+            for i, (key, label) in enumerate(CATALOG_EXTRA_CHOICES)
+        ],
+    }
 
 
 # --- 4. set_current_situation -----------------------------------------------------------------
