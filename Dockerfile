@@ -86,6 +86,7 @@ EXPOSE 8000
 VOLUME ["/data"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --start-interval=2s --retries=3 \
-    CMD ["python", "-c", "import sys, urllib.request; sys.exit(urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status != 200)"]
+    CMD ["python", "-c", "import os, sys, urllib.request; sys.exit(urllib.request.urlopen(f\"http://127.0.0.1:{os.environ.get('PORT') or 8000}/api/health\", timeout=4).status != 200)"]
 
-CMD ["uvicorn", "compass.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+# $PORT when the host sets one (Render does), else 8000. One worker, always (see the top).
+CMD ["sh", "-c", "exec uvicorn compass.api.main:app --host 0.0.0.0 --port \"${PORT:-8000}\" --workers 1"]

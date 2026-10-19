@@ -1,0 +1,41 @@
+# Render Blueprint for Compass (prep only: nothing is deployed until someone creates the
+# Blueprint in the dashboard; docs/demo-runbook.md, "Deploy to Render").
+#
+# One web service from the repo's Dockerfile: one instance, no autoscaling (the agent's
+# per-session workers and locks live in memory, so one process: the image runs --workers 1).
+# The session databases live on a persistent disk at /data (the image's COMPASS_APP_DB).
+# The image listens on $PORT, which Render sets.
+#
+# Every variable is declared by name only (sync: false): Render asks for each value when the
+# Blueprint is created, and they are never in the repo.
+
+services:
+  - type: web
+    name: compass
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter # a persistent disk needs a paid plan
+    region: frankfurt
+    numInstances: 1 # and no `scaling` block: never more than one
+    autoDeploy: false # deploy by hand from the dashboard, never on a push
+    healthCheckPath: /api/health
+    disk:
+      name: compass-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: COMPASS_REP_TOKEN
+        sync: false
+      - key: COMPASS_ADMIN_TOKEN
+        sync: false
+      - key: COMPASS_LLM # anthropic
+        sync: false
+      - key: COMPASS_DAILY_SPEND_CAP_USD # e.g. 5
+        sync: false
+      - key: COMPASS_MESSAGE_RATE_PER_MINUTE # e.g. 20
+        sync: false
+      - key: COMPASS_TRUST_PROXY # 1: behind Render's proxy
+        sync: false

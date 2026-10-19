@@ -51,6 +51,9 @@ from compass.tools.tickets import TicketAnswerError
 from compass.tools.tickets import answer_ticket as answer_ticket_with_rules
 from compass.tools.view import build_ticket_view
 
+# Streams pass through a platform's reverse proxy (Render) unbuffered and uncached.
+SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+
 
 class _Body(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -321,7 +324,7 @@ def create_app(
                 broker.unsubscribe(session_id, waiter)
 
         ping = max(1, round(settings.heartbeat_seconds))  # sse-starlette pings in whole seconds
-        return EventSourceResponse(events(), ping=ping)
+        return EventSourceResponse(events(), ping=ping, headers=SSE_HEADERS)
 
     @api.post("/sessions/{session_id}/tools/{name}", tags=["dev"])
     def run_tool(
@@ -380,7 +383,7 @@ def create_app(
                 broker.unsubscribe(TICKETS, waiter)
 
         ping = max(1, round(settings.heartbeat_seconds))
-        return EventSourceResponse(events(), ping=ping)
+        return EventSourceResponse(events(), ping=ping, headers=SSE_HEADERS)
 
     @api.post("/tickets/{ticket_id}/answer", tags=["representative"], dependencies=[rep_only])
     def answer_ticket(ticket_id: str, body: TicketAnswer) -> dict[str, Any]:

@@ -21,6 +21,7 @@ Usage:
     uv run python tasks.py test-counts  # write tests/counts.json (judges mode; pytest checks it)
     uv run python tasks.py record-demo  # the backup video -> docs/video/*.webm (demo mode, no key)
     uv run python tasks.py readme    # regenerate README.md's results block (pytest checks it)
+    uv run python tasks.py smoke --url https://compass.onrender.com  # check a deployed server
 """
 
 import subprocess
@@ -329,6 +330,65 @@ def test_counts() -> None:
     print(f"tests/counts.json: {counts}")
 
 
+SMOKE_TIMEOUT_SECONDS = 30
+
+
+def smoke(*args: str) -> None:
+    """Check a running server from outside: /api/health answers ok, a session opens, and its
+    event stream delivers its first event. Sends no token and prints no secret: only statuses,
+    the model mode and the event's type. Exits non-zero on the first failure."""
+    import argparse
+    import json
+    import urllib.error
+    import urllib.request
+
+    parser = argparse.ArgumentParser(prog="tasks.py smoke")
+    parser.add_argument("--url", required=True, help="the server's base URL")
+    base = parser.parse_args(args).url.rstrip("/")
+
+    def fail(step: str, error: object) -> None:
+        sys.exit(f"smoke: FAIL at {step}: {error}")
+
+    def call(method: str, path: str) -> tuple[int, dict[str, object]]:
+        request = urllib.request.Request(f"{base}{path}", method=method)
+        with urllib.request.urlopen(request, timeout=SMOKE_TIMEOUT_SECONDS) as response:
+            return response.status, json.loads(response.read())
+
+    try:
+        status, health = call("GET", "/api/health")
+        if status != 200 or health.get("ok") is not True:
+            fail("health", f"status {status}")
+        print(f"health: ok (llm: {health.get('llm')})")
+
+        status, session = call("POST", "/api/sessions")
+        session_id = str(session.get("id", ""))
+        if status != 201 or not session_id:
+            fail("open a session", f"status {status}")
+        print("session: opened")
+
+        request = urllib.request.Request(
+            f"{base}/api/sessions/{session_id}/events", headers={"Accept": "text/event-stream"}
+        )
+        with urllib.request.urlopen(request, timeout=SMOKE_TIMEOUT_SECONDS) as stream:
+            kind = stream.headers.get("Content-Type", "")
+            if not kind.startswith("text/event-stream"):
+                fail("event stream", f"content type {kind!r}")
+            event: str | None = None
+            for raw in stream:
+                line = raw.decode("utf-8").rstrip("\r\n")
+                if line.startswith("event:"):
+                    event = line.removeprefix("event:").strip()
+                elif not line and event:
+                    break  # the end of the first event
+            if not event:
+                fail("event stream", "the stream ended before any event")
+            print(f"event stream: first event {event!r}")
+            print(f"  Cache-Control: {stream.headers.get('Cache-Control')}")
+    except (urllib.error.URLError, TimeoutError, ValueError) as error:
+        fail("request", error)
+    print("smoke: OK")
+
+
 TASKS: dict[str, Callable[..., None]] = {
     "install": install,
     "data": data,
@@ -348,8 +408,9 @@ TASKS: dict[str, Callable[..., None]] = {
     "readme": readme,
     "chat": chat,
     "eval": evals,
+    "smoke": smoke,
 }
-TAKES_ARGS: set[str] = {"demo", "eval"}
+TAKES_ARGS: set[str] = {"demo", "eval", "smoke"}
 
 
 def main() -> None:

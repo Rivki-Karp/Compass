@@ -113,7 +113,7 @@ server's.
 
 Per-scenario figures are averages over the repeats.
 
-**Tests** ([tests/counts.json](tests/counts.json), 2026-10-19): pytest **682** · vitest **185** · Playwright **9**. CI runs all of them on every push.
+**Tests** ([tests/counts.json](tests/counts.json), 2026-10-19): pytest **687** · vitest **185** · Playwright **9**. CI runs all of them on every push.
 
 **Cost per conversation:** **$0.0285**, the last report's run cost over its 17 scenario runs.
 
