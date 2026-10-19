@@ -11,6 +11,11 @@ const API = process.env.COMPASS_API_URL ?? "http://127.0.0.1:8000";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    // Fonts are always files, never data: URIs: the CSP's font-src is 'self' (render.yaml), and
+    // the small @fontsource subsets would otherwise be inlined. Other assets: Vite's default.
+    assetsInlineLimit: (file) => (/\.(woff2?|ttf|otf|eot)$/i.test(file) ? false : undefined),
+  },
   server: {
     port: 5173,
     proxy: { "/api": { target: API, changeOrigin: false } },
