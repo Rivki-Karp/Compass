@@ -1,7 +1,7 @@
 [
  {
-  "id": "2dd74b3a33a048f68e6cefd2b0e9ff00",
-  "session_id": "4258b1efdf0e4cc3aefe0424d581d14c",
+  "id": "c27bcad0b8d24cd9a123a8bccd2d288f",
+  "session_id": "d27029bdc3d042319f90aadf34a84230",
   "question": "מה גובה ההשתתפות העצמית החודשית ב-ATTO 3?",
   "context": {
    "display_name": null,
@@ -14,9 +14,10 @@
    "alternative_participation:CAR-10"
   ],
   "quick_answers": [],
+  "questions": [],
   "status": "open",
   "answer": null,
-  "created_at": "2026-10-18T17:47:14.623+00:00",
+  "created_at": "2026-10-19T15:04:42.900+00:00",
   "answered_at": null,
   "view": {
    "version": 1,
@@ -39,6 +40,31 @@
       "display_diff": 661,
       "pending": true
      }
+    }
+   ],
+   "questions": [
+    {
+     "id": "alternative_participation:CAR-10",
+     "kind": "bound",
+     "bound_field": "alternative_participation:CAR-10",
+     "type": "amount",
+     "title": "השתתפות עצמית",
+     "prompt_he": "",
+     "label": "סכום ההשתתפות החודשית ב-ATTO 3 (₪)",
+     "options": [],
+     "search_options": [],
+     "facts": [],
+     "car_id": "CAR-10",
+     "car_name": "ATTO 3",
+     "catalog_default": 300,
+     "comparison": {
+      "alternative_title": "ATTO 3",
+      "display_diff": 661,
+      "pending": true
+     },
+     "status": "pending",
+     "answer": null,
+     "note": null
     }
    ],
    "comparison": {

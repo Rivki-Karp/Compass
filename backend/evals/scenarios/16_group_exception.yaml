@@ -11,14 +11,14 @@ turns:
       current_participation: 300
       group_exception: ג
 checks:
-- tool_called:
-    name: ask_representative
-    ok: true
-    turn: 0
-    input:
-      blocking_fields:
-      - current_participation
-      - group_exception
+# one ticket with both, whichever input form the model used (questions[] or blocking_fields);
+# it may also ask ATTO 3's participation, which the pending comparison waits on
+- ticket:
+    bound_fields:
+    - current_participation
+    - group_exception
+    free_types: []
+    allow_pending_participation: true
 # The employee's word is not an approval: the model never sets the group itself.
 - tool_not_called:
     name: save_profile

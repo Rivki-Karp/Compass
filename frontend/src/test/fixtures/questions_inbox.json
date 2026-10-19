@@ -1,0 +1,283 @@
+[
+ {
+  "id": "c743e8ae3a694871911fe83d30a883c8",
+  "session_id": "9339bc2b8d3c44f195ebad4d8607c70a",
+  "question": "העובד מתאר את עצמו כ'מפתח AI', עיסוק שלא מופיע בטבלה, ושואל על חניה לעובדים.",
+  "context": {
+   "display_name": null,
+   "occupation": null,
+   "group": null,
+   "current_situation": "COROLLA CROSS",
+   "requested_alternative": null
+  },
+  "blocking_fields": [
+   "occupation"
+  ],
+  "quick_answers": [],
+  "questions": [
+   {
+    "id": "q1",
+    "prompt_he": "האם 'מפתח AI' נחשב מפתח/ת תוכנה?",
+    "bound_field": "occupation",
+    "answer": {
+     "type": "choice",
+     "options": [
+      {
+       "value": "מפתח/ת תוכנה",
+       "label": "מפתח/ת תוכנה · קבוצה ב׳"
+      },
+      {
+       "value": "מפקח/ת איכות במפעל",
+       "label": "מפקח/ת איכות במפעל · קבוצה א׳"
+      },
+      {
+       "value": "מנהל/ת פיתוח",
+       "label": "מנהל/ת פיתוח · קבוצה ג׳"
+      },
+      {
+       "value": "נציג/ת מכירות שטח",
+       "label": "נציג/ת מכירות שטח · קבוצה ב׳"
+      },
+      {
+       "value": "מנהל/ת אזור מכירות",
+       "label": "מנהל/ת אזור מכירות · קבוצה ג׳"
+      },
+      {
+       "value": "other",
+       "label": "עיסוק אחר (לפרט בהערה)"
+      }
+     ]
+    },
+    "occupation_query": "מפתח AI"
+   },
+   {
+    "id": "q2",
+    "prompt_he": "האם יש חניה לעובדים בבניין המשרדים?",
+    "bound_field": null,
+    "answer": {
+     "type": "yes_no",
+     "options": []
+    }
+   }
+  ],
+  "status": "open",
+  "answer": null,
+  "created_at": "2026-10-19T15:04:44.689+00:00",
+  "answered_at": null,
+  "view": {
+   "version": 1,
+   "title": "סיווג עיסוק · מפתח AI + האם יש חניה לעובדים בבניין המשרדים?",
+   "fields": [
+    {
+     "field": "occupation",
+     "title": "סיווג עיסוק · מפתח AI",
+     "label": "העיסוק בטבלה שמתאים לעובד/ת",
+     "unit": "text",
+     "car_id": null,
+     "car_name": null,
+     "catalog_default": null,
+     "options": [
+      {
+       "value": "מפתח/ת תוכנה",
+       "label": "מפתח/ת תוכנה · קבוצה ב׳",
+       "detail": null
+      },
+      {
+       "value": "מפקח/ת איכות במפעל",
+       "label": "מפקח/ת איכות במפעל · קבוצה א׳",
+       "detail": null
+      },
+      {
+       "value": "מנהל/ת פיתוח",
+       "label": "מנהל/ת פיתוח · קבוצה ג׳",
+       "detail": null
+      },
+      {
+       "value": "נציג/ת מכירות שטח",
+       "label": "נציג/ת מכירות שטח · קבוצה ב׳",
+       "detail": null
+      },
+      {
+       "value": "מנהל/ת אזור מכירות",
+       "label": "מנהל/ת אזור מכירות · קבוצה ג׳",
+       "detail": null
+      },
+      {
+       "value": "other",
+       "label": "עיסוק אחר (לפרט בהערה)",
+       "detail": null
+      }
+     ],
+     "facts": [
+      {
+       "label": "איך העובד/ת תיאר/ה",
+       "value": "מפתח AI"
+      }
+     ],
+     "answered": false,
+     "answer": null,
+     "comparison": null
+    }
+   ],
+   "questions": [
+    {
+     "id": "q1",
+     "kind": "bound",
+     "bound_field": "occupation",
+     "type": "choice",
+     "title": "סיווג עיסוק · מפתח AI",
+     "prompt_he": "האם 'מפתח AI' נחשב מפתח/ת תוכנה?",
+     "label": "העיסוק בטבלה שמתאים לעובד/ת",
+     "options": [
+      {
+       "value": "מפתח/ת תוכנה",
+       "label": "מפתח/ת תוכנה · קבוצה ב׳",
+       "detail": "קבוצה ב׳"
+      },
+      {
+       "value": "מפקח/ת איכות במפעל",
+       "label": "מפקח/ת איכות במפעל · קבוצה א׳",
+       "detail": "קבוצה א׳"
+      },
+      {
+       "value": "מנהל/ת פיתוח",
+       "label": "מנהל/ת פיתוח · קבוצה ג׳",
+       "detail": "קבוצה ג׳"
+      },
+      {
+       "value": "נציג/ת מכירות שטח",
+       "label": "נציג/ת מכירות שטח · קבוצה ב׳",
+       "detail": "קבוצה ב׳"
+      },
+      {
+       "value": "מנהל/ת אזור מכירות",
+       "label": "מנהל/ת אזור מכירות · קבוצה ג׳",
+       "detail": "קבוצה ג׳"
+      },
+      {
+       "value": "other",
+       "label": "עיסוק אחר (לפרט בהערה)",
+       "detail": null
+      }
+     ],
+     "search_options": [
+      {
+       "value": "נציג/ת מכירות שטח",
+       "label": "נציג/ת מכירות שטח",
+       "detail": "קבוצה ב׳"
+      },
+      {
+       "value": "מנהל/ת אזור מכירות",
+       "label": "מנהל/ת אזור מכירות",
+       "detail": "קבוצה ג׳"
+      },
+      {
+       "value": "טכנאי/ת שירות",
+       "label": "טכנאי/ת שירות",
+       "detail": "קבוצה א׳"
+      },
+      {
+       "value": "נהג/ת הפצה",
+       "label": "נהג/ת הפצה",
+       "detail": "קבוצה א׳"
+      },
+      {
+       "value": "מפקח/ת איכות במפעל",
+       "label": "מפקח/ת איכות במפעל",
+       "detail": "קבוצה א׳"
+      },
+      {
+       "value": "רכז/ת רכש",
+       "label": "רכז/ת רכש",
+       "detail": "קבוצה א׳"
+      },
+      {
+       "value": "מהנדס/ת תהליך",
+       "label": "מהנדס/ת תהליך",
+       "detail": "קבוצה ב׳"
+      },
+      {
+       "value": "מפתח/ת תוכנה",
+       "label": "מפתח/ת תוכנה",
+       "detail": "קבוצה ב׳"
+      },
+      {
+       "value": "אנליסט/ית נתונים",
+       "label": "אנליסט/ית נתונים",
+       "detail": "קבוצה ב׳"
+      },
+      {
+       "value": "מנהל/ת מוצר",
+       "label": "מנהל/ת מוצר",
+       "detail": "קבוצה ג׳"
+      },
+      {
+       "value": "מנהל/ת פיתוח",
+       "label": "מנהל/ת פיתוח",
+       "detail": "קבוצה ג׳"
+      },
+      {
+       "value": "מנהל/ת משאבי אנוש",
+       "label": "מנהל/ת משאבי אנוש",
+       "detail": "קבוצה ג׳"
+      },
+      {
+       "value": "מנהל/ת מחלקה",
+       "label": "מנהל/ת מחלקה",
+       "detail": "קבוצה ד׳"
+      },
+      {
+       "value": "מנהל/ת חטיבה",
+       "label": "מנהל/ת חטיבה",
+       "detail": "קבוצה ד׳"
+      }
+     ],
+     "facts": [
+      {
+       "label": "איך העובד/ת תיאר/ה",
+       "value": "מפתח AI"
+      }
+     ],
+     "car_id": null,
+     "car_name": null,
+     "catalog_default": null,
+     "comparison": null,
+     "status": "pending",
+     "answer": null,
+     "note": null
+    },
+    {
+     "id": "q2",
+     "kind": "free",
+     "bound_field": null,
+     "type": "yes_no",
+     "title": "האם יש חניה לעובדים בבניין המשרדים?",
+     "prompt_he": "האם יש חניה לעובדים בבניין המשרדים?",
+     "label": "התשובה",
+     "options": [
+      {
+       "value": "yes",
+       "label": "כן",
+       "detail": null
+      },
+      {
+       "value": "no",
+       "label": "לא",
+       "detail": null
+      }
+     ],
+     "search_options": [],
+     "facts": [],
+     "car_id": null,
+     "car_name": null,
+     "catalog_default": null,
+     "comparison": null,
+     "status": "pending",
+     "answer": null,
+     "note": null
+    }
+   ],
+   "comparison": null
+  }
+ }
+]

@@ -47,7 +47,7 @@ from compass.rules import RulesError
 from compass.state import NotFound, Store
 from compass.tools import ToolRunner
 from compass.tools.services import Services
-from compass.tools.tickets import TicketAnswerError
+from compass.tools.tickets import QuestionAnswer, TicketAnswerError
 from compass.tools.tickets import answer_ticket as answer_ticket_with_rules
 from compass.tools.view import build_ticket_view
 
@@ -71,10 +71,28 @@ class MessageAccepted(BaseModel):
     message_seq: int
 
 
+class QuestionAnswerBody(_Body):
+    value: Any = Field(
+        None,
+        description=(
+            "amount: whole ILS; choice: an option's value; yes_no: yes / no; text: the answer. "
+            "None with status needs_checking"
+        ),
+    )
+    status: Literal["answered", "needs_checking"] = Field(
+        "answered", description="needs_checking: the question stays pending (with the note)"
+    )
+    note: str | None = Field(None, max_length=1000)
+
+
 class TicketAnswer(_Body):
     answer_text: str | None = Field(None, max_length=4000)
     quick_answer_id: str | None = None
     values: dict[str, Any] = Field(default_factory=dict, description="Tool field -> value")
+    answers: dict[str, QuestionAnswerBody] = Field(
+        default_factory=dict,
+        description="Question id (the ticket view's questions[].id) -> its answer in this part",
+    )
     effective_from: date | None = Field(
         None, description="When a participation amount takes effect (participation fields only)"
     )
@@ -388,9 +406,10 @@ def create_app(
 
     @api.post("/tickets/{ticket_id}/answer", tags=["representative"], dependencies=[rep_only])
     def answer_ticket(ticket_id: str, body: TicketAnswer) -> dict[str, Any]:
-        """Answer a ticket: fill its blocking fields (source representative), resume the
-        employee's session and tell the agent. Blocking fields left without a value become
-        unknown (the representative answered, but not with a number)."""
+        """Answer a ticket: per question (`answers`) or per bound field (`values`). Bound
+        questions fill their field (source representative); free questions' answers go to the
+        agent as data. Resume the employee's session and tell the agent. Unless `partial`,
+        questions left without an answer become unknown (answered, but not with a value)."""
         try:
             answered = answer_ticket_with_rules(
                 services,
@@ -398,6 +417,10 @@ def create_app(
                 answer_text=body.answer_text,
                 quick_answer_id=body.quick_answer_id,
                 values=body.values,
+                answers={
+                    qid: QuestionAnswer(value=a.value, status=a.status, note=a.note)
+                    for qid, a in body.answers.items()
+                },
                 effective_from=body.effective_from,
                 partial=body.partial,
             )

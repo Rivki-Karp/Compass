@@ -28,6 +28,8 @@ export type { ComparisonView, EventType, TicketView } from "./generated";
 export type {
   TicketComparisonView,
   TicketFieldView,
+  TicketOptionView,
+  TicketQuestionView,
   ViewField,
   ViewInput,
   ViewLine,
@@ -114,6 +116,17 @@ export interface PayloadByType {
     unknown: string[];
     partial?: boolean; // the ticket stays open: `pending` fields still wait for the rep
     pending?: string[];
+    // this part's answer to each question, display-ready (tickets with questions)
+    questions?: {
+      id: string;
+      kind: "bound" | "free";
+      bound_field: string | null;
+      prompt_he: string;
+      status: "answered" | "needs_checking" | "unknown";
+      value: unknown;
+      answer: string | null; // an option's label ("כן"), the text, or the value as text
+      note: string | null;
+    }[];
   };
   agent_started: { trigger: "employee_turn" | "rep_answer" };
   agent_finished: {

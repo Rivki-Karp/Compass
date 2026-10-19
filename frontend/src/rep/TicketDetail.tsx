@@ -1,15 +1,17 @@
 import { useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { api } from "../api/client";
-import type { Ticket, TicketFieldView, TicketWithView } from "../api/types";
-import { SHEKEL } from "../lib/format";
+import { api, type QuestionAnswer } from "../api/client";
+import type { Ticket, TicketOptionView, TicketQuestionView, TicketWithView } from "../api/types";
 import { Amount } from "../ui/Amount";
 import { Button } from "../ui/Button";
 import { answerErrors, NO_ERRORS, type FormErrors } from "./answerErrors";
 import { BidiText } from "../ui/BidiText";
 
-const FILL_ONE = "צריך למלא לפחות שדה אחד.";
+const FILL_ONE = "צריך לענות על שאלה אחת לפחות, או לסמן ״צריך לבדוק״.";
 // today's car outside the catalog: no default participation to fall back on
 const NO_DEFAULT = "אין ברירת מחדל בקטלוג";
+const NEEDS_CHECKING = "לא ידוע לי / צריך לבדוק";
+const OTHER_OCCUPATION = "other"; // compass/tools/questions.py OTHER_OCCUPATION
+const MAX_SEARCH_RESULTS = 8;
 
 /** The context line: "מנהל/ת מוצר · קבוצה ג׳ · היום: COROLLA CROSS". */
 function contextLine(context: Record<string, unknown>): string {
@@ -29,26 +31,14 @@ function contextLine(context: Record<string, unknown>): string {
     .join(" · ");
 }
 
-const isParticipation = (field: TicketFieldView) => field.field.includes("participation");
-const isCar = (field: TicketFieldView) => field.field.startsWith("alternative_participation:");
+const isParticipation = (q: TicketQuestionView) => q.bound_field?.includes("participation") ?? false;
+const isCar = (q: TicketQuestionView) =>
+  q.bound_field?.startsWith("alternative_participation:") ?? false;
+const isOccupation = (q: TicketQuestionView) => q.bound_field === "occupation";
 
-/** The input's visible label, with the car's name: "סכום ההשתתפות החודשית ב-MG4 (₪)". */
-function fieldLabel(field: TicketFieldView): string {
-  if (isParticipation(field)) {
-    return field.car_name
-      ? `סכום ההשתתפות החודשית ב-${field.car_name} (${SHEKEL})`
-      : `סכום ההשתתפות החודשית (${SHEKEL})`;
-  }
-  return field.unit === "ils" ? `${field.label} (${SHEKEL})` : field.label;
-}
-
-/** A section's heading: the car and its id for a car's participation, else the field. */
-function FieldHeading({ field, id }: { field: TicketFieldView; id: string }) {
-  const text = isCar(field)
-    ? (field.car_name ?? field.title)
-    : field.car_name
-      ? `${field.title} · ${field.car_name}`
-      : field.title;
+/** A section's heading: the car and its id for a car's participation, else the server's title. */
+function QuestionHeading({ question, id }: { question: TicketQuestionView; id: string }) {
+  const text = isCar(question) ? (question.car_name ?? question.title) : question.title;
   return (
     <h3
       id={id}
@@ -57,14 +47,14 @@ function FieldHeading({ field, id }: { field: TicketFieldView; id: string }) {
       <span>
         <BidiText text={text} />
       </span>
-      {field.car_id ? (
-        <code className="font-mono text-[13px] font-normal text-steel">{field.car_id}</code>
+      {question.car_id && isCar(question) ? (
+        <code className="font-mono text-[13px] font-normal text-steel">{question.car_id}</code>
       ) : null}
     </h3>
   );
 }
 
-/** The model's question: secondary, three lines at most until "הצג עוד". */
+/** The agent's context paragraph: secondary, three lines at most until "הצג עוד". */
 function Question({ text }: { text: string }) {
   const ref = useRef<HTMLParagraphElement>(null);
   const [open, setOpen] = useState(false);
@@ -97,8 +87,8 @@ function Question({ text }: { text: string }) {
   );
 }
 
-/** One ticket (brief §4.6): the title built from its fields, the question, then one section per
- * blocking field (its own facts and input). Fields can be answered one at a time. */
+/** One ticket: the title built by the server, the agent's context, then one section per
+ * question. Questions can be answered one at a time. */
 export function TicketDetail({
   ticket,
   token,
@@ -151,13 +141,13 @@ function Tile({ label, note, children }: { label: string; note?: string; childre
   );
 }
 
-/** The employee's comparison this field affects: that car's own for a car's participation. */
-function DiffTile({ field }: { field: TicketFieldView }) {
-  const comparison = field.comparison;
+/** The employee's comparison this participation affects: that car's own for a car. */
+function DiffTile({ question }: { question: TicketQuestionView }) {
+  const comparison = question.comparison;
   return (
     <Tile
       label={
-        comparison && !isCar(field)
+        comparison && !isCar(question)
           ? `ההפרש אצל העובד/ת · ${comparison.alternative_title}`
           : "ההפרש אצל העובד/ת"
       }
@@ -168,59 +158,254 @@ function DiffTile({ field }: { field: TicketFieldView }) {
   );
 }
 
-/** What a field's answer depends on, for this field only (never another car's numbers). */
-function FieldTiles({ field }: { field: TicketFieldView }) {
+function FactTiles({ question }: { question: TicketQuestionView }) {
   return (
-    <div className="flex flex-wrap gap-3">
-      {field.options.length ? (
-        field.facts.map((fact) => (
-          <Tile key={fact.label} label={fact.label}>
-            <bdi>{fact.value}</bdi>
-          </Tile>
-        ))
-      ) : (
-        <>
-          {!isCar(field) ? (
-            <Tile label="רכב">
-              <span>{field.car_name ? <BidiText text={field.car_name} /> : "—"}</span>
-            </Tile>
-          ) : null}
-          <Tile label="ברירת מחדל מהקטלוג">
-            {field.catalog_default != null ? (
-              <Amount value={field.catalog_default} currency />
-            ) : field.unit === "ils" ? (
-              NO_DEFAULT
-            ) : (
-              "—"
-            )}
-          </Tile>
-        </>
-      )}
-      <DiffTile field={field} />
-    </div>
-  );
-}
-
-/** An answered field (an earlier part of a partial answer): what the rep answered. */
-function Answered({ field }: { field: TicketFieldView }) {
-  return (
-    <p className="flex items-center gap-2 text-ink">
-      <span className="font-medium text-up">נענה:</span>
-      {typeof field.answer === "number" ? (
-        <Amount value={field.answer} currency />
-      ) : (
-        <span>
-          <BidiText text={field.answer ?? ""} />
-        </span>
-      )}
-    </p>
+    <>
+      {question.facts.map((fact) => (
+        <Tile key={fact.label} label={fact.label}>
+          <BidiText text={fact.value} />
+        </Tile>
+      ))}
+    </>
   );
 }
 
 /**
- * The answer: one section per blocking field. Only the fields with a value are sent, as a partial
- * answer: the others stay pending and the ticket stays open for them. The server validates (the
- * same rules as the agent's tools) and the form shows its Hebrew messages next to the field.
+ * What the question's answer depends on, and nothing else:
+ * - a participation: the car, the catalog default, the employee's (provisional) difference;
+ * - an occupation: what the employee wrote, and the group the chosen title would give;
+ * - a group: today's car and its group (with the occupation's group);
+ * - a free question: no tiles (the agent's context paragraph is above).
+ */
+function QuestionTiles({
+  question,
+  chosen,
+}: {
+  question: TicketQuestionView;
+  chosen: TicketOptionView | undefined;
+}) {
+  if (isParticipation(question)) {
+    return (
+      <div className="flex flex-wrap gap-3">
+        {!isCar(question) ? (
+          <Tile label="רכב">
+            <span>{question.car_name ? <BidiText text={question.car_name} /> : "—"}</span>
+          </Tile>
+        ) : null}
+        <Tile label="ברירת מחדל מהקטלוג">
+          {question.catalog_default != null ? (
+            <Amount value={question.catalog_default} currency />
+          ) : (
+            NO_DEFAULT
+          )}
+        </Tile>
+        <DiffTile question={question} />
+      </div>
+    );
+  }
+  if (isOccupation(question)) {
+    return (
+      <div className="flex flex-wrap gap-3">
+        <FactTiles question={question} />
+        <Tile label="הקבוצה לפי הבחירה">
+          {chosen?.detail ? <BidiText text={chosen.detail} /> : "—"}
+        </Tile>
+      </div>
+    );
+  }
+  if (question.facts.length) {
+    return (
+      <div className="flex flex-wrap gap-3">
+        <FactTiles question={question} />
+      </div>
+    );
+  }
+  return null;
+}
+
+/** An answered question (an earlier part of a partial answer): what the rep answered. */
+function Answered({ question }: { question: TicketQuestionView }) {
+  return (
+    <div className="flex flex-col gap-1 text-ink">
+      <p className="flex items-center gap-2">
+        <span className="font-medium text-up">נענה:</span>
+        {typeof question.answer === "number" ? (
+          <Amount value={question.answer} currency />
+        ) : (
+          <span>
+            <BidiText text={question.answer ?? ""} />
+          </span>
+        )}
+      </p>
+      {question.note ? (
+        <p className="text-[13px] text-muted">
+          הערה: <BidiText text={question.note} />
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+interface Draft {
+  value: string;
+  checking: boolean;
+  note: string;
+}
+
+const EMPTY: Draft = { value: "", checking: false, note: "" };
+
+type InputProps = {
+  question: TicketQuestionView;
+  id: string;
+  value: string;
+  set: (value: string) => void;
+  disabled: boolean;
+  invalid: boolean;
+};
+
+/** amount: whole ILS, with the catalog default one click away. */
+function AmountInput({ question, id, value, set, disabled, invalid }: InputProps) {
+  return (
+    <>
+      <label htmlFor={id} className="font-medium text-ink">
+        <BidiText text={question.label} />
+      </label>
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          id={id}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          dir="ltr"
+          value={value}
+          disabled={disabled}
+          onChange={(e) => set(e.target.value)}
+          aria-invalid={invalid ? true : undefined}
+          aria-describedby={invalid ? `${id}-error` : undefined}
+          className={`h-14 max-w-[280px] rounded-tile border-2 bg-surface px-4 text-end text-[22px] font-semibold text-ink disabled:opacity-50 ${
+            invalid ? "border-down" : "border-royal"
+          }`}
+        />
+        {question.catalog_default != null ? (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={disabled}
+            onClick={() => set(String(question.catalog_default))}
+            aria-label={
+              question.car_name
+                ? `השתמש בברירת המחדל ל-${question.car_name}`
+                : "השתמש בברירת המחדל"
+            }
+          >
+            השתמש בברירת המחדל
+          </Button>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+/** choice and yes_no: one radio per option (the server's options, never the model's for a
+ * bound question). An occupation adds a search over the whole occupations table. */
+function ChoiceInput({ question, id, value, set, disabled, invalid }: InputProps) {
+  const [search, setSearch] = useState("");
+  const query = search.trim();
+  const listed = new Set(question.options.map((o) => o.value));
+  const found = query
+    ? question.search_options
+        .filter((o) => !listed.has(o.value) && o.label.includes(query))
+        .slice(0, MAX_SEARCH_RESULTS)
+    : [];
+  // the choice stays on screen when the search changes
+  const kept = question.search_options.find(
+    (o) => o.value === value && !listed.has(o.value) && !found.includes(o),
+  );
+  const shown = [...(kept ? [kept] : []), ...found];
+  const other = question.options.filter((o) => o.value === OTHER_OCCUPATION);
+  const options = question.options.filter((o) => o.value !== OTHER_OCCUPATION);
+  const radio = (option: TicketOptionView) => (
+    <label key={option.value} className="flex items-center gap-2 text-ink">
+      <input
+        type="radio"
+        name={id}
+        value={option.value}
+        checked={value === option.value}
+        disabled={disabled}
+        onChange={() => set(option.value)}
+        className="h-4 w-4 accent-royal"
+      />
+      <BidiText text={option.label} />
+    </label>
+  );
+  return (
+    <fieldset
+      aria-invalid={invalid ? true : undefined}
+      aria-describedby={invalid ? `${id}-error` : undefined}
+      className="flex flex-col gap-2"
+    >
+      <legend className="mb-1 font-medium text-ink">
+        <BidiText text={question.label} />
+      </legend>
+      {options.map(radio)}
+      {question.search_options.length ? (
+        <div className="mt-1 flex flex-col gap-2">
+          <label htmlFor={`${id}-search`} className="text-[13px] text-muted">
+            לא ברשימה? חיפוש ברשימת העיסוקים המלאה
+          </label>
+          <input
+            id={`${id}-search`}
+            type="search"
+            autoComplete="off"
+            value={search}
+            disabled={disabled}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-11 max-w-[360px] rounded-tile border border-line bg-surface px-3 text-[15px] text-ink"
+          />
+          {query && !found.length ? (
+            <p className="text-[13px] text-muted">אין עיסוק כזה ברשימה.</p>
+          ) : null}
+          {shown.map((o) => radio({ ...o, label: o.detail ? `${o.label} · ${o.detail}` : o.label }))}
+        </div>
+      ) : null}
+      {other.map(radio)}
+    </fieldset>
+  );
+}
+
+function TextInput({ question, id, value, set, disabled, invalid }: InputProps) {
+  return (
+    <>
+      <label htmlFor={id} className="font-medium text-ink">
+        <BidiText text={question.label} />
+      </label>
+      <textarea
+        id={id}
+        rows={3}
+        maxLength={2000}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => set(e.target.value)}
+        aria-invalid={invalid ? true : undefined}
+        aria-describedby={invalid ? `${id}-error` : undefined}
+        className="max-w-[560px] rounded-tile border-2 border-royal bg-surface px-3 py-2 text-[15px] text-ink disabled:opacity-50"
+      />
+    </>
+  );
+}
+
+const INPUTS: Record<TicketQuestionView["type"], (props: InputProps) => ReactNode> = {
+  amount: AmountInput,
+  choice: ChoiceInput,
+  yes_no: ChoiceInput,
+  text: TextInput,
+};
+
+/**
+ * The answer: one section per question, each rendered by its answer type. Only the questions
+ * answered (or marked "needs checking") are sent, as a partial answer: the others stay pending
+ * and the ticket stays open for them. The server validates; the form shows its Hebrew messages
+ * next to the question.
  */
 function AnswerForm({
   ticket,
@@ -233,43 +418,38 @@ function AnswerForm({
   onAnswered: (ticketId: string, stillOpen: boolean) => void;
   onReauth: () => void;
 }) {
-  const fields = ticket.view.fields;
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [note, setNote] = useState("");
+  const questions = ticket.view.questions;
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [errors, setErrors] = useState<FormErrors>(NO_ERRORS);
   const [sending, setSending] = useState(false);
+  const draft = (q: TicketQuestionView) => drafts[q.id] ?? EMPTY;
+  const update = (q: TicketQuestionView, change: Partial<Draft>) =>
+    setDrafts((d) => ({ ...d, [q.id]: { ...(d[q.id] ?? EMPTY), ...change } }));
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const sent = Object.fromEntries(
-      fields
-        .filter((f) => !f.answered)
-        .map((f) => [f.field, values[f.field]?.trim() ?? ""] as const)
-        .filter(([, value]) => value !== ""),
-    );
-    if (!Object.keys(sent).length) {
+    const answers: Record<string, QuestionAnswer> = {};
+    for (const q of questions) {
+      if (q.status === "answered" || q.status === "unknown") continue;
+      const { value, checking, note } = draft(q);
+      const withNote = note.trim() ? { note: note.trim() } : {};
+      if (checking) answers[q.id] = { status: "needs_checking", ...withNote };
+      else if (value.trim()) answers[q.id] = { value: value.trim(), ...withNote };
+    }
+    if (!Object.keys(answers).length) {
       setErrors({ ...NO_ERRORS, form: [FILL_ONE] });
       return;
     }
     setSending(true);
     setErrors(NO_ERRORS);
     try {
-      const answered = (await api.answerTicket(
-        token,
-        ticket.id,
-        sent,
-        note.trim() || undefined,
-        true,
-      )) as Ticket | null;
-      setValues({});
-      setNote("");
+      const answered = (await api.answerQuestions(token, ticket.id, answers)) as Ticket | null;
+      setDrafts({});
       setSending(false);
       onAnswered(ticket.id, answered?.status === "open");
     } catch (error) {
-      const mapped = answerErrors(
-        error,
-        fields.map((f) => f.field),
-      );
+      const names = questions.flatMap((q) => (q.bound_field ? [q.id, q.bound_field] : [q.id]));
+      const mapped = answerErrors(error, names);
       setErrors(mapped);
       setSending(false);
       if (mapped.reauth) onReauth();
@@ -278,80 +458,78 @@ function AnswerForm({
 
   return (
     <form onSubmit={submit} noValidate aria-label="תשובה לעובד/ת" className="flex flex-col gap-5">
-      {fields.map((field, i) => {
+      {questions.map((question, i) => {
         const id = `answer-${i}`;
-        const messages = errors.byField[field.field] ?? [];
+        const messages = [
+          ...(errors.byField[question.id] ?? []),
+          ...(question.bound_field ? (errors.byField[question.bound_field] ?? []) : []),
+        ];
         const invalid = messages.length > 0;
-        const set = (value: string) => setValues((v) => ({ ...v, [field.field]: value }));
+        const { value, checking, note } = draft(question);
+        const chosen = [...question.options, ...question.search_options].find(
+          (o) => o.value === value,
+        );
+        const done = question.status === "answered" || question.status === "unknown";
+        const Input = INPUTS[question.type];
+        const noteRequired = isOccupation(question) && value === OTHER_OCCUPATION && !checking;
         return (
           <section
-            key={field.field}
+            key={question.id}
             aria-labelledby={`${id}-title`}
             className="flex flex-col gap-3 border-t border-line-soft pt-4 first:border-t-0 first:pt-0"
           >
-            <FieldHeading field={field} id={`${id}-title`} />
-            <FieldTiles field={field} />
+            <QuestionHeading question={question} id={`${id}-title`} />
+            {question.prompt_he && question.prompt_he !== question.title ? (
+              <p className="text-[15px] text-ink">
+                <BidiText text={question.prompt_he} />
+              </p>
+            ) : null}
+            <QuestionTiles question={question} chosen={chosen} />
             <div className="flex flex-col gap-2 rounded-tile bg-ground p-5">
-              {field.answered ? (
-                <Answered field={field} />
-              ) : field.options.length ? (
-                <fieldset
-                  aria-invalid={invalid ? true : undefined}
-                  aria-describedby={invalid ? `${id}-error` : undefined}
-                  className="flex flex-col gap-2"
-                >
-                  <legend className="mb-1 font-medium text-ink">
-                    <BidiText text={fieldLabel(field)} />
-                  </legend>
-                  {field.options.map((option) => (
-                    <label key={option.value} className="flex items-center gap-2 text-ink">
-                      <input
-                        type="radio"
-                        name={id}
-                        value={option.value}
-                        checked={values[field.field] === option.value}
-                        onChange={() => set(option.value)}
-                        className="h-4 w-4 accent-royal"
-                      />
-                      <BidiText text={option.label} />
-                    </label>
-                  ))}
-                </fieldset>
+              {done ? (
+                <Answered question={question} />
               ) : (
                 <>
-                  <label htmlFor={id} className="font-medium text-ink">
-                    <BidiText text={fieldLabel(field)} />
-                  </label>
-                  <div className="flex flex-wrap items-center gap-3">
+                  {question.status === "needs_checking" ? (
+                    <p className="text-[13px] font-medium text-chip-pending">
+                      סומן ״צריך לבדוק״{question.note ? `: ${question.note}` : ""}
+                    </p>
+                  ) : null}
+                  <Input
+                    question={question}
+                    id={id}
+                    value={checking ? "" : value}
+                    set={(v) => update(question, { value: v })}
+                    disabled={checking}
+                    invalid={invalid}
+                  />
+                  <label className="flex items-center gap-2 text-ink">
                     <input
-                      id={id}
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      dir="ltr"
-                      value={values[field.field] ?? ""}
-                      onChange={(e) => set(e.target.value)}
-                      aria-invalid={invalid ? true : undefined}
-                      aria-describedby={invalid ? `${id}-error` : undefined}
-                      className={`h-14 max-w-[280px] rounded-tile border-2 bg-surface px-4 text-end text-[22px] font-semibold text-ink ${
-                        invalid ? "border-down" : "border-royal"
-                      }`}
+                      type="checkbox"
+                      checked={checking}
+                      onChange={(e) => update(question, { checking: e.target.checked })}
+                      className="h-4 w-4 accent-royal"
                     />
-                    {field.catalog_default != null ? (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => set(String(field.catalog_default))}
-                        aria-label={
-                          field.car_name
-                            ? `השתמש בברירת המחדל ל-${field.car_name}`
-                            : "השתמש בברירת המחדל"
-                        }
-                      >
-                        השתמש בברירת המחדל
-                      </Button>
-                    ) : null}
-                  </div>
+                    {NEEDS_CHECKING}
+                  </label>
+                  <label htmlFor={`${id}-note`} className="text-[13px] font-medium text-ink">
+                    {noteRequired ? (
+                      "הערה (חובה: מה העיסוק)"
+                    ) : (
+                      <>
+                        הערה <span className="font-normal text-muted">(לא חובה)</span>
+                      </>
+                    )}
+                  </label>
+                  <textarea
+                    id={`${id}-note`}
+                    rows={2}
+                    maxLength={1000}
+                    value={note}
+                    required={noteRequired}
+                    onChange={(e) => update(question, { note: e.target.value })}
+                    className="max-w-[560px] rounded-tile border border-line bg-surface px-3 py-2 text-[15px] text-ink"
+                  />
                 </>
               )}
               {invalid ? (
@@ -363,23 +541,6 @@ function AnswerForm({
           </section>
         );
       })}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="answer-note" className="font-medium text-ink">
-          הערה לעובד/ת <span className="font-normal text-muted">(לא חובה)</span>
-        </label>
-        <textarea
-          id="answer-note"
-          rows={3}
-          maxLength={4000}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          aria-describedby="answer-note-hint"
-          className="max-w-[560px] rounded-tile border border-line bg-surface px-3 py-2 text-[15px] text-ink"
-        />
-        <p id="answer-note-hint" className="text-[13px] text-muted">
-          מוצגת לעובד/ת כהערת הנציג. היא לא משנה אף ערך בחישוב.
-        </p>
-      </div>
       {errors.form.length ? (
         <div role="alert" className="text-[13px] font-medium text-down">
           {errors.form.map((m) => (
@@ -392,8 +553,7 @@ function AnswerForm({
           {sending ? "שולח…" : "אישור ושליחה לעובד/ת"}
         </Button>
         <p className="text-[13px] text-muted">
-          נשלחים רק השדות שמולאו; השאר ממתינים. ברגע האישור השרת מחשב מחדש, והכרטיס אצל העובד/ת
-          מתעדכן
+          נשלחות רק השאלות שנענו; השאר ממתינות. ההערות מוצגות לעובד/ת ולא משנות אף ערך בחישוב
         </p>
       </div>
     </form>

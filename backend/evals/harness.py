@@ -7,8 +7,9 @@ from typing import Any
 from compass.agent.llm import Usage
 from compass.agent.runner import ClaudeAgentRunner, Guard, RunOutcome
 from compass.tools.profile import TOOL_OF, to_tool_value
+from compass.tools.questions import OTHER_OCCUPATION, is_free, ticket_questions
 from compass.tools.services import Services
-from compass.tools.tickets import TicketAnswerError, answer_ticket
+from compass.tools.tickets import QuestionAnswer, TicketAnswerError, answer_ticket
 from evals.checks import Call, CheckResult, Comparison, Reply, Trace, evaluate
 from evals.scenario import FALLBACK_HE, RepAnswer, Scenario
 
@@ -92,11 +93,24 @@ class Harness:
                 f"rep turn: expected one open ticket for {rep.field!r}, found {len(tickets)}"
             )
             return
+        answers: dict[str, QuestionAnswer] = {}
+        questions = ticket_questions(self.services, tickets[0])
+        for key, given in (rep.answers or {}).items():
+            match = [
+                q
+                for q in questions
+                if q["id"] == key or q["bound_field"] == key or (key == "free" and is_free(q))
+            ]
+            if len(match) != 1:
+                result.trace.problems.append(f"rep turn: no single question for {key!r}")
+                return
+            answers[match[0]["id"]] = QuestionAnswer(given.value, given.status, given.note)
         try:
             answered = answer_ticket(
                 self.services,
                 tickets[0].id,
                 values=rep.values,
+                answers=answers,
                 answer_text=rep.answer_text,
                 effective_from=rep.effective_from,
             )
@@ -166,6 +180,22 @@ class Harness:
             elif event.type == "agent_error":
                 trace.errors.append(p)
         trace.calls = list(calls.values())
+        table = set(self.services.ctx.occupations) | {OTHER_OCCUPATION}
+        for ticket in self.store.tickets(session_id=session_id):
+            questions = ticket_questions(self.services, ticket)
+            options = [
+                o["value"]
+                for q in questions
+                if q["bound_field"] == "occupation"
+                for o in q["answer"]["options"]
+            ]
+            trace.tickets.append(
+                {
+                    "bound_fields": [q["bound_field"] for q in questions if not is_free(q)],
+                    "free_types": [q["answer"]["type"] for q in questions if is_free(q)],
+                    "occupation_options_from_table": bool(options) and set(options) <= table,
+                }
+            )
         for name, slot in self.store.slots(session_id).items():
             tool_field = TOOL_OF.get(name, name)
             value = to_tool_value(tool_field, slot.value) if slot.state == "filled" else None

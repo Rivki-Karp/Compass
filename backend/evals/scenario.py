@@ -19,7 +19,7 @@ is set, the employee answers FALLBACK_HE (at most `max_extra_turns` times).
 
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -34,11 +34,19 @@ class _Model(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class QuestionReply(_Model):
+    value: Any = None
+    status: Literal["answered", "needs_checking"] = "answered"
+    note: str | None = None
+
+
 class RepAnswer(_Model):
-    """The representative answers the open ticket blocking `field` (None: the only one)."""
+    """The representative answers the open ticket blocking `field` (None: the only one).
+    `answers` by question id, by bound field, or `free` (the ticket's only free question)."""
 
     field: str | None = None
     values: dict[str, Any] | None = None
+    answers: dict[str, QuestionReply] | None = None
     answer_text: str | None = None
     effective_from: date | None = None
 

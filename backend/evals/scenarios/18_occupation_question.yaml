@@ -1,0 +1,59 @@
+name: occupation_question
+description: 'An "AI developer" the table does not know: one ticket with an occupation question only
+  (no group question); the rep picks software developer -> group ב derived, waiver +2,914, labelled
+  representative'
+turns:
+- employee: אני מפתח AI — לא בטוח איך זה מופיע אצלכם ברשימת התפקידים, תבדוק מול הנציג. שכר בסיס
+    18,500, אין לי עמלות או בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%, 3 נקודות זיכוי. היום יש לי קורולה
+    קרוס 2025 ואני משתתף ב-300 ₪. מה יקרה לנטו אם אוותר על הרכב?
+- rep:
+    field: occupation
+    answers:
+      occupation:
+        value: מפתח/ת תוכנה
+until_compare: true
+checks:
+- tool_called:
+    name: ask_representative
+    ok: true
+    turn: 0
+    input:
+      questions:
+      - bound_field: occupation
+# a ticket for the occupation only: no group question, the options from the table
+- ticket:
+    bound_fields:
+    - occupation
+    occupation_options_from_table: true
+- tool_not_called:
+    name: ask_representative
+    ok: true
+    input:
+      questions:
+      - bound_field: group_exception
+- tool_not_called:
+    name: save_profile
+    input:
+      group: ב
+- slot:
+    field: occupation
+    value: מפתח/ת תוכנה
+    source: representative
+- slot:
+    field: group
+    value: ב
+    source: derived
+- comparison:
+    alternative:
+      kind: waiver
+    turn: 1
+    today_net: 11000
+    alternative_net: 13914
+    diff: 2914
+    input_sources:
+      occupation: representative
+      group: occupation
+- reply:
+    turn: 1
+    matches:
+    - ב'|ב׳|קבוצה ב

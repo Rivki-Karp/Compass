@@ -93,6 +93,18 @@ def group_approved_label(group: str) -> str:
 
 GROUP_NOT_APPROVED_LABEL = "לא מאושר"
 
+# Ticket questions (compass/tools/questions.py): the rep's choices and the section headings.
+OTHER_OCCUPATION_LABEL = "עיסוק אחר (לפרט בהערה)"
+NEEDS_CHECKING_LABEL = "לא ידוע לי / צריך לבדוק"
+OCCUPATION_QUESTION_TITLE = "סיווג עיסוק"
+FREE_ANSWER_LABELS = {"yes_no": "התשובה", "choice": "התשובה", "text": "התשובה"}
+
+
+def clamp(text: str, limit: int) -> str:
+    """One line of at most `limit` characters, "…" when cut (titles built from a prompt)."""
+    line = " ".join(text.split())
+    return line if len(line) <= limit else line[: limit - 1].rstrip() + "…"
+
 
 # Rules and official data a line can depend on (the provenance strip's "rule" chips).
 RULE_LABELS: dict[str, str] = {
@@ -204,6 +216,13 @@ ERROR_MESSAGES: dict[str, Callable[[Params], str]] = {
     "ticket_already_answered": lambda p: "כבר נענה על הטיקט הזה.",
     "empty_answer": lambda p: "צריך להזין סכום או תשובה.",
     "unknown_quick_answer": lambda p: "התשובה המהירה לא מוכרת.",
+    "unknown_question": lambda p: "השאלה לא שייכת לטיקט.",
+    "not_an_option": lambda p: "צריך לבחור אחת מהאפשרויות.",
+    "not_a_whole_amount": lambda p: "צריך סכום בשקלים שלמים.",
+    "empty_text": lambda p: "צריך לכתוב תשובה.",
+    "text_too_long": lambda p: f"עד {p['max']:,} תווים.",
+    "note_required": lambda p: "בעיסוק אחר צריך לפרט בהערה מה העיסוק.",
+    "value_with_needs_checking": lambda p: "״צריך לבדוק״ נשלח בלי תשובה.",
     "not_a_blocking_field": lambda p: "השדה הזה לא שייך לטיקט.",
     "field_already_answered": lambda p: "כבר נענה על השדה הזה.",
     # field values

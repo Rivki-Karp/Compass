@@ -97,14 +97,19 @@ def test_options_run_up_to_the_cars_group(services: Services, tools: ToolRunner)
     assert [o["value"] for o in group["options"]] == ["ג", "ד", "not_approved"]
 
 
-def test_a_claimed_approval_without_a_higher_car_offers_every_higher_group(
+def test_a_claimed_approval_without_a_higher_car_is_not_asked(
     services: Services, tools: ToolRunner
 ) -> None:
+    """The group derives from the occupation: a group question only when today's car is above
+    it (it used to offer every higher group on the employee's claim alone)."""
     sid = _session(services, tools, {"today": {"kind": "none"}})
-    group = build_ticket_view(
-        services, services.store.ticket(_ask(tools, sid, ["group_exception"]))
-    )["fields"][0]
-    assert [o["value"] for o in group["options"]] == ["ג", "ד", "not_approved"]
+    result = tools.run(
+        sid, "ask_representative", {"question": "?", "blocking_fields": ["group_exception"]}
+    )
+    assert result["ok"] is False
+    assert result["error"]["code"] == "invalid_input"
+    assert "today's car is above the occupation's group" in result["error"]["message"]
+    assert services.store.tickets("open", sid) == []
 
 
 def test_pending_group_marks_the_comparison_pending(services: Services, tools: ToolRunner) -> None:

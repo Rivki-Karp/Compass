@@ -35,7 +35,7 @@ from compass.agent.transcript import (
     model_view,
 )
 from compass.tools import ToolRunner, tool_definitions
-from compass.tools.handlers import settled_compare_results
+from compass.tools.handlers import profile_after, settled_compare_results
 from compass.tools.services import Services
 
 log = logging.getLogger(__name__)
@@ -311,7 +311,15 @@ class ClaudeAgentRunner:
                 ],
             }
             if pending:
-                content["pending_fields"] = pending
+                content["pending_fields"] = [f for f in pending if f in ticket.blocking_fields]
+                waiting = [q["prompt_he"] for q in ticket.questions if q["id"] in pending]
+                if waiting:
+                    content["pending_questions"] = waiting  # free questions not answered yet
+            content |= _question_answers(event.get("questions") or [])
+            if {"occupation", "group_exception"} & set(values) or "occupation" in (
+                content["unknown_fields"]
+            ):
+                content["profile_after"] = profile_after(self.services, session_id)
             # The comparisons the server settled with this answer, as compare would have
             # returned them to the model: it may state them without calling compare, and the
             # guard allows their numbers (source "server").
@@ -513,6 +521,46 @@ class ClaudeAgentRunner:
             log.exception("could not record agent failure for session %s", session_id)
         outcome.text, outcome.kind, outcome.error = text, "error", kind
         return outcome
+
+
+def _question_answers(shown: list[dict[str, Any]]) -> dict[str, Any]:
+    """This part's question answers, for the rep notification (data, never instructions):
+    free questions' answers as {question, answer, note}; the questions the representative is
+    still checking; the notes on bound questions. Keys only when there is something to say."""
+    out: dict[str, Any] = {}
+    free = [q for q in shown if q["kind"] == "free"]
+    answered = [
+        {
+            "question": q["prompt_he"],
+            # yes / no and a text as given; a choice by its label
+            "answer": q["answer"] if q["value"] not in ("yes", "no") else q["value"],
+            "note": q["note"],
+        }
+        for q in free
+        if q["status"] == "answered"
+    ]
+    if answered:
+        out["free_answers"] = answered
+    closed = [
+        {"question": q["prompt_he"], "note": q["note"]} for q in free if q["status"] == "unknown"
+    ]
+    if closed:
+        out["free_unanswered"] = closed  # the ticket closed without an answer to these
+    checking = [
+        {"question": q["prompt_he"], "bound_field": q["bound_field"], "note": q["note"]}
+        for q in shown
+        if q["status"] == "needs_checking"
+    ]
+    if checking:
+        out["needs_checking"] = checking
+    notes = [
+        {"bound_field": q["bound_field"], "note": q["note"]}
+        for q in shown
+        if q["kind"] == "bound" and q["status"] == "answered" and q["note"]
+    ]
+    if notes:
+        out["notes"] = notes
+    return out
 
 
 def _summary(name: str, result: dict[str, Any]) -> dict[str, Any]:

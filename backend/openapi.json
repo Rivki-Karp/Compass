@@ -27,6 +27,39 @@
         "title": "MessageAccepted",
         "type": "object"
       },
+      "QuestionAnswerBody": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "status": {
+            "default": "answered",
+            "description": "needs_checking: the question stays pending (with the note)",
+            "enum": [
+              "answered",
+              "needs_checking"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "description": "amount: whole ILS; choice: an option's value; yes_no: yes / no; text: the answer. None with status needs_checking",
+            "title": "Value"
+          }
+        },
+        "title": "QuestionAnswerBody",
+        "type": "object"
+      },
       "SessionCreated": {
         "properties": {
           "id": {
@@ -54,6 +87,14 @@
               }
             ],
             "title": "Answer Text"
+          },
+          "answers": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/QuestionAnswerBody"
+            },
+            "description": "Question id (the ticket view's questions[].id) -> its answer in this part",
+            "title": "Answers",
+            "type": "object"
           },
           "effective_from": {
             "anyOf": [
@@ -690,7 +731,7 @@
     },
     "/api/tickets/{ticket_id}/answer": {
       "post": {
-        "description": "Answer a ticket: fill its blocking fields (source representative), resume the\nemployee's session and tell the agent. Blocking fields left without a value become\nunknown (the representative answered, but not with a number).",
+        "description": "Answer a ticket: per question (`answers`) or per bound field (`values`). Bound\nquestions fill their field (source representative); free questions' answers go to the\nagent as data. Resume the employee's session and tell the agent. Unless `partial`,\nquestions left without an answer become unknown (answered, but not with a value).",
         "operationId": "answer_ticket_api_tickets__ticket_id__answer_post",
         "parameters": [
           {

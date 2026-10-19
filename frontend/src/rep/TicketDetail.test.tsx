@@ -1,9 +1,10 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { TicketFieldView, TicketWithView } from "../api/types";
+import type { TicketQuestionView, TicketWithView } from "../api/types";
 import negative from "../test/fixtures/e001_answer_negative.json";
 import inboxFixture from "../test/fixtures/e001_inbox.json";
+import questionsInbox from "../test/fixtures/questions_inbox.json";
 import { must } from "../test/views";
 import { TicketDetail } from "./TicketDetail";
 import { TicketList } from "./TicketList";
@@ -63,7 +64,7 @@ describe("TicketDetail: the E-001 ticket from the real inbox", () => {
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(`/api/tickets/${ticket.id}/answer`);
-    expect(sentBody(fetchMock)).toEqual({ values: { [ATTO]: "-50" }, partial: true });
+    expect(sentBody(fetchMock)).toEqual({ answers: { [ATTO]: { value: "-50" } }, partial: true });
     expect(new Headers(init.headers).get("Authorization")).toBe("Bearer rep");
 
     const alert = await screen.findByRole("alert");
@@ -89,7 +90,7 @@ describe("TicketDetail: the E-001 ticket from the real inbox", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderDetail();
     await userEvent.setup().click(screen.getByRole("button", SEND));
-    expect(screen.getByRole("alert")).toHaveTextContent("צריך למלא לפחות שדה אחד.");
+    expect(screen.getByRole("alert")).toHaveTextContent("צריך לענות על שאלה אחת לפחות");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -103,42 +104,63 @@ describe("TicketDetail: the E-001 ticket from the real inbox", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("טוקן הנציג לא תקף יותר");
   });
 
-  it("the note goes out as answer_text with the values", async () => {
+  it("a question's note goes out with its value", async () => {
     const fetchMock = respond(200, { ...ticket, status: "answered" });
     vi.stubGlobal("fetch", fetchMock);
     renderDetail();
     const user = userEvent.setup();
     await user.type(screen.getByLabelText(ATTO_INPUT), "350");
-    await user.type(screen.getByLabelText(/הערה לעובד\/ת/), "מנובמבר");
+    await user.type(screen.getByLabelText(/^הערה/), "מנובמבר");
     await user.click(screen.getByRole("button", SEND));
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(sentBody(fetchMock)).toEqual({
-      values: { [ATTO]: "350" },
-      answer_text: "מנובמבר",
+      answers: { [ATTO]: { value: "350", note: "מנובמבר" } },
+      partial: true,
+    });
+  });
+
+  it("needs checking: sent without a value, the input disabled", async () => {
+    const fetchMock = respond(200, { ...ticket, status: "open" });
+    vi.stubGlobal("fetch", fetchMock);
+    renderDetail();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: "לא ידוע לי / צריך לבדוק" }));
+    expect(screen.getByLabelText(ATTO_INPUT)).toBeDisabled();
+    await user.type(screen.getByLabelText(/^הערה/), "בודק מול השכר");
+    await user.click(screen.getByRole("button", SEND));
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(sentBody(fetchMock)).toEqual({
+      answers: { [ATTO]: { status: "needs_checking", note: "בודק מול השכר" } },
       partial: true,
     });
   });
 });
 
-/** A car's participation field, as build_ticket_view writes it. */
+/** A car's participation question, as build_ticket_view writes it. */
 function car(
   carId: string,
   name: string,
   diff: number,
-  extra: Partial<TicketFieldView> = {},
-): TicketFieldView {
+  extra: Partial<TicketQuestionView> = {},
+): TicketQuestionView {
+  const field = `alternative_participation:${carId}`;
   return {
-    field: `alternative_participation:${carId}`,
+    id: field,
+    kind: "bound",
+    bound_field: field,
+    type: "amount",
     title: "השתתפות עצמית",
-    label: "השתתפות בחלופה",
-    unit: "ils",
+    prompt_he: "",
+    label: `סכום ההשתתפות החודשית ב-${name} (₪)`,
     car_id: carId,
     car_name: name,
     catalog_default: 300,
     options: [],
+    search_options: [],
     facts: [],
-    answered: false,
+    status: "pending",
     answer: null,
+    note: null,
     comparison: { alternative_title: name, display_diff: diff, pending: true },
     ...extra,
   };
@@ -150,9 +172,9 @@ const threeCars: TicketWithView = {
   view: {
     ...ticket.view,
     title: "השתתפות עצמית · 3 רכבים",
-    fields: [
+    questions: [
       car("CAR-10", "ATTO 3", 611, {
-        answered: true,
+        status: "answered",
         answer: 350,
         comparison: { alternative_title: "ATTO 3", display_diff: 611, pending: false },
       }),
@@ -192,7 +214,7 @@ describe("TicketDetail: three cars, one answered", () => {
     await user.click(screen.getByRole("button", SEND));
     await vi.waitFor(() => expect(onAnswered).toHaveBeenCalledWith(threeCars.id, true));
     expect(sentBody(fetchMock)).toEqual({
-      values: { "alternative_participation:CAR-06": "250" },
+      answers: { "alternative_participation:CAR-06": { value: "250" } },
       partial: true,
     });
   });
@@ -219,36 +241,41 @@ describe("TicketDetail: the question", () => {
 });
 
 describe("TicketDetail: today's participation and a group approval", () => {
-  const today: TicketFieldView = {
+  const today: TicketQuestionView = {
     ...car("CAR-09", "COROLLA CROSS 2025", 661),
-    field: "current_participation",
+    id: "current_participation",
+    bound_field: "current_participation",
     title: "השתתפות עצמית ברכב של היום",
-    label: "השתתפות היום",
     comparison: { alternative_title: "ATTO 3", display_diff: 661, pending: true },
   };
-  const group: TicketFieldView = {
-    field: "group_exception",
+  const group: TicketQuestionView = {
+    id: "group_exception",
+    kind: "bound",
+    bound_field: "group_exception",
+    type: "choice",
     title: "אישור חריג לקבוצה",
+    prompt_he: "",
     label: "אישור חריג לקבוצה",
-    unit: "text",
     car_id: null,
     car_name: null,
     catalog_default: null,
     options: [
-      { value: "ג", label: "מאושר לקבוצה ג׳" },
-      { value: "not_approved", label: "לא מאושר" },
+      { value: "ג", label: "מאושר לקבוצה ג׳", detail: null },
+      { value: "not_approved", label: "לא מאושר", detail: null },
     ],
+    search_options: [],
     facts: [
       { label: "קבוצה לפי העיסוק", value: "קבוצה ב׳" },
       { label: "הרכב היום", value: "COROLLA CROSS 2025 · קבוצה ג׳" },
     ],
-    answered: false,
+    status: "pending",
     answer: null,
+    note: null,
     comparison: { alternative_title: "ATTO 3", display_diff: 661, pending: true },
   };
-  const withFields = (fields: TicketFieldView[]): TicketWithView => ({
+  const withFields = (questions: TicketQuestionView[]): TicketWithView => ({
     ...ticket,
-    view: { ...ticket.view, title: "x", fields },
+    view: { ...ticket.view, title: "x", questions },
   });
 
   it("today's car with its year, its default, and the diff it affects", () => {
@@ -271,14 +298,95 @@ describe("TicketDetail: today's participation and a group approval", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderDetail(withFields([today, group]));
     expect(screen.getByRole("region", { name: "אישור חריג לקבוצה" })).toBeInTheDocument();
-    expect(screen.getByText("קבוצה ב׳")).toBeInTheDocument();
+    const groupSection = screen.getByRole("region", { name: "אישור חריג לקבוצה" });
+    expect(within(groupSection).getByText("קבוצה ב׳")).toBeInTheDocument();
+    // a group question shows its facts only: no car default or diff tiles
+    expect(within(groupSection).queryByText("ברירת מחדל מהקטלוג")).toBeNull();
+    expect(within(groupSection).queryByText(/ההפרש אצל העובד/)).toBeNull();
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("סכום ההשתתפות החודשית ב-COROLLA CROSS 2025 (₪)"), "350");
     await user.click(screen.getByRole("radio", { name: "מאושר לקבוצה ג׳" }));
     await user.click(screen.getByRole("button", SEND));
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(sentBody(fetchMock)).toEqual({
-      values: { current_participation: "350", group_exception: "ג" },
+      answers: { current_participation: { value: "350" }, group_exception: { value: "ג" } },
+      partial: true,
+    });
+  });
+});
+
+describe("TicketDetail: an occupation question and a free question (recorded)", () => {
+  const recorded = must((questionsInbox as unknown as TicketWithView[])[0]);
+  const OCCUPATION = /סיווג עיסוק/;
+  const PARKING = /חניה לעובדים/;
+
+  it("the title and one section per question; no group question", () => {
+    renderDetail(recorded);
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
+      "סיווג עיסוק · מפתח AI + האם יש חניה לעובדים בבניין המשרדים?",
+    );
+    expect(screen.getAllByRole("region")).toHaveLength(2);
+    expect(screen.queryByText(/אישור חריג לקבוצה/)).toBeNull();
+  });
+
+  it("the occupation is a picker of the table's closest titles with their group", () => {
+    renderDetail(recorded);
+    const section = screen.getByRole("region", { name: OCCUPATION });
+    expect(
+      within(section).getByRole("radio", { name: "מפתח/ת תוכנה · קבוצה ב׳" }),
+    ).toBeInTheDocument();
+    expect(
+      within(section).getByRole("radio", { name: "עיסוק אחר (לפרט בהערה)" }),
+    ).toBeInTheDocument();
+    // no free-text box for the occupation: the only text boxes are the search and the note
+    expect(within(section).getAllByRole("textbox").map((e) => e.id)).toEqual(["answer-0-note"]);
+    // the tiles: what the employee wrote, the group the choice gives; no car tiles
+    expect(within(section).getByText(wholeText("מפתח AI"))).toBeInTheDocument();
+    expect(within(section).queryByText("ברירת מחדל מהקטלוג")).toBeNull();
+    expect(within(section).queryByText(/ההפרש אצל העובד/)).toBeNull();
+  });
+
+  it("choosing a title shows its group; the search finds any title in the table", async () => {
+    const fetchMock = respond(200, { ...recorded, status: "open" });
+    vi.stubGlobal("fetch", fetchMock);
+    renderDetail(recorded);
+    const section = screen.getByRole("region", { name: OCCUPATION });
+    const user = userEvent.setup();
+    await user.type(within(section).getByRole("searchbox"), "מחלקה");
+    await user.click(within(section).getByRole("radio", { name: "מנהל/ת מחלקה · קבוצה ד׳" }));
+    expect(within(section).getByText("קבוצה ד׳")).toBeInTheDocument(); // the group tile
+    await user.click(screen.getByRole("button", SEND));
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(sentBody(fetchMock)).toEqual({
+      answers: { q1: { value: "מנהל/ת מחלקה" } },
+      partial: true,
+    });
+  });
+
+  it("'another occupation' asks for the note", async () => {
+    renderDetail(recorded);
+    const section = screen.getByRole("region", { name: OCCUPATION });
+    await userEvent.setup().click(within(section).getByRole("radio", { name: /עיסוק אחר/ }));
+    expect(within(section).getByLabelText("הערה (חובה: מה העיסוק)")).toBeRequired();
+  });
+
+  it("the free yes/no question: yes and no, no tiles; its answer and note go by id", async () => {
+    const fetchMock = respond(200, { ...recorded, status: "open" });
+    vi.stubGlobal("fetch", fetchMock);
+    renderDetail(recorded);
+    const section = screen.getByRole("region", { name: PARKING });
+    expect(within(section).getAllByRole("radio").map((r) => r.getAttribute("value"))).toEqual([
+      "yes",
+      "no",
+    ]);
+    expect(within(section).queryByText(/ההפרש אצל העובד|ברירת מחדל/)).toBeNull();
+    const user = userEvent.setup();
+    await user.click(within(section).getByRole("radio", { name: "כן" }));
+    await user.type(within(section).getByLabelText(/^הערה/), "בחניון התת-קרקעי");
+    await user.click(screen.getByRole("button", SEND));
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(sentBody(fetchMock)).toEqual({
+      answers: { q2: { value: "yes", note: "בחניון התת-קרקעי" } },
       partial: true,
     });
   });

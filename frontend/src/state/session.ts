@@ -14,10 +14,43 @@ import type {
 
 export interface ChatMessage {
   seq: number;
-  role: "employee" | "assistant" | "rep"; // "rep": the representative's note to the employee
+  role: "employee" | "assistant" | "rep"; // "rep": the representative's answer or note
   text: string;
   kind: PayloadByType["assistant_message"]["kind"] | null;
   turn: number | null; // index into turns (assistant messages)
+  /** A "rep" message: the answers to free questions ("תשובת הנציג"), the notes otherwise. */
+  rep?: RepMessage;
+}
+
+export interface RepItem {
+  question: string | null;
+  answer: string | null;
+  note: string | null;
+}
+
+export interface RepMessage {
+  kind: "answer" | "note";
+  items: RepItem[];
+}
+
+/** What a ticket answer shows the employee in the chat: each free question's answer (and its
+ * note); the notes on bound questions and on questions still being checked; the ticket-wide
+ * note. Bound answers themselves show in the chips, not here. Null: nothing to show. */
+export function repMessage(payload: PayloadByType["ticket_answered"]): RepMessage | null {
+  const items: RepItem[] = [];
+  let answered = false;
+  for (const q of payload.questions ?? []) {
+    if (q.kind === "free" && q.status === "answered") {
+      answered = true;
+      items.push({ question: q.prompt_he, answer: q.answer, note: q.note });
+    } else if (q.note) {
+      const checking = q.status === "needs_checking" ? " (בבדיקה)" : "";
+      items.push({ question: q.prompt_he ? `${q.prompt_he}${checking}` : null, answer: null, note: q.note });
+    }
+  }
+  const note = repNote(payload.answer);
+  if (note) items.push({ question: null, answer: null, note });
+  return items.length ? { kind: answered ? "answer" : "note", items } : null;
 }
 
 export interface ToolActivity {
@@ -245,15 +278,16 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       return { ...next, openTickets: [...next.openTickets, event.payload.ticket] };
 
     case "ticket_answered": {
-      const note = repNote(event.payload.answer);
+      const rep = repMessage(event.payload);
+      const text = rep ? rep.items.map((i) => [i.question, i.answer, i.note].filter(Boolean).join(" — ")).join("\n") : "";
       return {
         ...next,
         // a partial answer leaves the ticket open, its other fields pending
         openTickets: event.payload.partial
           ? next.openTickets
           : next.openTickets.filter((t) => t.id !== event.payload.ticket_id),
-        messages: note
-          ? [...next.messages, { seq: event.seq, role: "rep", text: note, kind: null, turn: null }]
+        messages: rep
+          ? [...next.messages, { seq: event.seq, role: "rep", text, kind: null, turn: null, rep }]
           : next.messages,
       };
     }

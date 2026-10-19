@@ -46,6 +46,18 @@ from compass.tools.profile import (
     to_tool_value,
     tool_fields,
 )
+from compass.tools.questions import (
+    MAX_OPTION_LABEL,
+    MAX_OPTIONS,
+    MAX_PROMPT,
+    MAX_QUESTIONS,
+    OCCUPATION,
+    bound_field_names,
+    bound_question,
+    free_question,
+    group_exception_bounds,
+    is_bound_field,
+)
 from compass.tools.services import Services
 from compass.tools.view import build_view
 
@@ -149,6 +161,15 @@ def save_profile(services: Services, session_id: str, data: SaveProfileInput) ->
         raise ToolError("invalid_input", "a field cannot be both given and unknown", fields=both)
     if "group" in given or "group" in data.unknown_fields:
         _require_group_not_with_rep(slots)
+    occupation_slot = slots.get("occupation")
+    if (data.occupation_query is not None or "occupation" in data.unknown_fields) and (
+        occupation_slot is not None and occupation_slot.state == "pending_rep"
+    ):
+        raise ToolError(
+            "invalid_input",
+            "a representative is reviewing the occupation; wait for the answer",
+            field="occupation_query",
+        )
 
     updates: dict[str, SlotUpdate] = {}
     errors = []
@@ -212,6 +233,32 @@ def save_profile(services: Services, session_id: str, data: SaveProfileInput) ->
         occupation_error.details["partial_result"] = summary
         raise occupation_error
     return summary
+
+
+def profile_after(services: Services, session_id: str) -> dict[str, Any]:
+    """The occupation and the group in effect, with their sources and the warnings: what a
+    representative's occupation or group answer left (for the rep notification)."""
+    slots = services.store.slots(session_id)
+
+    def part(field: str) -> tuple[Any, str | None]:
+        slot = slots.get(field)
+        if slot is None:
+            return None, None
+        return (slot.value if slot.state == "filled" else None), (
+            slot.source if slot.state == "filled" else slot.state
+        )
+
+    occupation, occupation_source = part("occupation")
+    group, group_source = part("group")
+    budget = services.ctx.rules.budgets.get(group) if group is not None else None
+    return {
+        "occupation": occupation,
+        "occupation_source": occupation_source,
+        "group": group,
+        "group_source": group_source,
+        "group_budget": plain_json(budget),
+        "warnings": _warnings(services, session_id),
+    }
 
 
 def _require_group_not_with_rep(slots: Mapping[str, Slot]) -> None:
@@ -708,31 +755,219 @@ class QuickAnswer(_Input):
     values: dict[str, Any] = Field(default_factory=dict, description="Profile fields it fills")
 
 
+class QuestionInput(_Input):
+    """One question for the representative. Bound: set bound_field (and occupation_query for
+    the occupation); the server builds the answer options. Free: set prompt_he and type (and
+    options for a choice); the answer comes back to you as data and changes no value."""
+
+    prompt_he: str | None = Field(
+        None,
+        max_length=MAX_PROMPT,
+        description="The question in Hebrew, one sentence (required for a free question)",
+    )
+    bound_field: str | None = Field(
+        None,
+        description=(
+            "Only for a value the calculation needs: current_participation, "
+            "alternative_participation:<catalog car id>, group_exception or occupation"
+        ),
+    )
+    occupation_query: str | None = Field(
+        None,
+        max_length=200,
+        description="bound_field occupation only: the occupation in the employee's words",
+    )
+    type: Literal["yes_no", "choice", "text"] | None = Field(
+        None, description="Free questions only"
+    )
+    options: list[str] | None = Field(
+        None, description=f"Free choice questions only: 2-{MAX_OPTIONS} option labels in Hebrew"
+    )
+
+
 class AskRepresentativeInput(_Input):
-    question: str = Field(min_length=1, max_length=2000)
-    blocking_fields: list[str] = Field(description="Profile fields that wait for the answer")
-    quick_answers: list[QuickAnswer] = Field(default_factory=list)
+    question: str | None = Field(
+        None,
+        min_length=1,
+        max_length=2000,
+        description="Context for the representative: one self-contained paragraph",
+    )
+    questions: list[QuestionInput] = Field(
+        default_factory=list,
+        description=f"At most {MAX_QUESTIONS}: only what is needed (see the tool description)",
+    )
+    blocking_fields: list[str] = Field(
+        default_factory=list,
+        description="Older form of bound questions (fields that wait for the answer)",
+    )
+    quick_answers: list[QuickAnswer] = Field(
+        default_factory=list, description="Older form; not with questions"
+    )
+
+
+def _invalid(message: str, **details: Any) -> ToolError:
+    return ToolError("invalid_input", message, **details)
+
+
+def _ticket_questions(
+    services: Services, session_id: str, data: AskRepresentativeInput
+) -> list[dict[str, Any]]:
+    """The questions[] input, validated, with the server's schema and options for each bound
+    one. English messages the model can act on."""
+    if data.blocking_fields or data.quick_answers:
+        raise _invalid(
+            "use questions[] alone: blocking_fields and quick_answers are the older form; a "
+            "bound question's answer options are built by the server"
+        )
+    if len(data.questions) > MAX_QUESTIONS:
+        raise _invalid(
+            f"at most {MAX_QUESTIONS} questions per ticket (got {len(data.questions)}); ask "
+            "only what the employee asked or what the next calculation strictly needs",
+            max_questions=MAX_QUESTIONS,
+        )
+    ctx = services.ctx
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for i, q in enumerate(data.questions, start=1):
+        qid, where = f"q{i}", f"questions[{i - 1}]"
+        prompt = (q.prompt_he or "").strip() or None
+        if q.bound_field is not None:
+            field = q.bound_field
+            if not is_bound_field(field, ctx):
+                raise _invalid(
+                    f"{where}: unknown bound_field {field!r}; bound fields are "
+                    f"{bound_field_names()} (a catalog car id, e.g. CAR-10). For anything "
+                    "else ask a free question (no bound_field, with prompt_he and type)",
+                    question=i - 1,
+                )
+            if q.type is not None or q.options is not None:
+                raise _invalid(
+                    f"{where}: a bound question takes no type or options; the server builds "
+                    f"the answer options for {field}. Remove type and options",
+                    question=i - 1,
+                )
+            if field in seen:
+                raise _invalid(f"{where}: {field} is asked twice", question=i - 1)
+            seen.add(field)
+            if field == OCCUPATION and not (q.occupation_query or "").strip():
+                raise _invalid(
+                    f"{where}: an occupation question needs occupation_query (the occupation "
+                    "in the employee's words); the representative picks from the closest "
+                    "titles in the occupations table",
+                    question=i - 1,
+                )
+            if field != OCCUPATION and q.occupation_query is not None:
+                raise _invalid(
+                    f"{where}: occupation_query is for bound_field occupation only",
+                    question=i - 1,
+                )
+            out.append(
+                bound_question(
+                    services,
+                    session_id,
+                    field,
+                    qid=qid,
+                    prompt_he=prompt,
+                    occupation_query=None
+                    if q.occupation_query is None
+                    else q.occupation_query.strip(),
+                )
+            )
+            continue
+        if q.occupation_query is not None:
+            raise _invalid(
+                f"{where}: occupation_query needs bound_field occupation", question=i - 1
+            )
+        if prompt is None:
+            raise _invalid(
+                f"{where}: a free question needs prompt_he (the question, in Hebrew)",
+                question=i - 1,
+            )
+        if q.type is None:
+            raise _invalid(
+                f"{where}: a free question needs type: yes_no, choice or text", question=i - 1
+            )
+        labels = [label.strip() for label in q.options or []]
+        if q.type == "choice":
+            if not 2 <= len(labels) <= MAX_OPTIONS or not all(labels):
+                raise _invalid(
+                    f"{where}: a choice needs 2-{MAX_OPTIONS} non-empty option labels",
+                    question=i - 1,
+                )
+            if len(set(labels)) != len(labels) or max(map(len, labels)) > MAX_OPTION_LABEL:
+                raise _invalid(
+                    f"{where}: option labels must be unique, at most {MAX_OPTION_LABEL} "
+                    "characters each",
+                    question=i - 1,
+                )
+        elif q.options is not None:
+            raise _invalid(f"{where}: options are for type choice only", question=i - 1)
+        out.append(free_question(qid, prompt, q.type, labels))
+    return out
+
+
+def _check_group_question(services: Services, session_id: str, fields: list[str]) -> None:
+    """The group derives from the occupation: a ticket may ask about it (group_exception, or the
+    older `group` field) only when the occupation is known (not unknown, not pending, not asked
+    in the same ticket) and today's car is above the occupation's group."""
+    asked = [f for f in fields if f in (GROUP_EXCEPTION, "group")]
+    if not asked:
+        return
+    occupation = services.store.slots(session_id).get("occupation")
+    if OCCUPATION in fields or occupation is None or occupation.state != "filled":
+        raise _invalid(
+            f"{asked[0]}: the group derives from the occupation, which is not known yet. Do "
+            "not ask about the group: ask about the occupation (bound_field occupation) if "
+            "needed; the group follows from the representative's answer",
+            fields=asked,
+        )
+    base, car_group = group_exception_bounds(services, session_id)
+    order = list(services.ctx.rules.group_order)
+    if car_group is None or base not in order or order.index(car_group) <= order.index(base):
+        raise _invalid(
+            f"{asked[0]}: only when today's car is above the occupation's group ({base}); "
+            f"today's car is {'in group ' + car_group if car_group else 'not a catalog car'}. "
+            "Do not ask the representative about the group",
+            fields=asked,
+        )
 
 
 def ask_representative(
     services: Services, session_id: str, data: AskRepresentativeInput
 ) -> dict[str, Any]:
     ctx, store = services.ctx, services.store
-    bad = [f for f in data.blocking_fields if not is_fillable(f, ctx)]
-    if bad:
-        raise ToolError(
-            "invalid_input",
-            "blocking_fields must be profile fields, current_participation, group_exception "
-            "or alternative_participation:<catalog car id>",
-            fields=bad,
+    questions: list[dict[str, Any]] = []
+    if data.questions:
+        questions = _ticket_questions(services, session_id, data)
+        blocking = [q["bound_field"] for q in questions if q["bound_field"] is not None]
+        question = data.question or " / ".join(
+            q["prompt_he"] or q["bound_field"] for q in questions
         )
-    _check_ticket_cars(services, session_id, data.blocking_fields)
+    else:
+        if data.question is None:
+            raise _invalid("give questions[] (or the older question with blocking_fields)")
+        blocking, question = data.blocking_fields, data.question
+        bad = [f for f in blocking if not is_fillable(f, ctx)]
+        if bad:
+            raise _invalid(
+                "blocking_fields must be profile fields, current_participation, group_exception "
+                "or alternative_participation:<catalog car id>",
+                fields=bad,
+            )
+    _check_group_question(services, session_id, blocking)
+    _check_ticket_cars(services, session_id, blocking)
+    if len(blocking) > MAX_QUESTIONS:
+        raise _invalid(
+            f"at most {MAX_QUESTIONS} blocking_fields per ticket (got {len(blocking)}); ask "
+            "only what the employee asked or what the next calculation strictly needs",
+            fields=blocking,
+        )
     ids = [qa.id for qa in data.quick_answers]
     if len(ids) != len(set(ids)):
         raise ToolError("invalid_input", "quick answer ids must be unique")
     for qa in data.quick_answers:
         for field, raw in qa.values.items():
-            if field not in data.blocking_fields:
+            if field not in blocking:
                 raise ToolError(
                     "invalid_input",
                     "quick answer fills a non-blocking field",
@@ -763,15 +998,27 @@ def ask_representative(
     }
     ticket = store.open_ticket(
         session_id,
-        data.question,
+        question,
         context,
-        data.blocking_fields,  # tool field names: what the representative sees
+        blocking,  # tool field names: what the representative sees
         [qa.model_dump() for qa in data.quick_answers],
-        pending_slots=[slot_name(f) for f in data.blocking_fields],
+        pending_slots=[slot_name(f) for f in blocking],
+        questions=questions,
     )
-    _recompute_as_pending(services, session_id, ticket.id, data.blocking_fields)
-    provisional = _provisional_comparisons(services, session_id, ticket.id, data.blocking_fields)
+    _recompute_as_pending(services, session_id, ticket.id, blocking)
+    provisional = _provisional_comparisons(services, session_id, ticket.id, blocking)
     result: dict[str, Any] = {"ticket_id": ticket.id, "status": ticket.status, "context": context}
+    if questions:
+        # what was asked: ids, and the options the server built (never the model's)
+        result["questions"] = [
+            {
+                "id": q["id"],
+                "bound_field": q["bound_field"],
+                "type": q["answer"]["type"],
+                "options": [o["label"] for o in q["answer"]["options"]],
+            }
+            for q in questions
+        ]
     if provisional:
         # what compare would have returned: the model may state it (pending) without calling
         # compare, and the guard allows its numbers (they are in this tool result)
@@ -869,10 +1116,15 @@ def _provisional_comparisons(
     return results
 
 
+# Bound fields every comparison uses (the group in effect, eligibility, warnings, the waiver's
+# maintenance): a ticket on one of them affects the latest comparison, whatever it compared.
+_EVERY_COMPARISON = (GROUP_EXCEPTION, "occupation")
+
+
 def _uses_catalog_default(payload: Mapping[str, Any], field: str) -> bool | None:
     """Whether this comparison used `field` at the catalog default (None: it didn't use it).
-    A group exception: every comparison used the group in effect (eligibility, warnings)."""
-    if field == GROUP_EXCEPTION:
+    A group exception or the occupation: every comparison used it."""
+    if field in _EVERY_COMPARISON:
         return True
     if field == CURRENT_PARTICIPATION:
         return payload["today_participation"]["source"] == "catalog_default"
@@ -895,8 +1147,8 @@ def _recompute_as_pending(
 
 def _uses_pending(payload: Mapping[str, Any], field: str) -> bool | None:
     """Whether this comparison waited for `field` (None: it didn't use it)."""
-    if field == GROUP_EXCEPTION:
-        return GROUP_EXCEPTION in payload.get("view", {}).get("pending_fields", [])
+    if field in _EVERY_COMPARISON:
+        return field in payload.get("view", {}).get("pending_fields", [])
     if field == CURRENT_PARTICIPATION:
         return bool(payload["today_participation"]["pending_rep"])
     if payload["alternative"].get("car_id") != field.removeprefix(ALTERNATIVE_PARTICIPATION):
@@ -957,7 +1209,7 @@ def _recompute_latest(
     ]
     targets: dict[int, str] = {}  # event seq -> the field it concerns
     for field in fields:
-        if not (is_participation(field) or field == GROUP_EXCEPTION):
+        if not (is_participation(field) or field in _EVERY_COMPARISON):
             continue
         for event in reversed(comparisons):  # the latest comparison that used the field
             used = needs_recompute(event.payload, field)
