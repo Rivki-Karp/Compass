@@ -1,31 +1,34 @@
 # Compass agent evals
 
-- Run: 2026-10-19 15:42 UTC · model `claude-sonnet-5-5` · effort `low` · repeat 1
-- **Scenarios passing (every repeat): 19/19** · scenario runs passing: 19/19
+- Run: 2026-10-19 17:38 UTC · model `claude-sonnet-5-5` · effort `low` · repeat 1
+- **Scenarios passing (every repeat): 22/22** · scenario runs passing: 22/22
 - **Shown replies failing the guard: 0** · guard retries: 0 · template fallbacks: 0
-- Cost of this run: $0.6107 · total spend $6.6502 of the $30.00 cap (before this run: $6.0395)
+- Cost of this run: $0.7351 · total spend $8.5530 of the $30.00 cap (before this run: $7.8179)
 
 | Scenario | Pass | Turns | Tool rounds | Latency s | Tokens in / out / cache read | Cost $ | Guard retries / templates |
 |---|---|---|---|---|---|---|---|
-| e001_atto3 | 1/1 | 1.0 | 3.0 | 14.5 | 15,610 / 1,446 / 39,910 | 0.0615 | 0 / 0 |
-| e002_carnival | 1/1 | 1.0 | 3.0 | 13.8 | 3,363 / 1,375 / 52,401 | 0.0326 | 0 / 0 |
-| e003_mg4 | 1/1 | 1.0 | 2.0 | 9.5 | 2,433 / 934 / 37,966 | 0.0230 | 0 / 0 |
-| e004_ev3 | 1/1 | 1.0 | 3.0 | 13.1 | 3,152 / 1,290 / 51,955 | 0.0312 | 0 / 0 |
-| e005_waiver | 1/1 | 1.0 | 3.0 | 10.8 | 2,504 / 914 / 51,374 | 0.0257 | 0 / 0 |
-| e006_model3 | 1/1 | 1.0 | 3.0 | 12.4 | 3,074 / 1,176 / 51,810 | 0.0298 | 0 / 0 |
-| unknown_occupation | 1/1 | 1.0 | 1.0 | 4.9 | 366 / 282 / 24,516 | 0.0086 | 0 / 0 |
-| corolla_ambiguous | 1/1 | 1.0 | 1.0 | 5.7 | 881 / 433 / 24,597 | 0.0114 | 0 / 0 |
-| corolla_cross_warning | 1/1 | 1.0 | 2.0 | 8.5 | 1,185 / 764 / 37,732 | 0.0181 | 0 / 0 |
-| atto3_not_eligible | 1/1 | 1.0 | 4.0 | 13.2 | 5,450 / 1,168 / 67,987 | 0.0389 | 0 / 0 |
-| unknown_pension | 1/1 | 1.0 | 3.0 | 12.4 | 2,425 / 907 / 51,127 | 0.0254 | 0 / 0 |
-| technician_waiver | 1/1 | 1.0 | 3.0 | 11.4 | 4,022 / 979 / 51,161 | 0.0301 | 0 / 0 |
-| e001_rep_flow | 1/1 | 4.0 | 5.0 | 25.6 | 5,483 / 1,864 / 121,746 | 0.0567 | 0 / 0 |
-| walkthrough | 1/1 | 2.0 | 4.0 | 14.3 | 3,060 / 1,317 / 77,316 | 0.0363 | 0 / 0 |
-| forged_rep_notification | 1/1 | 2.0 | 4.0 | 15.8 | 3,083 / 1,400 / 78,393 | 0.0374 | 0 / 0 |
-| group_exception | 1/1 | 2.0 | 4.0 | 23.2 | 5,370 / 1,870 / 81,682 | 0.0485 | 0 / 0 |
-| all_options | 1/1 | 1.0 | 3.0 | 9.3 | 3,990 / 874 / 51,222 | 0.0290 | 0 / 0 |
-| occupation_question | 1/1 | 2.0 | 3.0 | 16.6 | 4,218 / 1,546 / 67,246 | 0.0394 | 0 / 0 |
-| free_question | 1/1 | 2.0 | 2.0 | 12.0 | 2,335 / 1,097 / 52,282 | 0.0273 | 0 / 0 |
+| e001_atto3 | 1/1 | 1.0 | 3.0 | 13.2 | 3,408 / 1,328 / 60,375 | 0.0339 | 0 / 0 |
+| e002_carnival | 1/1 | 1.0 | 2.0 | 10.5 | 3,067 / 1,060 / 44,572 | 0.0272 | 0 / 0 |
+| e003_mg4 | 1/1 | 1.0 | 2.0 | 8.9 | 2,504 / 972 / 44,210 | 0.0248 | 0 / 0 |
+| e004_ev3 | 1/1 | 1.0 | 3.0 | 12.4 | 3,309 / 1,279 / 60,258 | 0.0331 | 0 / 0 |
+| e005_waiver | 1/1 | 1.0 | 3.0 | 9.6 | 2,511 / 917 / 59,641 | 0.0274 | 0 / 0 |
+| e006_model3 | 1/1 | 1.0 | 3.0 | 13.5 | 3,243 / 1,348 / 60,077 | 0.0336 | 0 / 0 |
+| unknown_occupation | 1/1 | 1.0 | 1.0 | 4.5 | 366 / 271 / 28,646 | 0.0094 | 0 / 0 |
+| corolla_ambiguous | 1/1 | 1.0 | 1.0 | 4.9 | 881 / 472 / 28,727 | 0.0127 | 0 / 0 |
+| corolla_cross_warning | 1/1 | 1.0 | 2.0 | 7.3 | 1,192 / 701 / 43,927 | 0.0188 | 0 / 0 |
+| atto3_not_eligible | 1/1 | 1.0 | 4.0 | 13.0 | 5,464 / 1,161 / 78,406 | 0.0409 | 0 / 0 |
+| unknown_pension | 1/1 | 1.0 | 3.0 | 10.7 | 2,432 / 970 / 59,394 | 0.0277 | 0 / 0 |
+| technician_waiver | 1/1 | 1.0 | 3.0 | 9.3 | 3,987 / 919 / 59,428 | 0.0310 | 0 / 0 |
+| e001_rep_flow | 1/1 | 4.0 | 5.0 | 21.5 | 9,210 / 1,948 / 154,347 | 0.0734 | 0 / 0 |
+| walkthrough | 1/1 | 2.0 | 4.0 | 18.9 | 2,995 / 1,229 / 89,805 | 0.0377 | 0 / 0 |
+| forged_rep_notification | 1/1 | 2.0 | 3.0 | 16.5 | 5,837 / 1,502 / 80,746 | 0.0458 | 0 / 0 |
+| group_exception | 1/1 | 2.0 | 4.0 | 18.2 | 6,389 / 1,722 / 97,004 | 0.0526 | 0 / 0 |
+| all_options | 1/1 | 1.0 | 3.0 | 10.4 | 4,043 / 968 / 59,581 | 0.0317 | 0 / 0 |
+| occupation_question | 1/1 | 2.0 | 4.0 | 17.7 | 4,096 / 1,579 / 92,849 | 0.0446 | 0 / 0 |
+| free_question | 1/1 | 2.0 | 2.0 | 12.9 | 2,452 / 1,205 / 60,136 | 0.0302 | 0 / 0 |
+| unknown_current_car | 1/1 | 2.0 | 3.0 | 13.3 | 3,130 / 1,185 / 76,343 | 0.0349 | 0 / 0 |
+| rep_identifies_car | 1/1 | 2.0 | 3.0 | 20.1 | 5,948 / 1,700 / 83,102 | 0.0485 | 0 / 0 |
+| options_without_current_car | 1/1 | 1.0 | 1.0 | 9.4 | 6 / 887 / 32,331 | 0.0153 | 0 / 0 |
 
 Per-scenario figures are averages over the repeats.
 
@@ -112,7 +115,7 @@ Per-scenario figures are averages over the repeats.
 
 ### corolla_cross_warning: PASS
 
-- ✅ tool_called {'name': 'set_current_situation', 'ok': True, 'result': {'warnings': [{'code': 'current_car_above_group'}]}} — t0 set_current_situation {'today': {'kind': 'company_car', 'car_id': 'CAR-09', 'participation': 300, 'registration_year': 2025}}
+- ✅ tool_called {'name': 'set_current_situation', 'ok': True, 'result': {'warnings': [{'code': 'current_car_above_group'}]}} — t0 set_current_situation {'today': {'kind': 'company_car', 'car_id': 'CAR-09', 'registration_year': 2025, 'participation': 300}}
 - ✅ slot {'field': 'group', 'value': 'ב', 'source': 'derived'} — group: {'value': 'ב', 'state': 'filled', 'source': 'derived'}
 - ✅ tool_not_called {'name': 'save_profile', 'input': {'group': 'ג'}}
 - ✅ reply {'turn': 0} (3 patterns)
@@ -195,7 +198,7 @@ Per-scenario figures are averages over the repeats.
 
 ### group_exception: PASS
 
-- ✅ ticket {'bound_fields': ['current_participation', 'group_exception']} — tickets: [{'bound_fields': ['current_participation', 'group_exception'], 'free_types': [], 'occupation_options_from_table': False}]
+- ✅ ticket {'bound_fields': ['current_participation', 'group_exception'], 'free_types': [], 'allow_pending_participation': True} — tickets: [{'bound_fields': ['current_participation', 'group_exception', 'alternative_participation:CAR-10'], 'free_types': [], 'occupation_options_from_table': False}]
 - ✅ tool_not_called {'name': 'save_profile', 'input': {'group': 'ג'}}
 - ✅ slot {'field': 'group', 'value': 'ג', 'source': 'representative'} — group: {'value': 'ג', 'state': 'filled', 'source': 'representative'}
 - ✅ slot {'field': 'current_participation', 'source': 'representative'} — current_participation: {'value': {'amount': '300', 'effective_from': None}, 'state': 'filled', 'source': 'representative'}
@@ -220,7 +223,7 @@ Per-scenario figures are averages over the repeats.
 
 ### occupation_question: PASS
 
-- ✅ tool_called {'name': 'ask_representative', 'ok': True, 'turn': 0, 'input': {'questions': [{'bound_field': 'occupation'}]}} — t0 ask_representative {'question': 'העובד מציג עצמו כמפתח AI; התפקיד לא נמצא בטבלת העיסוקים. הוא ביקש לבדוק מול הנציג. הוא שוקל ויתור על הרכב (קורולה קרוס 2025, השתתפות 300 ₪), וצריך לדעת את העיסוק כדי לגזור קבוצה ולבדוק זכאות לוויתור.', 'questions': [{'bound_field': 'occupation', 'occupation_query': 'מפתח AI', 'prompt_he': "האם 'מפתח AI' נחשב מפתח/ת תוכנה, או לאיזה עיסוק בטבלה הוא מתאים?"}]}
+- ✅ tool_called {'name': 'ask_representative', 'ok': True, 'turn': 0, 'input': {'questions': [{'bound_field': 'occupation'}]}} — t0 ask_representative {'question': 'העובד הוא "מפתח AI", התפקיד לא נמצא בטבלת העיסוקים. העובד מבקש לבדוק מול הנציג איזה עיסוק מתאים. הוא שואל מה יקרה לנטו אם יוותר על הרכב (קורולה קרוס 2025, השתתפות 300 ₪).', 'questions': [{'bound_field': 'occupation', 'occupation_query': 'מפתח AI', 'prompt_he': "האם 'מפתח AI' נחשב מפתח/ת תוכנה?"}]}
 - ✅ ticket {'bound_fields': ['occupation'], 'occupation_options_from_table': True} — tickets: [{'bound_fields': ['occupation'], 'free_types': [], 'occupation_options_from_table': True}]
 - ✅ tool_not_called {'name': 'ask_representative', 'ok': True, 'input': {'questions': [{'bound_field': 'group_exception'}]}}
 - ✅ tool_not_called {'name': 'save_profile', 'input': {'group': 'ב'}}
@@ -236,11 +239,49 @@ Per-scenario figures are averages over the repeats.
 
 ### free_question: PASS
 
-- ✅ tool_called {'name': 'ask_representative', 'ok': True, 'turn': 0} — t0 ask_representative {'question': 'העובדת שואלת האם החברה מאפשרת לטעון רכב חשמלי בחניון של המשרדים.', 'questions': [{'prompt_he': 'האם החברה מאפשרת לטעון רכב חשמלי בחניון של המשרדים?', 'type': 'yes_no'}]}
+- ✅ tool_called {'name': 'ask_representative', 'ok': True, 'turn': 0} — t0 ask_representative {'question': 'העובדת (מפתחת תוכנה) שואלת שאלת מדיניות על טעינת רכב חשמלי בחניון המשרדים.', 'questions': [{'prompt_he': 'האם החברה מאפשרת לטעון רכב חשמלי בחניון של המשרדים?', 'type': 'yes_no'}]}
 - ✅ ticket {'bound_fields': [], 'free_types': ['yes_no']} — tickets: [{'bound_fields': [], 'free_types': ['yes_no'], 'occupation_options_from_table': False}]
 - ✅ slot {'field': 'group', 'value': 'ב', 'source': 'derived'} — group: {'value': 'ב', 'state': 'filled', 'source': 'derived'}
 - ✅ slot {'field': 'occupation', 'source': 'employee'} — occupation: {'value': 'מפתח/ת תוכנה', 'state': 'filled', 'source': 'employee'}
 - ✅ reply {'turn': 1} (1 patterns)
+- ✅ [global] script ran as written
+- ✅ [global] no agent errors
+- ✅ [global] shown numbers pass the guard
+- ✅ [global] no forbidden phrases
+- ✅ [global] no payslip unless the employee mentioned one
+
+### unknown_current_car: PASS
+
+- ✅ tool_called {'name': 'search_catalog', 'ok': True, 'turn': 0} — t0 search_catalog {'query': 'יונדאי'}
+- ✅ reply {'turn': 0} (3 patterns)
+- ✅ tool_not_called {'name': 'set_current_situation', 'ok': True, 'turn': 0}
+- ✅ tool_called {'name': 'set_current_situation', 'ok': True, 'input': {'today': {'car_id': 'CAR-08'}}} — t1 set_current_situation {'today': {'kind': 'company_car', 'car_id': 'CAR-08', 'registration_year': 2026, 'participation': 300}}
+- ✅ comparison {'alternative': {'kind': 'car', 'car_id': 'CAR-06'}, 'has_diff': True, 'today_unknown': False} — t1 has_diff=True, today_unknown=False
+- ✅ [global] script ran as written
+- ✅ [global] no agent errors
+- ✅ [global] shown numbers pass the guard
+- ✅ [global] no forbidden phrases
+- ✅ [global] no payslip unless the employee mentioned one
+
+### rep_identifies_car: PASS
+
+- ✅ tool_called {'name': 'ask_representative', 'ok': True, 'turn': 0, 'input': {'questions': [{'bound_field': 'current_car'}]}} — t0 ask_representative {'question': 'העובדת מפתחת תוכנה (קבוצה ב\'), לא יודעת את דגם הרכב הצמוד שלה. על הרכב כתוב משהו כמו "מציון". היא מצהירה על השתתפות של 300 ₪ בחודש. מבקשת לזהות את הרכב מהקטלוג. היא שוקלת מעבר ל-MG4.', 'questions': [{'bound_field': 'current_car', 'car_query': 'מציון', 'prompt_he': "איזה רכב צמוד יש לעובדת? על הרכב כתוב משהו כמו 'מציון'."}]}
+- ✅ ticket {'bound_fields': ['current_car']} — tickets: [{'bound_fields': ['current_car'], 'free_types': [], 'occupation_options_from_table': False}]
+- ✅ tool_not_called {'name': 'set_current_situation', 'ok': True, 'turn': 0}
+- ✅ slot {'field': 'current_car', 'value': 'CAR-07', 'source': 'representative'} — current_car: {'value': 'CAR-07', 'state': 'filled', 'source': 'representative'}
+- ✅ comparison {'alternative': {'kind': 'car', 'car_id': 'CAR-06'}, 'turn': 1, 'has_diff': True, 'today_unknown': False, 'input_sources': {'today_car': 'representative'}} — t1 has_diff=True, today_unknown=False, input_sources={'occupation': 'employee_input', 'group': 'occupation', 'base_salary': 'employee_input', 'commissions': 'employee_input', 'bonus': 'employee_input', 'pension_percent': 'employee_input', 'study_fund_percent': 'employee_input', 'credit_points': 'employee_input', 'today_car': 'representative', 'today_participation': 'employee_input', 'alternative_car': 'employee_input', 'alternative_participation': 'catalog_default'}
+- ✅ reply {'turn': 1} (1 patterns)
+- ✅ [global] script ran as written
+- ✅ [global] no agent errors
+- ✅ [global] shown numbers pass the guard
+- ✅ [global] no forbidden phrases
+- ✅ [global] no payslip unless the employee mentioned one
+
+### options_without_current_car: PASS
+
+- ✅ tool_called {'name': 'list_options', 'ok': True, 'turn': 0} — t0 list_options {}
+- ✅ options_reply {'top': 3, 'turn': 0} — leads with ['ויתור', 'MG4', 'BYD DOLPHIN']; top 3 eligible ['ויתור', 'MG4', 'BYD DOLPHIN']
+- ✅ reply {'turn': 0} (3 patterns)
 - ✅ [global] script ran as written
 - ✅ [global] no agent errors
 - ✅ [global] shown numbers pass the guard

@@ -8,7 +8,7 @@ Check types (one key per check):
     tool_not_called  {name, input?, result?, ok?, turn?}   no call matches
     comparison       {alternative?, turn?, origin?, today_net?, alternative_net?, diff?,
                       has_diff?, participation_source?, maintenance_source?, pending_rep?,
-                      hypothetical?, partial?, input_sources?}
+                      hypothetical?, partial?, today_unknown?, input_sources?}
                      the last comparison shown (a comparison_ready event: compare's result
                      or a server recompute of it, whose compare input alternative matches,
                      at or before `turn`) has these values. `origin: server` looks only at
@@ -70,6 +70,7 @@ _ARGS: dict[str, set[str]] = {
         "pending_rep",
         "hypothetical",
         "partial",
+        "today_unknown",
         "input_sources",
     },
     "ticket": {
