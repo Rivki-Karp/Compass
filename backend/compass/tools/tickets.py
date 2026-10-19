@@ -6,8 +6,9 @@ optional note. `values` (by bound field) and a quick answer still work as before
 the bound question of that field. Explicit values win over a quick answer's.
 
 - A bound question's value goes into its slot (source representative), validated by the
-  save_profile rules. An approved group becomes the group; an occupation re-derives the group
-  (unless a representative or the employee set it); "another occupation" leaves it unknown.
+  save_profile rules. An approved group becomes the group; an occupation re-derives the group,
+  replacing one the employee stated (only a representative-approved group is kept); "another
+  occupation" leaves it unknown.
 - A free question's value is checked against its type and never touches a slot: it goes back
   to the model as data.
 
@@ -290,15 +291,14 @@ def answer_ticket(
         slot_values["group"] = approved
     occupation = slot_values.get(OCCUPATION)
     if occupation is not None and "group" not in slot_values:
-        # the group follows the approved occupation, as save_profile derives it, unless a
-        # representative approved one or the employee stated one
+        # the group follows the confirmed occupation (source derived): a representative's
+        # fact outranks a group the employee merely stated. Only a group a representative
+        # approved (group_exception) is kept.
         group = store.slots(ticket.session_id).get("group")
-        stated = (
-            group is not None
-            and group.state == "filled"
-            and group.source in ("representative", "employee")
+        approved_before = (
+            group is not None and group.state == "filled" and group.source == "representative"
         )
-        if not stated:
+        if not approved_before:
             slot_values["group"] = services.ctx.occupations[occupation].group
             sources["group"] = "derived"
 

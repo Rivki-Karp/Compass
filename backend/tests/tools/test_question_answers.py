@@ -10,8 +10,9 @@ from compass.agent.guard import make_guard
 from compass.agent.llm import ScriptedClient, text_response
 from compass.agent.runner import ClaudeAgentRunner
 from compass.agent.transcript import REP_TAG
-from compass.state import Store
+from compass.state import SlotUpdate, Store
 from compass.tools import Services, ToolRunner
+from compass.tools.handlers import profile_after
 from compass.tools.questions import OTHER_OCCUPATION, bound_question, free_question
 from compass.tools.tickets import QuestionAnswer, TicketAnswerError, answer_ticket
 from compass.tools.view import build_ticket_view
@@ -81,12 +82,40 @@ def test_an_occupation_answer_fills_it_and_derives_the_group(services: Services)
     assert shown["answer"] == "מפתח/ת תוכנה · קבוצה ב׳"
 
 
-def test_an_occupation_answer_keeps_a_group_the_employee_stated(services: Services) -> None:
+def _mismatch(services: Services, sid: str) -> bool:
+    warnings = profile_after(services, sid)["warnings"]
+    return any(w["code"] == "group_mismatch_with_occupation" for w in warnings)
+
+
+def test_a_confirmed_occupation_replaces_a_group_the_employee_stated(
+    services: Services,
+) -> None:
+    """A representative's fact outranks the employee's claim: the derived group replaces it,
+    shown "לפי העיסוק", and there is no mismatch to warn about."""
     sid = _session(services, {**AI_DEVELOPER, "group": "ג"})
     ticket = _open(services, sid)
     answer_ticket(services, ticket.id, answers={"q1": QuestionAnswer(value="מפתח/ת תוכנה")})
     group = services.store.slots(sid)["group"]
-    assert (group.value, group.source) == ("ג", "employee")
+    assert (group.value, group.source) == ("ב", "derived")
+    assert not _mismatch(services, sid)
+    compared = ok(ToolRunner(services).run(sid, "compare", {"alternative": {"kind": "waiver"}}))
+    assert compared["comparison"]["display_diff"] == 2914
+    view = [e for e in services.store.events_after(sid) if e.type == "comparison_ready"][-1]
+    chips = {i["id"]: i for i in view.payload["view"]["inputs"]}
+    assert chips["group"]["source"] == "occupation"  # "לפי העיסוק"
+    assert chips["occupation"]["source"] == "representative"
+
+
+def test_a_confirmed_occupation_keeps_a_group_a_representative_approved(
+    services: Services,
+) -> None:
+    sid = _session(services)
+    services.store.update_slots(sid, {"group": SlotUpdate(value="ג", source="representative")})
+    ticket = _open(services, sid)
+    answer_ticket(services, ticket.id, answers={"q1": QuestionAnswer(value="מפתח/ת תוכנה")})
+    group = services.store.slots(sid)["group"]
+    assert (group.value, group.source) == ("ג", "representative")
+    assert not _mismatch(services, sid)  # an approved exception is not a mismatch
 
 
 def test_another_occupation_needs_a_note_and_leaves_it_unknown(services: Services) -> None:
