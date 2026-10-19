@@ -1,8 +1,8 @@
 /**
  * The one way to the API: every REST call and SSE stream URL is built here.
  *
- * VITE_API_BASE_URL is the backend's public URL (the UI on Cloudflare Pages, the API on Render),
- * baked in at build time. Empty (dev, and the local single-origin demo) means the same origin:
+ * VITE_API_BASE_URL is the backend's public URL (both on Render: the UI a static site, the API a
+ * web service), baked in at build time. Empty (dev, and the local single-origin demo) means the same origin:
  * Vite proxies /api in dev, FastAPI serves the build in the demo.
  */
 

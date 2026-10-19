@@ -2,7 +2,7 @@
 #
 # The Compass API in one image, one process (the agent's per-session workers and locks live in
 # memory, so --workers 1). The build context is backend/ alone: no Node and no UI, which is
-# deployed separately (Cloudflare Pages, frontend/), so the image serves the API only. No secret
+# deployed separately (a Render static site, frontend/), so the image serves the API only. No secret
 # is ever in the image: the API key and the tokens come from the environment at run time
 # (docker-compose.yml: `env_file: backend/.env` for live, demo mode needs none). CI builds this
 # image and checks it (scripts/check_image_secrets.py).
@@ -64,8 +64,10 @@ COPY --from=app /app/data /app/data
 COPY evals/report.md evals/spend.jsonl /app/evals/
 COPY tests/counts.json /app/tests/counts.json
 
-# Sessions live on the /data volume, never in the image (data/ holds only the read-only rules,
-# catalog and vehicles database). No UI build in the image, so it serves the API only.
+# Sessions live in /data, never in data/ (which holds only the read-only rules, catalog and
+# vehicles database). /data is a plain directory owned by the app user unless something is
+# mounted there (docker-compose.yml mounts a named volume; Render's free plan mounts nothing,
+# so the sessions last until the container restarts). No UI build in the image: API only.
 ENV PATH=/app/.venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -76,7 +78,6 @@ COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 # No USER: the entrypoint starts as root only to chown the /data mount, then runs the server as
 # `compass` (uid 10001) via gosu. The health check runs as `compass` too.
 EXPOSE 8000
-VOLUME ["/data"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --start-interval=2s --retries=3 \
     CMD ["gosu", "compass", "python", "-c", "import os, sys, urllib.request; sys.exit(urllib.request.urlopen(f\"http://127.0.0.1:{os.environ.get('PORT') or 8000}/api/health\", timeout=4).status != 200)"]

@@ -58,23 +58,19 @@ REPO = BACKEND.parent
 
 def test_render_blueprint() -> None:
     blueprint = yaml.safe_load((REPO / "render.yaml").read_text(encoding="utf-8"))
-    (service,) = blueprint["services"]
-    assert (service["type"], service["runtime"]) == ("web", "docker")
+    service, web = blueprint["services"]
+    assert (service["name"], service["type"], service["runtime"]) == ("compass-api", "web", "docker")
+    # with rootDir, Render resolves the Docker paths inside it
     assert service["rootDir"] == "backend"
-    assert service["dockerfilePath"] == "./backend/Dockerfile"
-    assert service["dockerContext"] == "./backend"
+    assert service["dockerfilePath"] == "./Dockerfile"
+    assert service["dockerContext"] == "."
+    assert service["plan"] == "free" and "disk" not in service
     assert service["numInstances"] == 1 and "scaling" not in service
+    assert service["autoDeployTrigger"] == "off"
     assert service["healthCheckPath"] == "/api/health"
-    assert service["disk"]["mountPath"] == "/data"
     variables = {v["key"]: v for v in service["envVars"]}
     # the secrets: names only, the values are set in the dashboard
-    # and the Pages origin, known only after the frontend is deployed
-    for secret in (
-        "ANTHROPIC_API_KEY",
-        "COMPASS_REP_TOKEN",
-        "COMPASS_ADMIN_TOKEN",
-        "COMPASS_CORS_ORIGINS",
-    ):
+    for secret in ("ANTHROPIC_API_KEY", "COMPASS_REP_TOKEN", "COMPASS_ADMIN_TOKEN"):
         assert variables.pop(secret) == {"key": secret, "sync": False}
     # the rest: set in the file
     assert {k: v["value"] for k, v in variables.items()} == {
@@ -82,7 +78,18 @@ def test_render_blueprint() -> None:
         "COMPASS_DAILY_SPEND_CAP_USD": "5",
         "COMPASS_MESSAGE_RATE_PER_MINUTE": "20",
         "COMPASS_TRUST_PROXY": "1",
+        "COMPASS_CORS_ORIGINS": "https://compass-web.onrender.com",
     }
+
+    # the UI: a static site whose CSP and API URL name the backend above
+    assert (web["name"], web["type"], web["runtime"]) == ("compass-web", "web", "static")
+    assert (web["rootDir"], web["staticPublishPath"]) == ("frontend", "dist")
+    assert web["autoDeployTrigger"] == "off"
+    built = {v["key"]: v["value"] for v in web["envVars"]}
+    assert built["VITE_API_BASE_URL"] == "https://compass-api.onrender.com"
+    assert web["routes"] == [{"type": "rewrite", "source": "/*", "destination": "/index.html"}]
+    csp = {h["name"]: h["value"] for h in web["headers"]}["Content-Security-Policy"]
+    assert "connect-src 'self' https://compass-api.onrender.com;" in csp
 
 
 def test_the_image_listens_on_port_with_one_worker() -> None:

@@ -7,7 +7,7 @@
 **/.env.*
 !.env.example
 
-# Databases: sessions are runtime state (a volume); vehicles.db is rebuilt from raw/ in the image
+# Databases: sessions are runtime state (/data, never the image); vehicles.db is rebuilt from raw/ in the image
 data/*.db
 data/*.db-*
 data/*.db.tmp

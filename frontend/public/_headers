@@ -1,9 +1,0 @@
-# Cloudflare Pages response headers for every path. __API_ORIGIN__ is replaced at build time
-# with the origin of VITE_API_BASE_URL (vite.config.ts), or removed when it is empty: the UI may
-# connect to itself and to the backend, nothing else.
-/*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' __API_ORIGIN__; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
-  X-Content-Type-Options: nosniff
-  X-Frame-Options: DENY
-  Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()

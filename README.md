@@ -47,8 +47,10 @@ uv run --project backend python tasks.py build-web
 uv run --project backend python tasks.py serve  # http://127.0.0.1:8000, with the real model
 ```
 
-**Deployed:** the backend on Render (`backend/`), the UI on Cloudflare Pages (`frontend/`); the
-runbook's [Deploy](docs/demo-runbook.md#9-deploy) section walks through both.
+**Deployed:** both on Render from one Blueprint ([render.yaml](render.yaml)): the API
+`compass-api` (`backend/`, free plan, sessions lost on restart) and the UI `compass-web`, a static
+site (`frontend/`). The runbook's [Deploy](docs/demo-runbook.md#9-deploy) section walks through
+both.
 
 ## How correctness is guaranteed
 
@@ -163,14 +165,16 @@ browser (React, RTL)  ──POST /messages──▶  FastAPI  ──▶  agent r
 - **No ID numbers.** There is no national-ID field, a name that looks like an ID number is
   rejected, and every eval scenario checks that no reply asks for one.
 - **No secrets in git or in the image.** `.env` is git-ignored and was never committed. The
-  Docker build context (`backend/`) excludes it, and CI checks the built image for any `.env` file and anything
-  shaped like an Anthropic key.
+  Docker build context (`backend/`) excludes it, and CI checks the built image for any `.env`
+  file and anything shaped like an Anthropic key.
 - **Demo mode makes no network call** (a test patches every way out and fails on any attempt).
 - **Live mode refuses weak tokens:** an empty, demo or placeholder rep / admin token stops the
   server at startup, naming the variable (never its value).
 - **Cost and abuse limits (live mode):** a daily spend cap on every model call
   (`COMPASS_DAILY_SPEND_CAP_USD`, default $5, then a fixed reply until midnight UTC) and a per-IP
-  limit on sending messages (`COMPASS_MESSAGE_RATE_PER_MINUTE`, default 20). The container reads
+  limit on sending messages (`COMPASS_MESSAGE_RATE_PER_MINUTE`, default 20). The spend counter
+  lives in the session database, so on Render's free plan (no disk) a restart resets it; there
+  the hard limit is the Anthropic Console's workspace spend limit. The container reads
   configuration from the environment only (`COMPASS_ENV_ONLY=1`). See the runbook, section 8.
 
 ## All commands
@@ -308,11 +312,11 @@ backend/               the API: Python package, data, evals, tests (Render, root
   Dockerfile, docker/    the backend image (build context: backend/ alone, no Node)
   pyproject.toml, uv.lock, .env.example   the project, its lockfile, the settings template
 frontend/              the UI: React + Vite + TypeScript (src/), Playwright (e2e/), the video
-                       recorder (record/), public/_headers + _redirects (Cloudflare Pages),
-                       .env.example (VITE_API_BASE_URL)
+                       recorder (record/), .env.example (VITE_API_BASE_URL)
 docs/                  demo-runbook.md, screenshots/, video/
 briefs/                the day-by-day briefs and handoffs
-render.yaml            the Render Blueprint (the backend)
+render.yaml            the Render Blueprint: compass-api and the compass-web static site
+                       (its rewrite rule and headers, the CSP among them)
 docker-compose.yml     the backend image's live / demo profiles
 tasks.py               cross-platform task runner (Makefile wraps it)
 ```
@@ -510,7 +514,7 @@ from the environment, which wins over the file: `COMPASS_DEV_TOOLS=1`, `COMPASS_
 `COMPASS_ADMIN_TOKEN`, `COMPASS_APP_DB` (default `data/app.db`), `COMPASS_RULES` (default
 `data/rules.yaml`) and `COMPASS_CORS_ORIGINS` (exact origins, comma-separated, never a wildcard;
 default none: same origin only, which is all dev needs behind the Vite proxy; the deployed UI's
-Pages origin goes here). Relative paths are relative to `backend/`. The session store is created
+origin goes here, `https://compass-web.onrender.com` in render.yaml). Relative paths are relative to `backend/`. The session store is created
 on startup.
 
 Run the API as a **single process** (`tasks.py serve` passes `--workers 1`). The agent keeps
@@ -693,8 +697,8 @@ lower cost, so the agent stays at `low`.
 ## UI
 
 A React app (`frontend/`: Vite, TypeScript strict, Tailwind with the design tokens, Hebrew RTL,
-IBM Plex fonts bundled) on top of the API. Deployed, it is a static site on Cloudflare Pages that
-calls the backend at `VITE_API_BASE_URL` (one module, `src/api/client.ts`, builds every URL).
+IBM Plex fonts bundled) on top of the API. Deployed, it is a static site on Render that calls
+the backend at `VITE_API_BASE_URL` (one module, `src/api/client.ts`, builds every URL).
 Locally FastAPI serves the build at `/`, so the demo is one URL.
 
 How a number gets to the screen is [How correctness is guaranteed](#how-correctness-is-guaranteed).

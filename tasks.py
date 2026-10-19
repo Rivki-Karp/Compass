@@ -24,7 +24,7 @@ Usage:
     tasks.py test-counts  # write backend/tests/counts.json (judges mode; pytest checks it)
     tasks.py record-demo  # the backup video -> docs/video/*.webm (demo mode, no key)
     tasks.py readme    # regenerate README.md's results block (pytest checks it)
-    tasks.py smoke --api https://compass.onrender.com --web https://compass.pages.dev
+    tasks.py smoke --api https://compass-api.onrender.com --web https://compass-web.onrender.com
                        # check a deployment: the backend, and the frontend (--web optional)
 """
 
@@ -361,7 +361,7 @@ def smoke(*args: str) -> None:
 
     parser = argparse.ArgumentParser(prog="tasks.py smoke")
     parser.add_argument("--api", "--url", dest="api", required=True, help="the backend's URL")
-    parser.add_argument("--web", help="the frontend's URL (Cloudflare Pages)")
+    parser.add_argument("--web", help="the frontend's URL (the static site)")
     options = parser.parse_args(args)
     base = options.api.rstrip("/")
     web = options.web.rstrip("/") if options.web else None
@@ -369,7 +369,7 @@ def smoke(*args: str) -> None:
     if web:
         parts = urllib.parse.urlsplit(web)
         origin = f"{parts.scheme}://{parts.netloc}"
-    # what the browser sends from the Pages origin (nothing extra when there is one origin)
+    # what the browser sends from the web origin (nothing extra when there is one origin)
     from_web = {"Origin": origin} if origin else {}
 
     def fail(step: str, error: object) -> None:
@@ -447,7 +447,7 @@ def smoke(*args: str) -> None:
             print(f"  Cache-Control: {stream.headers.get('Cache-Control')}")
 
         if web:
-            # a direct load of a client route: Pages' _redirects must answer with index.html
+            # a direct load of a client route: the static site's rewrite answers with index.html
             with urllib.request.urlopen(f"{web}/rep", timeout=SMOKE_TIMEOUT_SECONDS) as page:
                 kind = page.headers.get("Content-Type", "")
                 body = page.read().decode("utf-8", errors="replace")
