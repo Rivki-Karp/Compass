@@ -208,3 +208,5 @@
 {"at": "2026-10-19T15:43:57+00:00", "scenario": "free_question", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.027604}
 {"at": "2026-10-19T15:44:09+00:00", "scenario": "free_question", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.026722}
 {"at": "2026-10-19T15:44:22+00:00", "scenario": "free_question", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.027282}
+{"at": "2026-10-19T15:58:14+00:00", "scenario": "group_exception", "model": "claude-sonnet-5-5", "effort": "low", "passed": false, "cost_usd": 0.073016}
+{"at": "2026-10-19T15:58:32+00:00", "scenario": "occupation_question", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.040316}
