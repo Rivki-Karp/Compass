@@ -64,6 +64,7 @@ FIELD_LABELS: dict[str, str] = {
     "alternative_participation": "השתתפות בחלופה",
     "alternative_maintenance": "אחזקה בוויתור",
     "current_participation": "השתתפות היום",  # ticket field names
+    "group_exception": "אישור חריג לקבוצה",
 }
 
 
@@ -80,7 +81,17 @@ def ticket_field_title(field: str) -> str:
         return "השתתפות עצמית"
     if field == "current_participation":
         return "השתתפות עצמית ברכב של היום"
+    if field == "group_exception":
+        return "אישור חריג לקבוצה"
     return field_label(field)
+
+
+# The representative's choices for a group exception (the radio buttons).
+def group_approved_label(group: str) -> str:
+    return f"מאושר לקבוצה {group_letter(group)}"
+
+
+GROUP_NOT_APPROVED_LABEL = "לא מאושר"
 
 
 # Rules and official data a line can depend on (the provenance strip's "rule" chips).
@@ -194,6 +205,7 @@ ERROR_MESSAGES: dict[str, Callable[[Params], str]] = {
     "empty_answer": lambda p: "צריך להזין סכום או תשובה.",
     "unknown_quick_answer": lambda p: "התשובה המהירה לא מוכרת.",
     "not_a_blocking_field": lambda p: "השדה הזה לא שייך לטיקט.",
+    "field_already_answered": lambda p: "כבר נענה על השדה הזה.",
     # field values
     "not_a_number": lambda p: "צריך להזין מספר.",
     "too_many_decimals": lambda p: "עד שתי ספרות אחרי הנקודה.",

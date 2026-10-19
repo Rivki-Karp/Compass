@@ -7,6 +7,7 @@ export const EVENT_TYPES = [
   "agent_started",
   "assistant_message",
   "comparison_ready",
+  "comparison_set_ready",
   "current_situation_set",
   "guard_check",
   "profile_updated",
@@ -52,13 +53,29 @@ export interface TicketComparisonView {
   pending: boolean;
 }
 
+export interface TicketFactView {
+  label: string;
+  value: string;
+}
+
 export interface TicketFieldView {
   field: string;
+  title: string;
   label: string;
   unit: "ils" | "percent" | "points" | "count" | "text";
   car_id: string | null;
   car_name: string | null;
   catalog_default: number | null;
+  options: TicketOptionView[];
+  facts: TicketFactView[];
+  answered: boolean;
+  answer: number | string | null;
+  comparison: TicketComparisonView | null;
+}
+
+export interface TicketOptionView {
+  value: string;
+  label: string;
 }
 
 export interface TicketView {

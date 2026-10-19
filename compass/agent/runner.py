@@ -25,6 +25,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from compass.agent.llm import LLMClient, LLMError, LLMResponse, Usage
@@ -53,6 +54,13 @@ GUARD_FALLBACK_HE = (
 )
 # The session safety limit (replaces drop_block): fixed, no numbers, never sent to the guard.
 SESSION_LIMIT_HE = "השיחה הגיעה לאורך המרבי. אפשר להתחיל שיחה חדשה."
+# The server's daily model spend cap (live mode): fixed, no numbers, no model call.
+DAILY_CAP_HE = "השירות הגיע למכסת השימוש היומית שלו. אפשר לנסות שוב מחר."
+
+
+class DailySpendCapReached(Exception):
+    """Today's model spend reached the cap: no more model calls until tomorrow (UTC)."""
+
 
 Job = tuple[Literal["employee_turn", "rep_answer"], Any]
 
@@ -104,6 +112,7 @@ class ClaudeAgentRunner:
         max_tool_rounds: int = 8,
         max_session_turns: int = 40,
         max_session_input_tokens: int = 2_000_000,
+        daily_spend_cap_usd: float | None = None,
         guard: Guard = _no_guard,
         template: TemplateFallback = _no_template,
         background: bool = True,
@@ -117,6 +126,7 @@ class ClaudeAgentRunner:
         self.max_tool_rounds = max_tool_rounds
         self.max_session_turns = max_session_turns
         self.max_session_input_tokens = max_session_input_tokens
+        self.daily_spend_cap_usd = daily_spend_cap_usd
         self.guard = guard
         self.template = template
         self.background = background
@@ -198,6 +208,9 @@ class ClaudeAgentRunner:
                 start_seq = self._last_event_seq(session_id)
                 self.store.append_event(session_id, "agent_started", {"trigger": kind})
                 outcome = self._loop(session_id, start_seq)
+        except DailySpendCapReached as error:
+            log.warning("daily spend cap reached; session %s gets the fixed reply", session_id)
+            outcome = self._fail(session_id, "daily_spend_cap", str(error), DAILY_CAP_HE)
         except LLMError as error:
             outcome = self._fail(session_id, error.kind, str(error), ERROR_MESSAGE_HE)
         except Exception as error:  # a bug must never take the session down
@@ -272,8 +285,19 @@ class ClaudeAgentRunner:
             content = {"kind": "employee_turn", "message_seq": ref, "origin": SERVER_ORIGIN}
         else:
             ticket = self.store.ticket(ref)
-            answer = ticket.answer or {}
+            # this answer: the latest part (a partial answer leaves the other fields pending)
+            event = next(
+                (
+                    e.payload
+                    for e in reversed(self.store.events_after(session_id))
+                    if e.type == "ticket_answered" and e.payload.get("ticket_id") == ticket.id
+                ),
+                {},
+            )
+            answer = event.get("answer") or ticket.answer or {}
             values = answer.get("values") or {}
+            pending = event.get("pending") or []
+            so_far = (ticket.answer or {}).get("values") or {}
             content = {
                 "kind": "rep_answer",
                 "origin": SERVER_ORIGIN,
@@ -282,12 +306,16 @@ class ClaudeAgentRunner:
                 "answer_text": answer.get("text"),
                 "values": values,
                 "effective_from": answer.get("effective_from"),
-                "unknown_fields": [f for f in ticket.blocking_fields if f not in values],
+                "unknown_fields": [
+                    f for f in ticket.blocking_fields if f not in so_far and f not in pending
+                ],
             }
+            if pending:
+                content["pending_fields"] = pending
             # The comparisons the server settled with this answer, as compare would have
             # returned them to the model: it may state them without calling compare, and the
             # guard allows their numbers (source "server").
-            settled = settled_compare_results(self.services, session_id, ticket.id)
+            settled = settled_compare_results(self.services, session_id, ticket.id, list(values))
             if settled:
                 content["server_comparisons"] = [
                     json.loads(model_view("compare", result)) for result in settled
@@ -299,10 +327,21 @@ class ClaudeAgentRunner:
         return events[-1].seq if events else 0
 
     def _call(self, session_id: str, tool_choice: dict[str, Any] | None = None) -> LLMResponse:
+        """Every model call goes through here: the daily spend cap is checked before it and its
+        cost recorded after it (live mode; demo mode has no cap)."""
+        day = datetime.now(UTC).date().isoformat()
+        cap = self.daily_spend_cap_usd
+        if cap is not None and (spent := self.store.spend_on(day)) >= cap:
+            raise DailySpendCapReached(f"spent {spent:.4f} of {cap:.2f} USD on {day} (UTC)")
         messages = build_model_messages(self.store.messages(session_id))
-        return self.llm.create(
+        response = self.llm.create(
             messages=messages, tools=self.tools, system=self.system_prompt, tool_choice=tool_choice
         )
+        model = response.model or getattr(self.llm, "model", None)
+        cost = None if model is None else response.usage.cost_usd(model)
+        if cost:
+            self.store.add_spend(day, cost)
+        return response
 
     def _store_assistant(
         self, session_id: str, response: LLMResponse, fabricated: str | None = None

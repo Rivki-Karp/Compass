@@ -3,6 +3,7 @@ import { formatInput } from "../lib/format";
 import { Amount } from "../ui/Amount";
 import { Icon } from "../ui/icons";
 import { SourceChip } from "../ui/SourceChip";
+import { BidiText } from "../ui/BidiText";
 
 /** "על מה החישוב מבוסס": every input with its source chip (brief §4.2, invariant 4). */
 export function InputsCard({ view }: { view: ComparisonView }) {
@@ -28,7 +29,9 @@ export function InputsCard({ view }: { view: ComparisonView }) {
               }`}
             >
               <span className="min-w-0">
-                <span className="text-muted">{input.label}</span>
+                <span className="text-muted">
+                  <BidiText text={input.label} />
+                </span>
                 {" · "}
                 <span className="font-medium text-ink">
                   {input.unit === "ils" && input.value !== null ? (

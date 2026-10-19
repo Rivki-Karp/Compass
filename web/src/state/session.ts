@@ -14,7 +14,7 @@ import type {
 
 export interface ChatMessage {
   seq: number;
-  role: "employee" | "assistant";
+  role: "employee" | "assistant" | "rep"; // "rep": the representative's note to the employee
   text: string;
   kind: PayloadByType["assistant_message"]["kind"] | null;
   turn: number | null; // index into turns (assistant messages)
@@ -57,6 +57,11 @@ export interface SessionState {
   thinking: boolean;
   thinkingSince: string | null;
   comparison: ComparisonState | null;
+  /** The latest comparison of each alternative (alternativeKey), so each one settles on its own:
+   * a rep answering one car of a multi-car ticket settles that car, not the others. */
+  comparisons: Record<string, ComparisonState>;
+  /** The alternatives the server put on screen at once (comparison_set_ready), best first. */
+  optionKeys: string[];
   openTickets: Ticket[];
   lastError: string | null; // agent_error kind of the latest failed run
   /** Events since the last run finished, outside any run; the next run takes them as `before`. */
@@ -71,15 +76,50 @@ export const initialSession: SessionState = {
   thinking: false,
   thinkingSince: null,
   comparison: null,
+  comparisons: {},
+  optionKeys: [],
   openTickets: [],
   lastError: null,
   between: [],
 };
 
+/** One alternative's key: "car:CAR-10", "waiver:". */
+export function alternativeKey(
+  view: Pick<ComparisonView, "alternative_kind" | "alternative_car_id">,
+) {
+  return `${view.alternative_kind}:${view.alternative_car_id ?? ""}`;
+}
+
 /** The session reached its safety limit: its latest reply is the server's fixed "limit" one. */
 export function limitReached(state: SessionState): boolean {
   const replies = state.messages.filter((m) => m.role === "assistant");
   return replies[replies.length - 1]?.kind === "limit";
+}
+
+/** The representative's free-text note in a ticket answer (answer.text), if any. */
+export function repNote(answer: unknown): string | null {
+  if (typeof answer !== "object" || answer === null) return null;
+  const text = (answer as { text?: unknown }).text;
+  return typeof text === "string" && text.trim() ? text.trim() : null;
+}
+
+/** An alternative's new comparison; it settles when its own previous one was pending. */
+function nextComparison(
+  state: Pick<SessionState, "comparisons">,
+  seq: number,
+  view: ComparisonView,
+  origin: string | undefined,
+): ComparisonState {
+  const previous = state.comparisons[alternativeKey(view)]; // whatever came in between
+  const settles = previous !== undefined && previous.view.pending && !view.pending;
+  const stays = previous !== undefined && previous.settled && !view.pending;
+  return {
+    seq,
+    view,
+    origin: origin === "server" ? "server" : "tool",
+    settled: settles || stays,
+    settledSeq: settles ? seq : stays ? (previous.settledSeq ?? null) : null,
+  };
 }
 
 function currentTurn(state: SessionState): Turn | null {
@@ -184,34 +224,39 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       }));
 
     case "comparison_ready": {
-      const view = event.payload.view;
-      const previous = next.comparison;
-      const sameAlternative =
-        previous !== null &&
-        previous.view.alternative_kind === view.alternative_kind &&
-        previous.view.alternative_car_id === view.alternative_car_id;
-      const settles = sameAlternative && previous.view.pending && !view.pending;
-      const stays = sameAlternative && previous.settled && !view.pending;
-      return {
-        ...next,
-        comparison: {
-          seq: event.seq,
-          view,
-          origin: event.payload.origin === "server" ? "server" : "tool",
-          settled: settles || stays,
-          settledSeq: settles ? event.seq : stays ? previous.settledSeq : null,
-        },
-      };
+      const comparison = nextComparison(next, event.seq, event.payload.view, event.payload.origin);
+      const key = alternativeKey(comparison.view);
+      return { ...next, comparison, comparisons: { ...next.comparisons, [key]: comparison } };
+    }
+
+    case "comparison_set_ready": {
+      // every option at once: each alternative's latest view, the hero left as it is
+      const comparisons = { ...next.comparisons };
+      const optionKeys: string[] = [];
+      for (const option of event.payload.options) {
+        const key = alternativeKey(option.view);
+        comparisons[key] = nextComparison({ comparisons }, event.seq, option.view, "server");
+        optionKeys.push(key);
+      }
+      return { ...next, comparisons, optionKeys };
     }
 
     case "ticket_opened":
       return { ...next, openTickets: [...next.openTickets, event.payload.ticket] };
 
-    case "ticket_answered":
+    case "ticket_answered": {
+      const note = repNote(event.payload.answer);
       return {
         ...next,
-        openTickets: next.openTickets.filter((t) => t.id !== event.payload.ticket_id),
+        // a partial answer leaves the ticket open, its other fields pending
+        openTickets: event.payload.partial
+          ? next.openTickets
+          : next.openTickets.filter((t) => t.id !== event.payload.ticket_id),
+        messages: note
+          ? [...next.messages, { seq: event.seq, role: "rep", text: note, kind: null, turn: null }]
+          : next.messages,
       };
+    }
 
     case "session_status":
       return { ...next, status: event.payload.status };

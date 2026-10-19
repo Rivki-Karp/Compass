@@ -14,6 +14,7 @@ The extension rule: "קורולה" matches COROLLA exactly, but COROLLA CROSS's 
 pick silently changes the value of use (4,120 vs 4,070), so we ask instead of guessing.
 """
 
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -163,6 +164,20 @@ class Searcher:
         self._tax_year = value_of_use_tax_year
         self._vehicles_db = vehicles_db
         self._tax_names: dict[int | None, dict[str, list[str]]] = {}
+
+    def cars_named_in(self, text: str) -> set[str]:
+        """Catalog car ids whose name or alias appears in `text` as whole words (one Hebrew
+        prefix letter allowed: "לאטו 3"). Same normalization as the search."""
+        words = f" {normalize(text)} "
+        return {
+            car.id
+            for car in self._cars
+            if any(
+                re.search(rf"(?<=\s)[ובלמהשכ]?{re.escape(name)}(?=\s)", words)
+                for name in car.names
+                if name
+            )
+        }
 
     # --- occupations ------------------------------------------------------------------------
 

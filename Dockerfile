@@ -59,6 +59,11 @@ RUN uv sync --frozen --no-dev \
 
 # --- 3. the runtime image ---------------------------------------------------------------------
 FROM python:${PYTHON_VERSION}-slim-bookworm
+# gosu: the entrypoint drops from root to the app user with it (docker/entrypoint.sh)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gosu \
+    && rm -rf /var/lib/apt/lists/* \
+    && gosu nobody true
 RUN groupadd --system --gid 10001 compass \
     && useradd --system --uid 10001 --gid compass --home-dir /app --no-create-home compass \
     && mkdir /data \
@@ -79,12 +84,17 @@ ENV PATH=/app/.venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     COMPASS_APP_DB=/data/app.db \
     COMPASS_DEMO_DB=/data/demo.db \
-    COMPASS_WEB_DIST=/app/web/dist
-USER compass
+    COMPASS_WEB_DIST=/app/web/dist \
+    COMPASS_ENV_ONLY=1
+COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+# No USER: the entrypoint starts as root only to chown the /data mount, then runs the server as
+# `compass` (uid 10001) via gosu. The health check runs as `compass` too.
 EXPOSE 8000
 VOLUME ["/data"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --start-interval=2s --retries=3 \
-    CMD ["python", "-c", "import sys, urllib.request; sys.exit(urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status != 200)"]
+    CMD ["gosu", "compass", "python", "-c", "import os, sys, urllib.request; sys.exit(urllib.request.urlopen(f\"http://127.0.0.1:{os.environ.get('PORT') or 8000}/api/health\", timeout=4).status != 200)"]
 
-CMD ["uvicorn", "compass.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+# $PORT when the host sets one (Render does), else 8000. One worker, always (see the top).
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["sh", "-c", "exec uvicorn compass.api.main:app --host 0.0.0.0 --port \"${PORT:-8000}\" --workers 1"]

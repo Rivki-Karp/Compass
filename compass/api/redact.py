@@ -18,6 +18,7 @@ PUBLIC_KEYS: dict[str, frozenset[str] | None] = {
     "profile_updated": _ALL,
     "current_situation_set": _ALL,
     "comparison_ready": _ALL,
+    "comparison_set_ready": _ALL,
     "ticket_opened": _ALL,
     "ticket_answered": _ALL,
     "agent_started": _ALL,

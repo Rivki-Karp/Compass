@@ -42,6 +42,8 @@ def ok(result: dict[str, Any]) -> dict[str, Any]:
 
 def _noa(services: Services, runner: ToolRunner, today: dict[str, Any] = COROLLA_CROSS) -> str:
     sid = services.store.create_session()
+    # the employee names the car (a ticket may ask only about such cars)
+    services.store.add_message(sid, "user", {"text": "מה יקרה לנטו אם אעבור ל-ATTO 3 או ל-EV3?"})
     ok(runner.run(sid, "save_profile", NOA))
     ok(runner.run(sid, "set_current_situation", today))
     return sid

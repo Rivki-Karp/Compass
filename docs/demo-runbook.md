@@ -19,8 +19,19 @@ uv run python tasks.py build-web     # the UI the server will serve
 uv run python tasks.py test          # optional sanity check
 ```
 
-Check `.env` has `ANTHROPIC_API_KEY`, `COMPASS_REP_TOKEN` and `COMPASS_ADMIN_TOKEN`, and write
-the two tokens on a card: you'll type them on stage.
+Check `.env` has `ANTHROPIC_API_KEY`, `COMPASS_REP_TOKEN` and `COMPASS_ADMIN_TOKEN`. An empty
+token disables its screen: `/rep` and the judges-mode dialog then say "טוקן לא הוגדר בשרת", and
+`tasks.py serve` prints a warning at startup naming the empty variable. To generate a token, run
+this in PowerShell once per token and paste the output after the `=` in `.env`:
+
+```powershell
+[guid]::NewGuid().ToString()
+```
+
+Restart the server after changing `.env`. In live mode the server refuses to start while either
+token is empty or a demo / placeholder value (`rep-demo`, `admin-demo`, or the `.env.example`
+placeholders), and says which one; demo mode (5a, 5b) keeps its `rep-demo` / `admin-demo`. Write the two tokens on a card: you'll type them on
+stage.
 
 Build the Docker image too, while there is network (it downloads npm and PyPI packages; on
 stage, `up` without `--build` needs no network). On a NetFree connection, point the build at its
@@ -207,3 +218,100 @@ uv run python tasks.py record-demo
 - Stop the server (Ctrl+C), or `docker compose --profile demo down`.
 - `data\final.db` and `data\demo.db` hold only the demo's sessions; delete them if you like.
   `data\app.db` was not touched. Docker's sessions live in its own volumes.
+
+## 8. Before a public deployment (live mode)
+
+Not deployed anywhere yet; section 9 has the Render steps. What the single container already does:
+
+- **Configuration from the environment only.** The image sets `COMPASS_ENV_ONLY=1`: no `.env`
+  file is read, and none is in the image (`scripts/check_image_secrets.py`, run in CI). Set
+  every variable on the host: `ANTHROPIC_API_KEY`, `COMPASS_REP_TOKEN`, `COMPASS_ADMIN_TOKEN`,
+  and optionally the two below.
+- **Tokens.** A live server refuses to start while either token is empty or a demo / placeholder
+  value (section 1).
+- **A daily spend cap.** `COMPASS_DAILY_SPEND_CAP_USD` (default 5): every model call on the
+  server, summed per UTC day in the session database, is checked before the next call. At the
+  cap every conversation gets "השירות הגיע למכסת השימוש היומית שלו. אפשר לנסות שוב מחר." until
+  midnight UTC. It is kept on the `/data` volume, so a restart doesn't reset it.
+- **A per-IP rate limit** on sending messages: `COMPASS_MESSAGE_RATE_PER_MINUTE` (default 20;
+  429 with `Retry-After` beyond it). It counts the socket's client IP. Behind a platform's
+  reverse proxy (Render), set `COMPASS_TRUST_PROXY=1`: it then counts the rightmost
+  `X-Forwarded-For` entry, the address the proxy itself saw and appended (the entries to its
+  left come from the browser and can be forged, so they are ignored). Otherwise every employee
+  shares the proxy's limit. Never set it without such a proxy in front: anyone could then pick
+  their own key. The count is per process, which is fine: the server runs one worker.
+
+## 9. Deploy to Render
+
+Prepared, not deployed. `render.yaml` at the repo root describes the service; Render reads it
+when you create a "Blueprint". You need about 20 minutes, a credit card (a persistent disk needs
+a paid plan: the Starter instance plus 1 GB of disk, a few dollars a month) and access to the
+GitHub repo.
+
+**What it creates:** one web service named `compass`, built from the repo's `Dockerfile`, one
+instance (never more: the agent keeps per-session state in memory), in Frankfurt, with a 1 GB
+disk mounted at `/data` for the session databases. Render checks `/api/health`. It does not
+redeploy on a push (`autoDeploy: false`): you deploy by hand.
+
+**Before you start**, have these three secrets ready (in a password manager, never in a file in
+the repo). Render asks for them; nothing else needs typing:
+
+| Variable | Value |
+|---|---|
+| `ANTHROPIC_API_KEY` | the live key |
+| `COMPASS_REP_TOKEN` | a new long random token (`python -c "import secrets; print(secrets.token_urlsafe(32))"`) |
+| `COMPASS_ADMIN_TOKEN` | another new one, different from the rep token |
+
+`render.yaml` sets the rest: `COMPASS_LLM=anthropic`, `COMPASS_DAILY_SPEND_CAP_USD=5`,
+`COMPASS_MESSAGE_RATE_PER_MINUTE=20` and `COMPASS_TRUST_PROXY=1` (Render's proxy is in front;
+section 8). To change one for this deployment, edit it under **Environment** after the deploy.
+
+Never reuse the demo tokens: a live server refuses to start with them (section 1).
+
+**Steps:**
+
+1. Go to <https://dashboard.render.com> and sign up or log in. "Sign in with GitHub" is the
+   simplest.
+2. Add a payment method: your account menu (top right) → **Billing** → add a card.
+3. Top right, click **New +** → **Blueprint**.
+4. Under "Connect a repository", click **Connect GitHub** (first time only), allow Render to
+   see the `Compass` repository (you can choose "Only select repositories"), then pick
+   `Rivki-Karp/Compass` in the list and click **Connect**.
+5. **Blueprint Name:** `compass`. **Branch:** the branch to deploy (the approved one; `main`
+   once the fixes are merged). Render shows what `render.yaml` will create: one web service
+   `compass` and its disk.
+6. Render lists the three secrets above, each with an empty box. Paste each value from the
+   table. Check for stray spaces. These are stored by Render, not in the repo.
+7. Click **Apply** (or **Deploy Blueprint**). The first build takes 5–10 minutes: open the
+   `compass` service → **Logs** to follow it. It is done when the service shows **Live**.
+8. At the top of the service page, copy its address (like `https://compass-xxxx.onrender.com`).
+9. From the repo on your machine, check it from outside:
+
+   ```powershell
+   uv run python tasks.py smoke --url https://compass-xxxx.onrender.com
+   ```
+
+   It checks `/api/health`, opens a session and reads its first event, and ends with
+   `smoke: OK`. It sends no token and prints no secret. `health: ok (llm: anthropic)` confirms
+   live mode. (It leaves one empty session behind; harmless.)
+10. Open the address in a browser: the employee screen, then `/rep` with the rep token. Send one
+    message to see a real reply.
+
+**Later:**
+
+- *Deploy a new version:* service page → **Manual Deploy** → **Deploy latest commit**. With a
+  disk, Render stops the old instance before it starts the new one: about a minute offline.
+- *Change a value* (a token, the cap): service page → **Environment** → edit → **Save
+  Changes**; Render restarts the service.
+- *Stop it:* service page → **Settings** → bottom → **Suspend Web Service** (or **Delete**). The
+  disk, with the sessions, is deleted only when the service is.
+
+**If the deploy fails:**
+
+- *The logs end with `sqlite3.OperationalError: unable to open database file`:* the server can't
+  write to `/data`. The entrypoint gives the app user (uid 10001) the mount at every start, even
+  a root-owned one (checked locally), so this means the disk is missing or not at `/data`:
+  service page → **Disks**.
+- *`Compass will not start in live mode`, about a token:* a token is empty or a demo value;
+  fix it under **Environment**.
+- *The health check times out:* look at **Logs** for the error above the timeout.

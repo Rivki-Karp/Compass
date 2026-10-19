@@ -61,19 +61,27 @@ def test_inbox_updates_live(make_settings: Callable[..., Settings]) -> None:
         assert _until(inbox, lambda tickets: tickets == []) == []
 
         sid = http.post("/api/sessions").json()["id"]
+        http.post(f"/api/sessions/{sid}/messages", json={"text": "ומה עם ATTO 3?"})
         _tool(http, sid, "save_profile", NOA)
         _tool(http, sid, "set_current_situation", TODAY)
         _tool(http, sid, "ask_representative", {"question": "?", "blocking_fields": [ATTO]})
         (opened,) = _until(inbox, lambda tickets: len(tickets) == 1)
         assert opened["view"]["title"] == "השתתפות עצמית · ATTO 3"
-        assert opened["view"]["fields"] == [
+        # the field's own comparison may not be in yet (the race explained below)
+        assert [{**f, "comparison": None} for f in opened["view"]["fields"]] == [
             {
                 "field": ATTO,
+                "title": "השתתפות עצמית",
                 "label": "השתתפות בחלופה",
                 "unit": "ils",
                 "car_id": "CAR-10",
                 "car_name": "ATTO 3",
                 "catalog_default": 300,
+                "options": [],
+                "facts": [],
+                "answered": False,
+                "answer": None,
+                "comparison": None,
             }
         ]
         # Since 8b opening the ticket also emits the server's provisional comparison. A snapshot
@@ -84,6 +92,8 @@ def test_inbox_updates_live(make_settings: Callable[..., Settings]) -> None:
             "display_diff": 661,
             "pending": True,
         }
+        # and the field carries this car's own provisional comparison
+        assert provisional["view"]["fields"][0]["comparison"] == provisional["view"]["comparison"]
 
         # The employee's own comparison: the ticket still shows the provisional diff.
         _tool(http, sid, "compare", {"alternative": {"kind": "car", "car_id": "CAR-10"}})
@@ -105,6 +115,7 @@ def test_ticket_list_carries_the_view(make_settings: Callable[..., Settings]) ->
     app = create_app(make_settings())
     with live_server(app) as base, httpx.Client(base_url=base, timeout=10) as http:
         sid = http.post("/api/sessions").json()["id"]
+        http.post(f"/api/sessions/{sid}/messages", json={"text": "ומה עם ATTO 3?"})
         _tool(http, sid, "save_profile", NOA)
         _tool(
             http,

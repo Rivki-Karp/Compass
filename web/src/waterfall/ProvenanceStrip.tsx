@@ -4,6 +4,7 @@ import { Amount } from "../ui/Amount";
 import { Icon } from "../ui/icons";
 import { SourceChip } from "../ui/SourceChip";
 import type { WaterfallStep } from "./buildWaterfall";
+import { BidiText } from "../ui/BidiText";
 
 /**
  * Where the selected number came from (brief §4.3): the line's label and signed value, who
@@ -31,7 +32,7 @@ export function ProvenanceStrip({
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="font-semibold text-navy">
-          {step ? step.label : "סה״כ ההפרש"}
+          {step ? <BidiText text={step.label} /> : "סה״כ ההפרש"}
           {" · "}
           <Amount value={step ? step.value : total} signed currency />
         </span>
@@ -62,7 +63,9 @@ export function ProvenanceStrip({
                   className="inline-flex items-center gap-2 rounded-chip border border-line bg-surface py-0.5 ps-3 pe-1 text-[13px]"
                 >
                   <span>
-                    <span className="text-muted">{input.label}</span>{" "}
+                    <span className="text-muted">
+                      <BidiText text={input.label} />
+                    </span>{" "}
                     <span className="font-medium text-ink">
                       {input.unit === "ils" && input.value !== null ? (
                         <Amount value={Number(input.value)} currency />
@@ -85,7 +88,7 @@ export function ProvenanceStrip({
                   className="inline-flex items-center gap-1.5 rounded-chip border border-line bg-surface px-3 py-0.5 text-[13px] text-ink"
                 >
                   <Icon name="book" size={14} className="text-steel" />
-                  {rule.label}
+                  <BidiText text={rule.label} />
                   <span className="text-muted">· קובץ הכללים</span>
                 </li>
               ))}
@@ -94,9 +97,9 @@ export function ProvenanceStrip({
         </>
       ) : view.today_net !== null && view.alternative_net !== null ? (
         <p className="mt-2 text-[13px] text-muted">
-          {`היום · ${view.today_title} `}
+          <BidiText text={`היום · ${view.today_title} `} />
           <Amount value={view.today_net} currency className="font-medium text-ink" />
-          {` ← ${view.alternative_title} `}
+          <BidiText text={` ← ${view.alternative_title} `} />
           <Amount value={view.alternative_net} currency className="font-medium text-ink" />
         </p>
       ) : null}

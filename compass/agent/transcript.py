@@ -58,6 +58,9 @@ def rep_block(event: dict[str, Any]) -> str:
         "effective_from": event.get("effective_from"),
         "unknown_fields": event.get("unknown_fields", []),
     }
+    if event.get("pending_fields"):
+        # a partial answer: the representative has not answered these yet
+        payload["pending_fields"] = event["pending_fields"]
     if event.get("server_comparisons"):
         # compare's own (compact) result, recomputed by the server with the answer
         payload["server_comparisons"] = event["server_comparisons"]
@@ -172,10 +175,13 @@ def model_view(name: str, result: dict[str, Any]) -> str:
                     "reason": option["eligibility"]["reason"],
                 },
                 "display_diff": option["comparison"]["display_diff"],
+                "net": option["comparison"]["alternative"]["display"]["net"],
                 "partial": option["comparison"]["partial"],
                 "participation_source": option.get("participation_source"),
                 "pending_rep": option.get("pending_rep"),
             }
             for option in result["options"]
         ]
+        if result["options"]:  # today's net is the same in every option
+            view["today_net"] = result["options"][0]["comparison"]["today"]["display"]["net"]
     return json.dumps(view, ensure_ascii=False, separators=(",", ":"), sort_keys=True)

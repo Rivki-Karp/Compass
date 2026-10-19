@@ -8,6 +8,7 @@ import { TicketList } from "../rep/TicketList";
 import { useRepInbox } from "../rep/useRepInbox";
 import { Button } from "../ui/Button";
 import { ConnectionPill, DemoBadge, Header } from "../ui/Header";
+import { TOKEN_NOT_CONFIGURED, tokenCheck, type TokenCheck } from "../lib/tokenCheck";
 import { TokenDialog } from "../ui/TokenDialog";
 
 /** Re-render every `ms`, for the tickets' ages. */
@@ -20,12 +21,11 @@ function useNow(ms: number): number {
   return now;
 }
 
-async function verifyRep(token: string): Promise<"ok" | "wrong" | "unavailable"> {
+async function verifyRep(token: string): Promise<TokenCheck> {
   const response = await fetch("/api/tickets?status=open", {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (response.ok) return "ok";
-  return response.status === 401 || response.status === 403 ? "wrong" : "unavailable";
+  return tokenCheck(response.status);
 }
 
 /** The representative screen (brief §4.6): the live inbox and the answer form. */
@@ -68,7 +68,12 @@ export function RepPage() {
     setParams({ ticket: ticketId }, { replace: true });
   }
 
-  function answered(ticketId: string) {
+  function answered(ticketId: string, stillOpen: boolean) {
+    if (stillOpen) {
+      // a partial answer: the ticket stays, with its other fields pending
+      setNotice("התשובה נשלחה. השדות שלא מולאו ממתינים לתשובה.");
+      return;
+    }
     inbox.answered(ticketId);
     setParams({}, { replace: true });
     setNotice("התשובה נשלחה. החישוב אצל העובד/ת מתעדכן.");
@@ -91,6 +96,7 @@ export function RepPage() {
         description="הזינו את טוקן הנציג כדי לראות את הטיקטים הפתוחים ולענות עליהם. הטוקן נשמר לסשן הזה בלבד."
         label="טוקן נציג"
         verify={verifyRep}
+        notConfigured={health?.auth?.rep === false}
         onCancel={() => setAsking(false)}
         onAccept={(value) => {
           setToken("rep", value);
@@ -135,8 +141,16 @@ export function RepPage() {
       ) : (
         <main className="px-8 py-6 max-sm:px-4">
           <div className="mx-auto flex max-w-[480px] flex-col items-center gap-4 rounded-card border border-line bg-surface px-6 py-12 text-center">
-            <p className="text-ink">כדי לראות את הטיקטים צריך טוקן נציג.</p>
-            <Button onClick={() => setAsking(true)}>הזנת טוקן</Button>
+            {health?.auth?.rep === false ? (
+              <p role="alert" className="font-medium text-down">
+                {TOKEN_NOT_CONFIGURED}
+              </p>
+            ) : (
+              <>
+                <p className="text-ink">כדי לראות את הטיקטים צריך טוקן נציג.</p>
+                <Button onClick={() => setAsking(true)}>הזנת טוקן</Button>
+              </>
+            )}
           </div>
         </main>
       )}

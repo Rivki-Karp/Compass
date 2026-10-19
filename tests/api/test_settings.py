@@ -200,3 +200,67 @@ def test_demo_reset_wipes_the_demo_db_only(tmp_path: Path, monkeypatch: pytest.M
     assert sorted(p.name for p in tmp_path.iterdir()) == ["keep.db"]
     assert (APP_DB.stat().st_mtime_ns if APP_DB.exists() else None) == app_db_before
     tasks.demo_reset()  # nothing there: still fine
+
+
+def test_token_warnings_name_the_empty_token_never_a_value() -> None:
+    from compass.api.settings import token_warnings
+
+    assert token_warnings("rep-value", "admin-value") == []
+    (rep,) = token_warnings(None, "admin-value")
+    assert rep.startswith("COMPASS_REP_TOKEN is empty: the representative screen (/rep)")
+    assert "docs/demo-runbook.md" in rep and "admin-value" not in rep
+    both = token_warnings("", None)
+    assert [w.split(" ", 1)[0] for w in both] == ["COMPASS_REP_TOKEN", "COMPASS_ADMIN_TOKEN"]
+
+
+@pytest.mark.parametrize(
+    ("rep", "admin", "errors"),
+    [
+        ("a-real-token", "another-real-token", []),
+        (None, "another-real-token", ["COMPASS_REP_TOKEN is empty"]),
+        (
+            "rep-demo",
+            "admin-demo",
+            [
+                "COMPASS_REP_TOKEN is a demo or placeholder value",
+                "COMPASS_ADMIN_TOKEN is a demo or placeholder value",
+            ],
+        ),
+        (
+            "rep-demo-change-me",
+            "",
+            [
+                "COMPASS_REP_TOKEN is a demo or placeholder value",
+                "COMPASS_ADMIN_TOKEN is empty",
+            ],
+        ),
+    ],
+)
+def test_live_mode_refuses_empty_and_demo_tokens(
+    tmp_path: Path, rep: str | None, admin: str | None, errors: list[str]
+) -> None:
+    from compass.api.settings import live_token_errors
+
+    live = Settings(app_db=tmp_path / "a.db", rep_token=rep, admin_token=admin)
+    assert live_token_errors(live) == errors
+    demo = Settings(app_db=tmp_path / "d.db", llm="scripted", rep_token=rep, admin_token=admin)
+    assert live_token_errors(demo) == []  # demo mode: the demo defaults are fine
+
+
+def test_the_server_entry_point_refuses_to_start(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import runpy
+
+    bad = Settings(app_db=tmp_path / "a.db", rep_token="rep-demo", admin_token="x" * 32)
+    monkeypatch.setattr(Settings, "from_env", classmethod(lambda cls, env_file=None: bad))
+    with pytest.raises(SystemExit) as stopped:
+        runpy.run_module("compass.api.main")
+    message = str(stopped.value.code)
+    assert message.startswith("Compass will not start in live mode")
+    assert "COMPASS_REP_TOKEN is a demo or placeholder value" in message
+    assert "x" * 32 not in message
+
+    good = Settings(app_db=tmp_path / "b.db", rep_token="r" * 32, admin_token="a" * 32)
+    monkeypatch.setattr(Settings, "from_env", classmethod(lambda cls, env_file=None: good))
+    assert runpy.run_module("compass.api.main")["app"] is not None

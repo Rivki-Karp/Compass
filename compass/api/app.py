@@ -7,6 +7,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+import logging
 import sqlite3
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager, suppress
@@ -33,8 +34,9 @@ from starlette.concurrency import run_in_threadpool
 
 from compass.api.agent import AgentRunner
 from compass.api.broker import TICKETS, Broker
+from compass.api.ratelimit import RateLimiter, client_ip
 from compass.api.redact import public_message, public_payload
-from compass.api.settings import Settings
+from compass.api.settings import Settings, token_warnings
 from compass.api.spa import mount_spa
 from compass.api.stats import judges_stats
 from compass.config import CATALOG_JSON, OCCUPATIONS_JSON
@@ -48,6 +50,9 @@ from compass.tools.services import Services
 from compass.tools.tickets import TicketAnswerError
 from compass.tools.tickets import answer_ticket as answer_ticket_with_rules
 from compass.tools.view import build_ticket_view
+
+# Streams pass through a platform's reverse proxy (Render) unbuffered and uncached.
+SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 
 
 class _Body(BaseModel):
@@ -73,6 +78,17 @@ class TicketAnswer(_Body):
     effective_from: date | None = Field(
         None, description="When a participation amount takes effect (participation fields only)"
     )
+    partial: bool = Field(
+        False,
+        description=(
+            "Answer only the fields given in `values`; the others stay pending and the ticket "
+            "stays open (the answer that fills the last one closes it). Default: the fields "
+            "left out become unknown and the ticket closes."
+        ),
+    )
+
+
+log = logging.getLogger(__name__)
 
 
 def _sha256(path: Path) -> str | None:
@@ -145,6 +161,8 @@ def create_app(
     """`agent` replaces the agent outright; `agent_factory` builds it on the app's own services
     (tests plug a scripted model in this way). Default: Claude if a key is set, else none."""
     settings = Settings.from_env() if settings is None else settings
+    for warning in token_warnings(settings.rep_token, settings.admin_token):
+        log.warning(warning)
     store = Store(settings.app_db)
     services = Services(
         store,
@@ -187,6 +205,7 @@ def create_app(
     app.state.runner = runner
     app.state.agent = agent
     api = APIRouter(prefix="/api")
+    messages_limiter = RateLimiter(settings.message_rate_per_minute)
     rep_only = Depends(
         _token_guard(
             settings.rep_token,
@@ -242,9 +261,18 @@ def create_app(
         status_code=202,
         response_model=MessageAccepted,
         tags=["sessions"],
+        responses={429: {"description": "Too many messages from this IP (Retry-After)"}},
     )
-    def post_message(session_id: str, body: UserMessage) -> MessageAccepted:
-        """Store the message and hand it to the agent (a no-op until Day 3)."""
+    def post_message(session_id: str, body: UserMessage, request: Request) -> MessageAccepted:
+        """Store the message and hand it to the agent. At most COMPASS_MESSAGE_RATE_PER_MINUTE
+        per client IP (429 with Retry-After beyond that)."""
+        wait = messages_limiter.check(client_ip(request, settings.trust_proxy))
+        if wait is not None:
+            raise HTTPException(
+                429,
+                "too many messages; try again shortly",
+                headers={"Retry-After": str(wait)},
+            )
         require_session(session_id)
         seq = store.add_message(session_id, "user", {"text": body.text})
         agent.on_user_message(session_id, seq)
@@ -296,7 +324,7 @@ def create_app(
                 broker.unsubscribe(session_id, waiter)
 
         ping = max(1, round(settings.heartbeat_seconds))  # sse-starlette pings in whole seconds
-        return EventSourceResponse(events(), ping=ping)
+        return EventSourceResponse(events(), ping=ping, headers=SSE_HEADERS)
 
     @api.post("/sessions/{session_id}/tools/{name}", tags=["dev"])
     def run_tool(
@@ -355,7 +383,7 @@ def create_app(
                 broker.unsubscribe(TICKETS, waiter)
 
         ping = max(1, round(settings.heartbeat_seconds))
-        return EventSourceResponse(events(), ping=ping)
+        return EventSourceResponse(events(), ping=ping, headers=SSE_HEADERS)
 
     @api.post("/tickets/{ticket_id}/answer", tags=["representative"], dependencies=[rep_only])
     def answer_ticket(ticket_id: str, body: TicketAnswer) -> dict[str, Any]:
@@ -370,6 +398,7 @@ def create_app(
                 quick_answer_id=body.quick_answer_id,
                 values=body.values,
                 effective_from=body.effective_from,
+                partial=body.partial,
             )
         except TicketAnswerError as error:
             # `detail` as before (English); `errors` adds a code and a Hebrew message per reason.
@@ -464,6 +493,9 @@ def create_app(
                 "value_of_use_year": rules.value_of_use.tax_year,
             },
             "dev_tools": settings.dev_tools,
+            # Whether each token is set (never its value): an empty one disables its screen,
+            # and the UI says so instead of asking for a token that can never work.
+            "auth": {"rep": bool(settings.rep_token), "admin": bool(settings.admin_token)},
             # "scripted": demo mode (the UI shows its badge and the scripts' messages).
             "llm": llm_mode,
             "demo_scripts": scripts,

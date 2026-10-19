@@ -119,7 +119,7 @@ def test_stated_group_wins_over_occupation(
     assert [w["code"] for w in result["warnings"]] == ["group_mismatch_with_occupation"]
 
 
-def test_unknown_fields_and_payslip_hint(runner: ToolRunner, services: Services, sid: str):
+def test_unknown_fields(runner: ToolRunner, services: Services, sid: str):
     result = ok(
         runner.run(
             sid,
@@ -131,7 +131,7 @@ def test_unknown_fields_and_payslip_hint(runner: ToolRunner, services: Services,
         )
     )
     assert result["unknown"] == ["pension_percent", "credit_points", "children_under_23"]
-    assert result["payslip_fields_unknown"] == ["pension_percent", "credit_points"]
+    assert "payslip_fields_unknown" not in result  # no payslip upload exists
     assert services.store.slots(sid)["pension_pct"].state == "unknown"
     assert "pension_percent" not in result["missing"]  # asked, just unknown
 

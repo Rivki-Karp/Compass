@@ -38,6 +38,10 @@ DEFAULT_MAX_TOOL_ROUNDS = 8
 # turns) used about 114k input tokens, so 2M is about 17 times that (roughly $1 at its rate).
 DEFAULT_MAX_SESSION_TURNS = 40
 DEFAULT_MAX_SESSION_INPUT_TOKENS = 2_000_000
+# Live mode (round 2, item 6): all model calls on the server, per UTC day; then a fixed reply.
+DEFAULT_DAILY_SPEND_CAP_USD = 5.0
+# POST /api/sessions/{id}/messages per client IP per minute.
+DEFAULT_MESSAGE_RATE_PER_MINUTE = 20
 
 
 class SettingsError(ValueError):
@@ -53,6 +57,18 @@ def _positive_int(value: str | None, name: str, default: int) -> int:
         raise SettingsError(f"{name} must be a whole number (got {value!r})") from None
     if number < 1:
         raise SettingsError(f"{name} must be at least 1 (got {number})")
+    return number
+
+
+def _positive_float(value: str | None, name: str, default: float) -> float:
+    if not value:
+        return default
+    try:
+        number = float(value)
+    except ValueError:
+        raise SettingsError(f"{name} must be a number (got {value!r})") from None
+    if not number > 0:
+        raise SettingsError(f"{name} must be above 0 (got {number})")
     return number
 
 
@@ -73,10 +89,67 @@ DEFAULT_CORS_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")  # Vit
 
 
 def _env(env_file: Path | None) -> dict[str, str]:
+    # COMPASS_ENV_ONLY=1 (the container image sets it): the environment only, never a file.
+    if os.environ.get("COMPASS_ENV_ONLY") == "1":
+        env_file = None
     file_values = {} if env_file is None or not env_file.is_file() else dotenv_values(env_file)
     # The real environment wins; an empty variable counts as unset (so `KEY=` in a shell
     # doesn't hide the value in .env).
     return {k: v for k, v in file_values.items() if v} | {k: v for k, v in os.environ.items() if v}
+
+
+# An empty token leaves its screen unusable (503); say so at startup, never with the value.
+TOKEN_USES = {
+    "COMPASS_REP_TOKEN": "the representative screen (/rep)",
+    "COMPASS_ADMIN_TOKEN": "judges mode",
+}
+
+
+def token_warnings(rep_token: str | None, admin_token: str | None) -> list[str]:
+    """One line per empty token: which screen it disables and where the fix is. Never a value."""
+    given = {"COMPASS_REP_TOKEN": rep_token, "COMPASS_ADMIN_TOKEN": admin_token}
+    return [
+        f"{name} is empty: {use} cannot be used. Generate a token and set it in .env "
+        "(see docs/demo-runbook.md, section 1)."
+        for name, use in TOKEN_USES.items()
+        if not given[name]
+    ]
+
+
+# Demo mode's well-known tokens (tasks.py demo, docker compose --profile demo) and the
+# .env.example placeholders: fine for a local demo, never for a live server.
+KNOWN_TOKENS = frozenset({"rep-demo", "admin-demo", "rep-demo-change-me", "admin-demo-change-me"})
+
+
+def live_token_errors(settings: "Settings") -> list[str]:
+    """Why a live server (COMPASS_LLM=anthropic) must not start: an empty token, or a demo /
+    placeholder one. Demo mode (scripted) has none. Never includes a token's value."""
+    if settings.llm == "scripted":
+        return []
+    given = {"COMPASS_REP_TOKEN": settings.rep_token, "COMPASS_ADMIN_TOKEN": settings.admin_token}
+    errors = []
+    for name, value in given.items():
+        if not value:
+            errors.append(f"{name} is empty")
+        elif value in KNOWN_TOKENS:
+            errors.append(f"{name} is a demo or placeholder value")
+    return errors
+
+
+def live_token_message(errors: list[str]) -> str:
+    lines = "\n".join(f"  - {e}" for e in errors)
+    return (
+        "Compass will not start in live mode:\n"
+        f"{lines}\n"
+        "Generate a token for each (PowerShell: [guid]::NewGuid().ToString()), set it in .env or "
+        "the environment, and start again. See docs/demo-runbook.md, section 1. "
+        "(Demo mode, `tasks.py demo`, needs neither.)"
+    )
+
+
+def token_warnings_from_env(env_file: Path | None = ENV_FILE) -> list[str]:
+    env = _env(env_file)
+    return token_warnings(env.get("COMPASS_REP_TOKEN"), env.get("COMPASS_ADMIN_TOKEN"))
 
 
 def demo_db_from_env(env_file: Path | None = ENV_FILE) -> Path:
@@ -110,6 +183,11 @@ class Settings:
     max_session_input_tokens: int = DEFAULT_MAX_SESSION_INPUT_TOKENS
     # "anthropic" or "scripted" (demo mode: compass/agent/demo_llm.py).
     llm: str = "anthropic"
+    # Live mode only: the server's model spend per UTC day, USD; then a fixed reply until tomorrow.
+    daily_spend_cap_usd: float = DEFAULT_DAILY_SPEND_CAP_USD
+    message_rate_per_minute: int = DEFAULT_MESSAGE_RATE_PER_MINUTE
+    # Behind a platform's reverse proxy: rate-limit by X-Forwarded-For's rightmost entry.
+    trust_proxy: bool = False
 
     def __post_init__(self) -> None:
         # Demo mode has its own database (data/demo.db, wiped by `tasks.py demo-reset`); it
@@ -153,6 +231,17 @@ class Settings:
                 "COMPASS_MAX_SESSION_INPUT_TOKENS",
                 DEFAULT_MAX_SESSION_INPUT_TOKENS,
             ),
+            daily_spend_cap_usd=_positive_float(
+                env.get("COMPASS_DAILY_SPEND_CAP_USD"),
+                "COMPASS_DAILY_SPEND_CAP_USD",
+                DEFAULT_DAILY_SPEND_CAP_USD,
+            ),
+            message_rate_per_minute=_positive_int(
+                env.get("COMPASS_MESSAGE_RATE_PER_MINUTE"),
+                "COMPASS_MESSAGE_RATE_PER_MINUTE",
+                DEFAULT_MESSAGE_RATE_PER_MINUTE,
+            ),
+            trust_proxy=env.get("COMPASS_TRUST_PROXY") == "1",
             cors_origins=tuple(o.strip() for o in origins.split(","))
             if origins
             else DEFAULT_CORS_ORIGINS,

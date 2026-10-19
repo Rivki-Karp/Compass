@@ -116,3 +116,13 @@ describe("useMediaQuery", () => {
     expect(result.current).toBe(false);
   });
 });
+
+describe("PhoneBar while the hero is on screen", () => {
+  it("steps aside without leaving the layout (visibility, not removal)", () => {
+    const { rerender } = render(<PhoneBar comparison={walkthroughDone} heroId="hero" hidden />);
+    const bar = screen.getByTestId("phone-bar");
+    expect(bar).toHaveClass("invisible");
+    rerender(<PhoneBar comparison={walkthroughDone} heroId="hero" />);
+    expect(screen.getByTestId("phone-bar")).not.toHaveClass("invisible");
+  });
+});

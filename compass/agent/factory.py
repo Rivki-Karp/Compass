@@ -32,6 +32,8 @@ def build_claude_runner(
         max_tool_rounds=settings.max_tool_rounds,
         max_session_turns=settings.max_session_turns,
         max_session_input_tokens=settings.max_session_input_tokens,
+        # demo mode's scripted model costs nothing; live mode stops at the daily cap
+        daily_spend_cap_usd=None if settings.llm == "scripted" else settings.daily_spend_cap_usd,
         guard=make_guard(services.store),
         template=make_template(services.store),
         background=background,

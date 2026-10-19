@@ -6,6 +6,8 @@ import { type EffectsMemory, EffectsMemoryContext } from "../employee/effects";
 import { EmptyComparison } from "../employee/EmptyComparison";
 import { HeroAnnouncement, HeroCard } from "../employee/HeroCard";
 import { InputsCard } from "../employee/InputsCard";
+import { useOptionSelection } from "../employee/options";
+import { OptionsSelector } from "../employee/OptionsSelector";
 import { PhoneBar } from "../employee/PhoneBar";
 import { PHONE_QUERY, phoneBarVisible } from "../employee/phoneBarRules";
 import { useMediaQuery } from "../lib/useMediaQuery";
@@ -15,9 +17,11 @@ import { useTurnSelection } from "../judges/useTurnSelection";
 import { demoSuggestions, GENERAL_SUGGESTIONS } from "../employee/suggestions";
 import { clearToken, getToken, setToken } from "../lib/tokens";
 import { useHealth } from "../lib/useHealth";
+import { useInView } from "../lib/useInView";
 import { limitReached } from "../state/session";
 import { useSession } from "../state/useSession";
 import { ConnectionPill, DemoBadge, Header, JudgesToggle } from "../ui/Header";
+import { tokenCheck, type TokenCheck } from "../lib/tokenCheck";
 import { TokenDialog } from "../ui/TokenDialog";
 import { Waterfall } from "../waterfall/Waterfall";
 
@@ -58,6 +62,8 @@ export function EmployeePage() {
   const stats = useJudgesStats(judges ? adminToken : null);
   const [turn, setTurn] = useTurnSelection(state.turns.length);
   const phone = useMediaQuery(PHONE_QUERY);
+  // the phone bar steps aside while the hero is on screen, below the bar's own 48 px
+  const heroInView = useInView(HERO_ID, phone && !judges, 48, state.comparison !== null);
 
   // A stored admin token the server no longer accepts: forget it, leave judges mode.
   useEffect(() => {
@@ -81,16 +87,21 @@ export function EmployeePage() {
     else setAsking(true);
   }
 
-  async function verifyAdmin(token: string): Promise<"ok" | "wrong" | "unavailable"> {
+  async function verifyAdmin(token: string): Promise<TokenCheck> {
     if (!session.sessionId) return "unavailable";
     const response = await fetch(`/api/sessions/${session.sessionId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (response.ok) return "ok";
-    return response.status === 401 ? "wrong" : "unavailable";
+    return tokenCheck(response.status, [401]);
   }
 
-  const comparison = state.comparison;
+  // Every alternative on screen (list_options) and the one shown: the employee's pick, until
+  // the agent compares something new; by default the one the agent compared last, else the best.
+  const { options, comparison, selected, select } = useOptionSelection(state);
+  const selector =
+    selected && options.length > 1 ? (
+      <OptionsSelector options={options} selected={selected} onSelect={select} />
+    ) : null;
   return (
     <EffectsMemoryContext.Provider value={effects}>
       <div className="min-h-screen bg-ground">
@@ -102,7 +113,7 @@ export function EmployeePage() {
           <JudgesToggle on={judges} onToggle={toggleJudges} />
         </Header>
         {comparison && phoneBarVisible({ narrow: phone, comparison, judges }) ? (
-          <PhoneBar comparison={comparison} heroId={HERO_ID} />
+          <PhoneBar comparison={comparison} heroId={HERO_ID} hidden={heroInView} />
         ) : null}
         <TokenDialog
           open={asking}
@@ -110,6 +121,7 @@ export function EmployeePage() {
           description="מצב השופטים מציג את חדר המנועים: קריאות לכלים, בדיקת המספרים ועלויות. הזינו את טוקן המנהל; הוא נשמר לסשן הזה בלבד."
           label="טוקן מנהל"
           verify={verifyAdmin}
+          notConfigured={health?.auth?.admin === false}
           onCancel={() => setAsking(false)}
           onAccept={(token) => {
             setToken("admin", token);
@@ -141,6 +153,7 @@ export function EmployeePage() {
               onNewSession={session.newSession}
             />
             <div className="flex min-w-0 flex-[999_1_640px] flex-col gap-6">
+              {selector}
               {comparison ? (
                 <>
                   <HeroCard comparison={comparison} id={HERO_ID} />

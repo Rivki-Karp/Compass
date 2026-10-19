@@ -1,7 +1,7 @@
 [
  {
-  "id": "52fda55da0d14efc8d9f64ffb4c1d1e1",
-  "session_id": "64cde8e0cf90488cbc212087023cb957",
+  "id": "2dd74b3a33a048f68e6cefd2b0e9ff00",
+  "session_id": "4258b1efdf0e4cc3aefe0424d581d14c",
   "question": "מה גובה ההשתתפות העצמית החודשית ב-ATTO 3?",
   "context": {
    "display_name": null,
@@ -16,7 +16,7 @@
   "quick_answers": [],
   "status": "open",
   "answer": null,
-  "created_at": "2026-10-18T09:28:38.649+00:00",
+  "created_at": "2026-10-18T17:47:14.623+00:00",
   "answered_at": null,
   "view": {
    "version": 1,
@@ -24,11 +24,21 @@
    "fields": [
     {
      "field": "alternative_participation:CAR-10",
+     "title": "השתתפות עצמית",
      "label": "השתתפות בחלופה",
      "unit": "ils",
      "car_id": "CAR-10",
      "car_name": "ATTO 3",
-     "catalog_default": 300
+     "catalog_default": 300,
+     "options": [],
+     "facts": [],
+     "answered": false,
+     "answer": null,
+     "comparison": {
+      "alternative_title": "ATTO 3",
+      "display_diff": 661,
+      "pending": true
+     }
     }
    ],
    "comparison": {

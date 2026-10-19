@@ -47,6 +47,8 @@ def _comparisons(services: Services, sid: str) -> list[dict[str, Any]]:
 
 def _session(services: Services, tools: ToolRunner, profile: dict[str, Any] = NOA) -> str:
     sid = services.store.create_session()
+    # the employee names the car (a ticket may ask only about such cars)
+    services.store.add_message(sid, "user", {"text": "מה יקרה לנטו אם אעבור ל-ATTO 3?"})
     ok(tools.run(sid, "save_profile", profile))
     ok(tools.run(sid, "set_current_situation", TODAY))
     return sid
@@ -94,6 +96,8 @@ def test_missing_inputs_emit_nothing_and_say_why(
 
 def test_no_current_situation_emits_nothing(services: Services, tools: ToolRunner) -> None:
     sid = services.store.create_session()
+    # the employee names the car (a ticket may ask only about such cars)
+    services.store.add_message(sid, "user", {"text": "מה יקרה לנטו אם אעבור ל-ATTO 3?"})
     ok(tools.run(sid, "save_profile", NOA))  # no set_current_situation
     result = ok(tools.run(sid, "ask_representative", ASK_ATTO))
     assert _comparisons(services, sid) == []

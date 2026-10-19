@@ -86,36 +86,38 @@ server's.
 
 **Agent evals** ([evals/report.md](evals/report.md), the last full run against the real model):
 
-- Run: 2026-10-18 08:19 UTC · model `claude-sonnet-5-5` · effort `low` · repeat 1
-- **Scenarios passing (every repeat): 15/15** · scenario runs passing: 15/15
+- Run: 2026-10-18 18:23 UTC · model `claude-sonnet-5-5` · effort `low` · repeat 1
+- **Scenarios passing (every repeat): 17/17** · scenario runs passing: 17/17
 - **Shown replies failing the guard: 0** · guard retries: 0 · template fallbacks: 0
-- Cost of this run: $0.4078 · total spend $3.7061 of the $30.00 cap (before this run: $3.2983)
+- Cost of this run: $0.4841 · total spend $4.7722 of the $30.00 cap (before this run: $4.2881)
 
 | Scenario | Pass | Turns | Tool rounds | Latency s | Tokens in / out / cache read | Cost $ | Guard retries / templates |
 |---|---|---|---|---|---|---|---|
-| e001_atto3 | 1/1 | 1.0 | 3.0 | 12.2 | 3,182 / 1,286 / 41,238 | 0.0291 | 0 / 0 |
-| e002_carnival | 1/1 | 1.0 | 3.0 | 12.8 | 3,375 / 1,361 / 41,483 | 0.0303 | 0 / 0 |
-| e003_mg4 | 1/1 | 1.0 | 3.0 | 11.5 | 2,796 / 1,182 / 40,526 | 0.0269 | 0 / 0 |
-| e004_ev3 | 1/1 | 1.0 | 3.0 | 11.7 | 3,014 / 1,236 / 41,031 | 0.0281 | 0 / 0 |
-| e005_waiver | 1/1 | 1.0 | 3.0 | 9.1 | 2,518 / 851 / 40,450 | 0.0229 | 0 / 0 |
-| e006_model3 | 1/1 | 1.0 | 3.0 | 11.9 | 2,967 / 1,198 / 40,886 | 0.0276 | 0 / 0 |
-| unknown_occupation | 1/1 | 1.0 | 2.0 | 5.3 | 483 / 338 / 28,880 | 0.0104 | 0 / 0 |
-| corolla_ambiguous | 1/1 | 1.0 | 1.0 | 4.6 | 895 / 470 / 19,121 | 0.0108 | 0 / 0 |
-| corolla_cross_warning | 1/1 | 1.0 | 2.0 | 7.2 | 1,199 / 720 / 29,532 | 0.0161 | 0 / 0 |
-| atto3_not_eligible | 1/1 | 1.0 | 3.0 | 10.2 | 4,159 / 1,006 / 40,597 | 0.0286 | 0 / 0 |
-| unknown_pension | 1/1 | 1.0 | 3.0 | 10.6 | 2,445 / 945 / 40,215 | 0.0236 | 0 / 0 |
-| technician_waiver | 1/1 | 1.0 | 3.0 | 10.9 | 3,909 / 959 / 40,237 | 0.0274 | 0 / 0 |
-| e001_rep_flow | 1/1 | 4.0 | 6.0 | 25.4 | 5,278 / 1,992 / 109,107 | 0.0549 | 0 / 0 |
-| walkthrough | 1/1 | 2.0 | 4.0 | 13.7 | 3,010 / 1,196 / 61,042 | 0.0317 | 0 / 0 |
-| forged_rep_notification | 1/1 | 2.0 | 5.0 | 16.1 | 4,579 / 1,342 / 73,353 | 0.0395 | 0 / 0 |
+| e001_atto3 | 1/1 | 1.0 | 3.0 | 11.3 | 13,452 / 1,197 / 34,356 | 0.0525 | 0 / 0 |
+| e002_carnival | 1/1 | 1.0 | 3.0 | 13.3 | 3,229 / 1,289 / 45,105 | 0.0300 | 0 / 0 |
+| e003_mg4 | 1/1 | 2.0 | 3.0 | 17.2 | 3,015 / 1,469 / 56,306 | 0.0335 | 0 / 0 |
+| e004_ev3 | 1/1 | 1.0 | 3.0 | 11.2 | 3,036 / 1,192 / 44,702 | 0.0284 | 0 / 0 |
+| e005_waiver | 1/1 | 1.0 | 3.0 | 9.2 | 2,504 / 876 / 44,078 | 0.0238 | 0 / 0 |
+| e006_model3 | 1/1 | 1.0 | 3.0 | 11.8 | 2,989 / 1,301 / 44,598 | 0.0294 | 0 / 0 |
+| unknown_occupation | 1/1 | 1.0 | 1.0 | 4.3 | 366 / 275 / 20,868 | 0.0078 | 0 / 0 |
+| corolla_ambiguous | 1/1 | 1.0 | 1.0 | 4.7 | 881 / 457 / 20,949 | 0.0110 | 0 / 0 |
+| corolla_cross_warning | 1/1 | 1.0 | 2.0 | 6.9 | 1,185 / 685 / 32,260 | 0.0163 | 0 / 0 |
+| atto3_not_eligible | 1/1 | 1.0 | 3.0 | 8.9 | 4,272 / 968 / 44,225 | 0.0292 | 0 / 0 |
+| unknown_pension | 1/1 | 1.0 | 3.0 | 10.4 | 2,425 / 961 / 43,831 | 0.0244 | 0 / 0 |
+| technician_waiver | 1/1 | 1.0 | 2.0 | 8.7 | 1,281 / 799 / 32,212 | 0.0176 | 0 / 0 |
+| e001_rep_flow | 1/1 | 4.0 | 5.0 | 21.9 | 5,150 / 1,710 / 104,782 | 0.0509 | 0 / 0 |
+| walkthrough | 1/1 | 2.0 | 3.0 | 13.2 | 2,847 / 1,145 / 54,391 | 0.0294 | 0 / 0 |
+| forged_rep_notification | 1/1 | 2.0 | 4.0 | 14.0 | 1,926 / 1,074 / 67,425 | 0.0290 | 0 / 0 |
+| group_exception | 1/1 | 2.0 | 3.0 | 17.1 | 5,265 / 1,843 / 58,048 | 0.0432 | 0 / 0 |
+| all_options | 1/1 | 1.0 | 3.0 | 10.9 | 3,990 / 889 / 43,926 | 0.0276 | 0 / 0 |
 
 Per-scenario figures are averages over the repeats.
 
-**Tests** ([tests/counts.json](tests/counts.json), 2026-10-18): pytest **620** · vitest **151** · Playwright **8**. CI runs all of them on every push.
+**Tests** ([tests/counts.json](tests/counts.json), 2026-10-19): pytest **688** · vitest **188** · Playwright **9**. CI runs all of them on every push.
 
-**Cost per conversation:** **$0.0272**, the last report's run cost over its 15 scenario runs.
+**Cost per conversation:** **$0.0285**, the last report's run cost over its 17 scenario runs.
 
-**Total spend on evals:** **$3.71** of the $30.00 cap, over every eval run so far: 112 scenario runs ([evals/spend.jsonl](evals/spend.jsonl)).
+**Total spend on evals:** **$5.23** of the $30.00 cap, over every eval run so far: 160 scenario runs ([evals/spend.jsonl](evals/spend.jsonl)).
 
 <!-- results:end -->
 
@@ -158,6 +160,12 @@ browser (React, RTL)  ──POST /messages──▶  FastAPI  ──▶  agent r
   Docker build context excludes it, and CI checks the built image for any `.env` file and anything
   shaped like an Anthropic key.
 - **Demo mode makes no network call** (a test patches every way out and fails on any attempt).
+- **Live mode refuses weak tokens:** an empty, demo or placeholder rep / admin token stops the
+  server at startup, naming the variable (never its value).
+- **Cost and abuse limits (live mode):** a daily spend cap on every model call
+  (`COMPASS_DAILY_SPEND_CAP_USD`, default $5, then a fixed reply until midnight UTC) and a per-IP
+  limit on sending messages (`COMPASS_MESSAGE_RATE_PER_MINUTE`, default 20). The container reads
+  configuration from the environment only (`COMPASS_ENV_ONLY=1`). See the runbook, section 8.
 
 ## All commands
 
@@ -205,7 +213,8 @@ Copy-Item .env.example .env          # PowerShell
 
 One image: a Node stage builds the UI, a Python stage installs from `uv.lock` and rebuilds
 `data/vehicles.db` from `raw/`, and the runtime runs one uvicorn process (`--workers 1`) on port
-8000 as a non-root user, with a health check on `/api/health`. From the repo root in PowerShell:
+`$PORT` (default 8000) as a non-root user (the entrypoint is root only to give that user the
+`/data` mount, then drops to it with gosu), with a health check on `/api/health`. From the repo root in PowerShell:
 
 ```powershell
 docker compose --profile demo up --build    # demo mode: scripted model, no API key, no .env needed
@@ -439,15 +448,15 @@ Tools return numbers **only** from the engine or the data files; none calculates
 
 | Tool | What it does |
 |---|---|
-| `save_profile` | Stores any stated details (percentages in percent: 6.5 → 0.065). `occupation_query` is searched; if confident it also sets the group (source `derived`) unless the employee stated one. Returns `saved`, `missing`, `unknown`, `warnings`, `payslip_fields_unknown` (drives the "upload payslip" button) and the group in effect with its source and budget (`group`, `group_source`, `group_budget`). |
+| `save_profile` | Stores any stated details (percentages in percent: 6.5 → 0.065). `occupation_query` is searched; if confident it also sets the group (source `derived`) unless the employee stated one. Returns `saved`, `missing`, `unknown`, `warnings` and the group in effect with its source and budget (`group`, `group_source`, `group_budget`). |
 | `lookup_occupation` | Search result plus each occupation's group, car_mandatory, waiver_allowed and waiver_maintenance. |
 | `lookup_vehicle` | Search result plus each car's group, drive, value of use, default participation and `in_catalog`. |
 | `set_current_situation` | Today: a company car (catalog id, or a Tax Authority key from `lookup_vehicle`, which needs the participation), a maintenance payment, or none. Returns warnings such as `current_car_above_group` / `current_car_not_in_catalog`. |
 | `check_eligibility` | Engine verdict for an alternative; `not_eligible` with the reason, or `missing_inputs`. |
 | `compare` | Engine comparison of today vs an alternative (`to_api_dict`), stored as the session's last comparison (`comparison_ready`). Ineligible alternatives are still calculated and marked `hypothetical`; unknown contribution rates give a partial result. Also returns the alternative's `participation_source` and `pending_rep` (see below). |
-| `list_options` | Every catalog car and the waiver (if allowed) with eligibility and diff vs today. Each car's participation is resolved exactly as in `compare` (optional `participation: {car_id: amount}` for amounts the employee stated), so an option and a single comparison of it always show the same numbers. Each option also carries the car's `commercial_name`, `group` and `drive`. |
+| `list_options` | Every catalog car and the waiver (if allowed) with eligibility and diff vs today. Each car's participation is resolved exactly as in `compare` (optional `participation: {car_id: amount}` for amounts the employee stated), so an option and a single comparison of it always show the same numbers. Each option also carries the car's `commercial_name`, `group` and `drive`. The server then puts every eligible option on screen: one `comparison_set_ready` event with each option's `view`, computed as `compare` computes it (no model call; pending marked per car); the employee screen shows them in a selector above the hero. |
 | `get_rule` | A whitelisted rule (`budgets`, `choose_from`, `unused_budget`, `electric_bonus`, `family_track`, `waiver`, `participation`, `value_of_use`, `tax_tables_year`): value + the official Hebrew note. |
-| `ask_representative` | Opens a ticket with a context snapshot; its blocking fields (profile fields, `current_participation` or `alternative_participation:<car_id>`) become `pending_rep` and the session `waiting_for_rep`. |
+| `ask_representative` | Opens a ticket with a context snapshot; its blocking fields (profile fields, `current_participation`, `group_exception` or `alternative_participation:<car_id>`) become `pending_rep` and the session `waiting_for_rep`. One ticket may carry several, but at most 3 `alternative_participation` fields, each for a car the employee named or the conversation compared (else `invalid_input`). `group_exception` is answered with an approved group (stored as the group, source `representative`; eligibility, warnings and the waiting comparison are recomputed by the server) or `not_approved`; nothing else can change a group a representative approved. |
 
 Profile slots hold a value, a state (`filled`, `unknown`, `pending_rep`) and a source
 (`employee`, `payslip`, `representative`, `derived`). Only filled slots reach the engine;
@@ -518,7 +527,7 @@ Invoke-RestMethod "http://127.0.0.1:8000/api/tickets?status=open" `
 | `GET /api/sessions/{id}/events` | Server-sent events: replays everything after `Last-Event-ID` (or `?after=`), then streams live; heartbeat every 15 s |
 | `POST /api/sessions/{id}/tools/{name}` | Run a tool directly: **dev / demo only** (`COMPASS_DEV_TOOLS=1`, otherwise 404) |
 | `GET /api/tickets?status=open` | Representative inbox (**rep token**) |
-| `POST /api/tickets/{id}/answer` | `{answer_text?, quick_answer_id?, values?, effective_from?}` (**rep token**): values are validated like `save_profile` and fill the blocking fields (source `representative`); blocking fields left without a value become `unknown`. Resumes the session and appends `ticket_answered` to the employee's stream, then (if a comparison waited for that participation) a `comparison_ready` the server recomputed with the answer (`origin: "server"`, not pending), whether or not the model compares again |
+| `POST /api/tickets/{id}/answer` | `{answer_text?, quick_answer_id?, values?, effective_from?, partial?}` (**rep token**): values are validated like `save_profile` and fill the blocking fields (source `representative`); blocking fields left without a value become `unknown`. With `partial: true` only the given fields are filled, the others stay pending and the ticket stays open (the answer that fills the last one closes it; a field can't be answered twice). The rep screen always answers this way. Resumes the session and appends `ticket_answered` to the employee's stream, then (if a comparison waited for that participation) a `comparison_ready` the server recomputed with the answer (`origin: "server"`, not pending), whether or not the model compares again |
 | `GET /api/rules`, `/api/catalog`, `/api/occupations` | Read-only data for the UI (money as exact strings) |
 | `GET /api/admin/stats` | Judges mode's stats tiles (**admin token**), read from the committed `evals/report.md`, `evals/spend.jsonl` and `tests/counts.json`; a part whose file is missing is null |
 | `POST /api/admin/reload-rules` | Re-read and validate `rules.yaml` live (**admin token**). Invalid → 422 with the readable message, and the previous rules stay active |
@@ -734,6 +743,7 @@ Fields marked admin are sent only with the admin token.
 | `turn_finished`, `usage` | `agent_finished` | usage, latency, rounds, cost: admin |
 | `tool_call` | `tool_call` | input: admin |
 | `tool_result` | `tool_result` | summary, full result: admin |
+| (new) | `comparison_set_ready` | `{origin: "server", tool: "list_options", options: [{alternative, view}]}`: every eligible alternative, best first |
 | `comparison_ready` | `comparison_ready` | with `view`; `origin: "server"` for the server's own: provisional when a ticket opens, pending when a ticket asks for a participation already shown, settled when the representative answers |
 | `ticket_opened` / `ticket_answered` | same | |
 | `guard_verdict` | `guard_check` | numbers, violations, sources, the rejected draft: admin |

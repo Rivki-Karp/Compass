@@ -108,6 +108,22 @@ describe("ChatPanel", () => {
     act(() => screen.getByRole("button", { name: /נסו שוב/ }).click());
     expect(onSend).toHaveBeenCalledWith("שלום");
   });
+
+  it("shows the representative's note as the rep's, not the advisor's", () => {
+    render(
+      <ChatPanel
+        messages={[{ seq: 9, role: "rep", text: "מנובמבר", kind: null, turn: null }]}
+        turns={[]}
+        thinking={false}
+        suggestions={[]}
+        failedText={null}
+        onSend={() => {}}
+      />,
+    );
+    const note = screen.getByRole("note", { name: "הערת הנציג" });
+    expect(note).toHaveTextContent("הערת הנציג");
+    expect(note).toHaveTextContent("מנובמבר");
+  });
 });
 
 describe("Thinking", () => {

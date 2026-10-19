@@ -46,10 +46,10 @@ TOOLS: tuple[Tool, ...] = (
         "List fields they said they don't know in unknown_fields. An occupation in their words "
         "goes in occupation_query; if recognised it also sets the group (unless they stated "
         "one). Returns what was saved, what is still missing, unknown fields, warnings, and "
-        "payslip_fields_unknown (offer a payslip upload for those), and group / group_source / "
-        "group_budget (state the derived group and budget to the employee). Save only what the "
-        "employee actually said: never guess or assume a value (a 'no' to commissions or bonus "
-        "is 0; 'I don't know' goes in unknown_fields). Never ask for an ID number.",
+        "group / group_source / group_budget (state the derived group and budget to the "
+        "employee). Save only what the employee actually said: never guess or assume a value "
+        "(a 'no' to commissions or bonus is 0; 'I don't know' goes in unknown_fields). Never "
+        "ask for an ID number.",
         h.SaveProfileInput,
         h.save_profile,
     ),
@@ -119,9 +119,17 @@ TOOLS: tuple[Tool, ...] = (
         "Open a ticket for a human representative, only for what only the company knows: the "
         "participation for a new car, group disputes, exceptions, policy questions. Ask the "
         "employee first. Write the question as one self-contained sentence. blocking_fields "
-        "wait for the answer: profile fields, current_participation, or "
+        "wait for the answer: profile fields, current_participation, group_exception, or "
         "alternative_participation:<catalog car id> (e.g. alternative_participation:CAR-10); "
-        "quick_answers are one-click answers that fill them.",
+        "quick_answers are one-click answers that fill them. Participation only for cars the "
+        "employee is actually considering (named, or compared in this conversation), at most 3 "
+        "per ticket. group_exception: whether the "
+        "employee is approved for a group above their occupation's group (when today's car "
+        "is above it, or the employee says they have a special approval); the representative "
+        "answers with the approved group or not_approved, and only that answer changes the "
+        "group. One ticket may block on several fields: when both today's participation and "
+        "the group approval are unknown, open one ticket with current_participation and "
+        "group_exception.",
         h.AskRepresentativeInput,
         h.ask_representative,
     ),

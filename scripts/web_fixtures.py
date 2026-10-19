@@ -6,6 +6,9 @@ Runs the two demo scripts (walkthrough, E-001 with the representative's answer) 
 real API in demo mode (scripted model, real tools, guard and tickets) and saves each session's
 events as the admin stream sends them. Ids and timestamps differ per run; the numbers don't.
 
+Also records `options`: the walkthrough, then list_options (through the dev tools endpoint): every
+eligible alternative on screen (comparison_set_ready).
+
 Also records `guard_retry`: the walkthrough with a first draft of the last reply that has a number
 no tool produced, so the real guard rejects it and the model rewrites it (judges mode's rejected
 draft card).
@@ -70,7 +73,9 @@ def _guard_retry_log() -> list[dict[str, Any]]:
 def main() -> int:
     demo_llm.DEMO_DELAY_SECONDS = 0
     with tempfile.TemporaryDirectory() as tmp:
-        settings = Settings(app_db=Path(tmp) / "app.db", llm="scripted", rep_token="rep")
+        settings = Settings(
+            app_db=Path(tmp) / "app.db", llm="scripted", rep_token="rep", dev_tools=True
+        )
         app = create_app(settings)
         with TestClient(app) as client:
             agent = app.state.agent
@@ -83,6 +88,9 @@ def main() -> int:
                 return sid
 
             walkthrough = run(WALKTHROUGH.employee_messages)
+            options = run(WALKTHROUGH.employee_messages)
+            listed = client.post(f"/api/sessions/{options}/tools/list_options", json={})
+            assert listed.json()["ok"], listed.text
             e001 = run(E001.employee_messages)
             inbox = client.get("/api/tickets", params={"status": "open"}, headers=REP).json()
             (ticket,) = inbox
@@ -103,6 +111,7 @@ def main() -> int:
             outputs: dict[str, Any] = {
                 "walkthrough": _events(app, walkthrough),
                 "e001": _events(app, e001),
+                "options": _events(app, options),
                 "e001_inbox": inbox,  # GET /api/tickets?status=open before the answer
                 "e001_answer_negative": refused.json(),  # the 422 body for -50
                 "guard_retry": _guard_retry_log(),

@@ -1,9 +1,11 @@
+import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
-from helpers import ADMIN, REP
+from helpers import ADMIN, ADMIN_TOKEN, REP, REP_TOKEN
 
 from compass.api import Settings, create_app
 from compass.api.openapi import OPENAPI_JSON, render
@@ -163,6 +165,25 @@ def test_health(client: TestClient) -> None:
     assert health["ok"] and health["data"]["vehicles_rows"] == 77988
     assert health["data"]["vehicles_source_sha256"].startswith("fa101574")
     assert (health["data"]["tax_tables_year"], health["data"]["value_of_use_year"]) == (2025, 2026)
+
+
+def test_health_says_which_tokens_are_set_never_their_values(client: TestClient) -> None:
+    health = client.get("/api/health")
+    assert health.json()["auth"] == {"rep": True, "admin": True}
+    assert REP_TOKEN not in health.text and ADMIN_TOKEN not in health.text
+
+
+def test_an_empty_rep_token_warns_at_startup_and_shows_in_health(
+    make_settings: Callable[..., Settings], caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.WARNING, logger="compass.api.app"):
+        app = create_app(make_settings(rep_token=None))
+    (warning,) = [r.getMessage() for r in caplog.records if r.name == "compass.api.app"]
+    assert warning.startswith("COMPASS_REP_TOKEN is empty")
+    assert ADMIN_TOKEN not in caplog.text
+    with TestClient(app) as client:
+        assert client.get("/api/health").json()["auth"] == {"rep": False, "admin": True}
+        assert client.get("/api/tickets").status_code == 503
 
 
 def test_cors_for_vite(client: TestClient) -> None:

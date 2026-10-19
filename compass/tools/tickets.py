@@ -2,6 +2,9 @@
 
 Values use the save_profile rules; a quick answer's values apply first and explicit values win;
 blocking fields left without a value become unknown (answered, but not with a number).
+
+A `partial` answer fills only the fields it has values for; the others stay pending and the
+ticket stays open, until a later answer fills them (the last one closes it).
 """
 
 from dataclasses import dataclass
@@ -13,6 +16,8 @@ from compass.engine.serialize import plain_json
 from compass.state import NotFound, StateError, Ticket
 from compass.tools.handlers import settle_answered
 from compass.tools.profile import (
+    GROUP_EXCEPTION,
+    NOT_APPROVED,
     FieldError,
     is_fillable,
     is_participation,
@@ -27,6 +32,7 @@ TicketErrorCode = Literal[
     "empty_answer",
     "unknown_quick_answer",
     "not_a_blocking_field",
+    "field_already_answered",
 ]
 
 
@@ -59,6 +65,7 @@ def answer_ticket(
     quick_answer_id: str | None = None,
     values: dict[str, Any] | None = None,
     effective_from: date | None = None,
+    partial: bool = False,
 ) -> Ticket:
     store = services.store
     try:
@@ -74,6 +81,10 @@ def answer_ticket(
             [AnswerError("ticket_already_answered")],
         )
     explicit = values or {}
+    if partial and quick_answer_id is None and not explicit:
+        raise TicketAnswerError(
+            422, "a partial answer needs at least one value", [AnswerError("empty_answer")]
+        )
     if answer_text is None and quick_answer_id is None and not explicit:
         raise TicketAnswerError(
             422, "give answer_text, quick_answer_id or values", [AnswerError("empty_answer")]
@@ -94,7 +105,12 @@ def answer_ticket(
     errors: list[str] = []
     coded: list[AnswerError] = []
     slot_values: dict[str, Any] = {}
+    earlier: dict[str, Any] = (ticket.answer or {}).get("values") or {}  # earlier partial parts
     for field, raw in merged.items():
+        if field in earlier:
+            errors.append(f"{field}: already answered")
+            coded.append(AnswerError("field_already_answered", field))
+            continue
         if field not in ticket.blocking_fields or not is_fillable(field, services.ctx):
             errors.append(f"{field}: not a blocking field of this ticket")
             coded.append(AnswerError("not_a_blocking_field", field))
@@ -114,15 +130,28 @@ def answer_ticket(
             [AnswerError("effective_from_not_participation")],
         )
 
-    unknown = [slot_name(f) for f in ticket.blocking_fields if f not in merged]
-    answer = {
+    approved = slot_values.get(GROUP_EXCEPTION)
+    if approved is not None and approved != NOT_APPROVED:
+        # the approved group becomes the group in effect (source representative); eligibility
+        # and the warnings follow from it in every later calculation
+        slot_values["group"] = approved
+    so_far = {**earlier, **plain_json(merged)}
+    remaining = [f for f in ticket.blocking_fields if f not in so_far]
+    pending = remaining if partial else []
+    unknown = [] if partial else [slot_name(f) for f in remaining]
+    when = None if effective_from is None else effective_from.isoformat()
+    part = {
         "text": answer_text,
         "quick_answer_id": quick_answer_id,
         "values": plain_json(merged),
-        "effective_from": None if effective_from is None else effective_from.isoformat(),
+        "effective_from": when,
     }
+    # the ticket keeps every part's values; the event (and the agent) get this part
+    answer = {**part, "values": so_far}
     try:
-        answered = store.answer_ticket(ticket_id, answer, slot_values, unknown=unknown)
+        answered = store.answer_ticket(
+            ticket_id, answer, slot_values, unknown=unknown, pending=pending, part=part
+        )
     except StateError as error:  # answered concurrently
         raise TicketAnswerError(409, str(error), [AnswerError("ticket_already_answered")]) from None
     # The comparison that waited for this answer turns final now, not when the model next

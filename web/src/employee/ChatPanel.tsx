@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { ChatMessage, ToolActivity, Turn } from "../state/session";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/icons";
-import { NumberText } from "../ui/NumberText";
+import { BidiText } from "../ui/BidiText";
+import { ReplyText } from "../ui/ReplyText";
 
 const STILL_WORKING_MS = 8000; // the rep flow can take ~30 s
 
@@ -120,7 +121,7 @@ export function ChatPanel({
               className="max-w-full"
             >
               <span className="truncate">
-                <NumberText text={text} />
+                <BidiText text={text} />
               </span>
             </Button>
           ))}
@@ -160,16 +161,32 @@ function MessageItem({ message, tools }: { message: ChatMessage; tools: ToolActi
     return (
       <li className="flex justify-end">
         <p className="max-w-[85%] rounded-[14px] rounded-ee-[4px] bg-navy px-4 py-2.5 whitespace-pre-wrap text-white">
-          <NumberText text={message.text} />
+          <BidiText text={message.text} />
         </p>
+      </li>
+    );
+  }
+  if (message.role === "rep") {
+    return (
+      <li className="flex flex-col items-start">
+        <div
+          role="note"
+          aria-label="הערת הנציג"
+          className="max-w-[85%] rounded-[14px] rounded-es-[4px] border border-chip-rep bg-chip-rep-bg px-4 py-2.5 text-ink"
+        >
+          <p className="text-[13px] font-semibold text-chip-rep">הערת הנציג</p>
+          <p className="whitespace-pre-wrap">
+            <BidiText text={message.text} />
+          </p>
+        </div>
       </li>
     );
   }
   return (
     <li className="flex flex-col items-start gap-1.5">
-      <p className="max-w-[85%] rounded-[14px] rounded-es-[4px] border border-bubble-border bg-ground px-4 py-2.5 whitespace-pre-wrap text-ink">
-        <NumberText text={message.text} />
-      </p>
+      <div className="max-w-[85%] rounded-[14px] rounded-es-[4px] border border-bubble-border bg-ground px-4 py-2.5 text-ink">
+        <ReplyText text={message.text} />
+      </div>
       {tools.length ? <ToolRow tools={tools} /> : null}
     </li>
   );

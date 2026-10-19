@@ -3,6 +3,7 @@ import type { SessionEvent } from "../api/types";
 import { EVENT_TYPES } from "../api/generated";
 import e001Log from "../test/fixtures/e001.json";
 import walkthroughLog from "../test/fixtures/walkthrough.json";
+import { must } from "../test/views";
 import { initialSession, reduce, type SessionState } from "./session";
 
 // Real event logs from a demo-mode run (scripts/web_fixtures.py).
@@ -114,12 +115,23 @@ describe("reduce: every event kind", () => {
       ev("current_situation_set", { scenario: {} }),
       ev("guard_check", { passed: true, action: "accept" }),
       ev("agent_error", { kind: "timeout" }),
-      ev("assistant_message", { message_seq: 2, text: "שגיאה", kind: "error", comparison_ref: null }),
+      ev("assistant_message", {
+        message_seq: 2,
+        text: "שגיאה",
+        kind: "error",
+        comparison_ref: null,
+      }),
       ev("agent_finished", { outcome: "error" }),
       ev("session_status", { status: "closed" }),
     ];
     const kinds = new Set(events.map((e) => e.type));
-    const covered = new Set([...kinds, "comparison_ready", "ticket_opened", "ticket_answered"]);
+    const covered = new Set([
+      ...kinds,
+      "comparison_ready",
+      "comparison_set_ready", // options.test.tsx replays a real one
+      "ticket_opened",
+      "ticket_answered",
+    ]);
     expect([...EVENT_TYPES].every((t) => covered.has(t))).toBe(true); // the rest: fixtures above
 
     const state = replay(events);
@@ -130,5 +142,91 @@ describe("reduce: every event kind", () => {
     expect(state.thinking).toBe(false);
     expect(state.status).toBe("closed");
     expect(state.lastSeq).toBe(seq);
+  });
+});
+
+describe("the representative's note", () => {
+  const answered = e001.findIndex((e) => e.type === "ticket_answered");
+  const withNote = (answer: unknown): SessionEvent[] =>
+    e001.map((e, i) =>
+      i === answered && e.type === "ticket_answered"
+        ? { ...e, payload: { ...e.payload, answer } }
+        : e,
+    );
+
+  it("a ticket answer with text adds the rep's note to the chat, before the reply", () => {
+    const state = replay(
+      withNote({
+        text: "  מעודכן מנובמבר, 400 ₪ אחרי השנה הראשונה  ",
+        values: {},
+      }),
+    );
+    const notes = state.messages.filter((m) => m.role === "rep");
+    expect(notes).toEqual([
+      {
+        seq: must(e001[answered]).seq,
+        role: "rep",
+        text: "מעודכן מנובמבר, 400 ₪ אחרי השנה הראשונה",
+        kind: null,
+        turn: null,
+      },
+    ]);
+    const index = state.messages.findIndex((m) => m.role === "rep");
+    expect(state.messages[index + 1]?.role).toBe("assistant"); // the model's reply follows
+  });
+
+  it("no text, no note", () => {
+    expect(replay(e001).messages.some((m) => m.role === "rep")).toBe(false);
+    expect(replay(withNote({ text: "   " })).messages.some((m) => m.role === "rep")).toBe(false);
+  });
+});
+
+describe("each alternative settles on its own", () => {
+  const view = (car: string, pending: boolean, diff: number) =>
+    ({ alternative_kind: "car", alternative_car_id: car, pending, display_diff: diff }) as never;
+  const ready = (seq: number, car: string, pending: boolean, diff: number) =>
+    ({
+      session_id: "s",
+      seq,
+      type: "comparison_ready",
+      created_at: "",
+      payload: {
+        alternative_kind: "car",
+        alternative: {},
+        view: view(car, pending, diff),
+        pending_rep: pending,
+      },
+    }) as unknown as SessionEvent;
+
+  it("a car's final comparison settles that car, whatever came in between", () => {
+    const state = replay([
+      ready(1, "CAR-10", true, 661),
+      ready(2, "CAR-06", true, 1020),
+      ready(3, "CAR-10", false, 611), // the rep answered ATTO 3 only
+    ]);
+    expect(state.comparisons["car:CAR-10"]?.settled).toBe(true);
+    expect(state.comparisons["car:CAR-10"]?.settledSeq).toBe(3);
+    expect(state.comparisons["car:CAR-06"]?.settled).toBe(false);
+    expect(state.comparisons["car:CAR-06"]?.view.pending).toBe(true);
+  });
+
+  it("a partial answer keeps the ticket open", () => {
+    const opened = {
+      session_id: "s",
+      seq: 1,
+      type: "ticket_opened",
+      created_at: "",
+      payload: { ticket: { id: "t1" } },
+    } as unknown as SessionEvent;
+    const answered = (seq: number, partial: boolean) =>
+      ({
+        session_id: "s",
+        seq,
+        type: "ticket_answered",
+        created_at: "",
+        payload: { ticket_id: "t1", answer: {}, fields: {}, unknown: [], partial },
+      }) as unknown as SessionEvent;
+    expect(replay([opened, answered(2, true)]).openTickets).toHaveLength(1);
+    expect(replay([opened, answered(2, true), answered(3, false)]).openTickets).toHaveLength(0);
   });
 });

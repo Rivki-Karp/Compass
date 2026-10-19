@@ -32,7 +32,7 @@ from compass.state import Slot, SlotUpdate
 from compass.tools.profile import (
     ALTERNATIVE_PARTICIPATION,
     CURRENT_PARTICIPATION,
-    PAYSLIP_FIELDS,
+    GROUP_EXCEPTION,
     PROFILE_FIELDS,
     REQUIRED_FIELDS,
     SLOT_OF,
@@ -147,6 +147,8 @@ def save_profile(services: Services, session_id: str, data: SaveProfileInput) ->
     both = sorted(set(given) & set(data.unknown_fields))
     if both:
         raise ToolError("invalid_input", "a field cannot be both given and unknown", fields=both)
+    if "group" in given or "group" in data.unknown_fields:
+        _require_group_not_with_rep(slots)
 
     updates: dict[str, SlotUpdate] = {}
     errors = []
@@ -199,7 +201,6 @@ def save_profile(services: Services, session_id: str, data: SaveProfileInput) ->
         ],
         "warnings": _warnings(services, session_id),
     }
-    summary["payslip_fields_unknown"] = [f for f in PAYSLIP_FIELDS if f in summary["unknown"]]
     # The group in effect and its budget (from the rules), so the agent can state what was
     # derived ("קבוצה ב', תקציב 3,700 ₪") without another tool call.
     group = slots.get("group")
@@ -211,6 +212,25 @@ def save_profile(services: Services, session_id: str, data: SaveProfileInput) ->
         occupation_error.details["partial_result"] = summary
         raise occupation_error
     return summary
+
+
+def _require_group_not_with_rep(slots: Mapping[str, Slot]) -> None:
+    """Only a representative's ticket answer changes a group the representative approved, or
+    one a group-exception ticket is waiting on: never the employee's words (a claimed approval
+    included)."""
+    group, exception = slots.get("group"), slots.get(GROUP_EXCEPTION)
+    if group is not None and group.state == "filled" and group.source == "representative":
+        raise ToolError(
+            "invalid_input",
+            "the group was approved by a representative; only a representative can change it",
+            field="group",
+        )
+    if exception is not None and exception.state == "pending_rep":
+        raise ToolError(
+            "invalid_input",
+            "a representative is reviewing the group (group_exception); wait for the answer",
+            field="group",
+        )
 
 
 # --- 2. lookup_occupation ---------------------------------------------------------------------
@@ -608,7 +628,33 @@ def list_options(services: Services, session_id: str, data: ListOptionsInput) ->
         data_out["commercial_name"] = None if car is None else car.commercial_name
         data_out["group"] = None if car is None else car.group
         data_out["drive"] = None if car is None else car.drive
+    _emit_option_set(services, session_id, options, set(data.participation))
     return {"options": listed}
+
+
+def _emit_option_set(services: Services, session_id: str, options: Any, stated: set[str]) -> None:
+    """Every eligible alternative, on screen: one comparison_set_ready event with each one's
+    display-ready `view`, computed exactly as compare computes it (the same participation
+    resolution, so pending is marked per car; the same view builder and invariants), by the
+    server, with no model call. Best first. Nothing is stored as a comparison: the model's own
+    compare stays the record of what it compared."""
+    entries = []
+    for option in options:
+        if option.eligibility.status != "eligible":
+            continue
+        car_id = getattr(option.scenario, "car_id", None)
+        scenario, payload = _comparison(
+            services, session_id, option.scenario, explicit=car_id in stated
+        )
+        alternative = scenario.model_dump(mode="json")
+        view = build_view(services, session_id, alternative, {**payload, "origin": "server"})
+        entries.append({"alternative": alternative, "view": view})
+    entries.sort(key=lambda e: -e["view"]["display_diff"])
+    services.store.append_event(
+        session_id,
+        "comparison_set_ready",
+        {"origin": "server", "tool": "list_options", "options": entries},
+    )
 
 
 # --- 8. get_rule ------------------------------------------------------------------------------
@@ -676,10 +722,11 @@ def ask_representative(
     if bad:
         raise ToolError(
             "invalid_input",
-            "blocking_fields must be profile fields, current_participation or "
-            "alternative_participation:<catalog car id>",
+            "blocking_fields must be profile fields, current_participation, group_exception "
+            "or alternative_participation:<catalog car id>",
             fields=bad,
         )
+    _check_ticket_cars(services, session_id, data.blocking_fields)
     ids = [qa.id for qa in data.quick_answers]
     if len(ids) != len(set(ids)):
         raise ToolError("invalid_input", "quick answer ids must be unique")
@@ -732,6 +779,49 @@ def ask_representative(
     return result
 
 
+MAX_TICKET_CARS = 3
+
+
+def _check_ticket_cars(services: Services, session_id: str, fields: list[str]) -> None:
+    """A ticket asks about the cars the employee is actually considering: at most
+    MAX_TICKET_CARS alternative participations, each for a car this session compared or the
+    employee named in a message."""
+    cars = [
+        f.removeprefix(ALTERNATIVE_PARTICIPATION)
+        for f in fields
+        if f.startswith(ALTERNATIVE_PARTICIPATION)
+    ]
+    if len(cars) > MAX_TICKET_CARS:
+        raise ToolError(
+            "invalid_input",
+            f"a ticket may ask about at most {MAX_TICKET_CARS} cars' participation (got "
+            f"{len(cars)}); ask the representative only about the cars the employee is "
+            "actually considering, or ask the employee which ones they mean",
+            max_cars=MAX_TICKET_CARS,
+            fields=[alternative_participation(c) for c in cars],
+        )
+    store = services.store
+    compared = {
+        e.payload["alternative"].get("car_id")
+        for e in store.events_after(session_id)
+        if e.type == "comparison_ready"
+    }
+    named: set[str] = set()
+    for message in store.messages(session_id):
+        if message.role == "user":
+            named |= services.searcher.cars_named_in(message.content.get("text", ""))
+    unknown = [c for c in cars if c not in compared and c not in named]
+    if unknown:
+        names = ", ".join(f"{c} ({services.ctx.catalog[c].commercial_name})" for c in unknown)
+        raise ToolError(
+            "invalid_input",
+            f"participation can be asked only for cars the employee named or that were "
+            f"compared in this conversation; not for {names}. Ask the representative only "
+            "about the cars the employee is actually considering, or ask the employee first",
+            fields=[alternative_participation(c) for c in unknown],
+        )
+
+
 def _provisional_comparisons(
     services: Services, session_id: str, ticket_id: str, fields: list[str]
 ) -> list[dict[str, Any]]:
@@ -780,7 +870,10 @@ def _provisional_comparisons(
 
 
 def _uses_catalog_default(payload: Mapping[str, Any], field: str) -> bool | None:
-    """Whether this comparison used `field` at the catalog default (None: it didn't use it)."""
+    """Whether this comparison used `field` at the catalog default (None: it didn't use it).
+    A group exception: every comparison used the group in effect (eligibility, warnings)."""
+    if field == GROUP_EXCEPTION:
+        return True
     if field == CURRENT_PARTICIPATION:
         return payload["today_participation"]["source"] == "catalog_default"
     if payload["alternative"].get("car_id") != field.removeprefix(ALTERNATIVE_PARTICIPATION):
@@ -802,6 +895,8 @@ def _recompute_as_pending(
 
 def _uses_pending(payload: Mapping[str, Any], field: str) -> bool | None:
     """Whether this comparison waited for `field` (None: it didn't use it)."""
+    if field == GROUP_EXCEPTION:
+        return GROUP_EXCEPTION in payload.get("view", {}).get("pending_fields", [])
     if field == CURRENT_PARTICIPATION:
         return bool(payload["today_participation"]["pending_rep"])
     if payload["alternative"].get("car_id") != field.removeprefix(ALTERNATIVE_PARTICIPATION):
@@ -833,10 +928,11 @@ _EVENT_ONLY = frozenset(
 
 
 def settled_compare_results(
-    services: Services, session_id: str, ticket_id: str
+    services: Services, session_id: str, ticket_id: str, fields: list[str] | None = None
 ) -> list[dict[str, Any]]:
-    """The comparisons the server settled when `ticket_id` was answered, each in the exact
-    shape compare returns (what the model would have got by calling compare itself)."""
+    """The comparisons the server settled when `ticket_id` was answered (only those settled by
+    `fields`, one part of a partial answer, when given), each in the exact shape compare
+    returns (what the model would have got by calling compare itself)."""
     return [
         {"ok": True, **{k: v for k, v in e.payload.items() if k not in _EVENT_ONLY}}
         for e in services.store.events_after(session_id)
@@ -844,6 +940,7 @@ def settled_compare_results(
         and e.payload.get("origin") == "server"
         and e.payload.get("ticket_id") == ticket_id
         and "answered_field" in e.payload
+        and (fields is None or e.payload["answered_field"] in fields)
     ]
 
 
@@ -860,7 +957,7 @@ def _recompute_latest(
     ]
     targets: dict[int, str] = {}  # event seq -> the field it concerns
     for field in fields:
-        if not is_participation(field):
+        if not (is_participation(field) or field == GROUP_EXCEPTION):
             continue
         for event in reversed(comparisons):  # the latest comparison that used the field
             used = needs_recompute(event.payload, field)

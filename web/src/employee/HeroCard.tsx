@@ -8,6 +8,7 @@ import { Needle } from "../ui/Needle";
 import { SourceChip } from "../ui/SourceChip";
 import { useFreshness } from "./effects";
 import { announcement, SETTLED_FLASH_MS } from "./settle";
+import { BidiText } from "../ui/BidiText";
 
 const TONE = { up: "text-up", down: "text-down", flat: "text-ink" } as const;
 const CAPTION = {
@@ -99,7 +100,7 @@ export function HeroCard({
       />
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-[15px] font-semibold text-navy">
-          {view.alternative_title} לעומת היום
+          <BidiText text={`${view.alternative_title} לעומת היום`} />
         </h2>
         {view.pending ? <SourceChip source="pending_rep" /> : null}
         {comparison.settled ? <FinalChip /> : null}

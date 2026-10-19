@@ -18,18 +18,27 @@ Check types (one key per check):
     reply            {turn?, matches?, not_matches?}   regexes on the shown replies of `turn`
                      (default: all replies); every `matches` regex must match some reply,
                      no `not_matches` regex may match any
+    options_reply    {top?, turn?}   the reply after the last list_options (at or before `turn`)
+                     leads with its `top` (default 3) best eligible options: the first `top`
+                     options it names are exactly those. Naming more options after them, or one
+                     that is not eligible (to say why), is fine
 
 `input` / `result` are subsets: dicts match key by key, an expected list must be contained in
 the actual list, numbers match by value ("18500" == 18500). Turns are 0-based script indices.
 
 Global checks run on every scenario: no agent errors, every shown reply passes the number
-guard (re-checked), and no forbidden phrase (a recommendation, a national ID request).
+guard (re-checked), no forbidden phrase (a recommendation, a national ID request), and no
+"תלוש" in a reply unless an employee message at or before that turn had it.
 """
 
 import re
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from typing import Any
+
+# A word a reply may use only after the employee used it first (the agent never brings up a
+# payslip: there is no upload; if the employee does, the data can simply be typed in).
+ONLY_AFTER_EMPLOYEE_HE = {"payslip": "תלוש"}
 
 FORBIDDEN_HE = {
     "recommendation": r"כדאי לך",
@@ -55,6 +64,7 @@ _ARGS: dict[str, set[str]] = {
     },
     "slot": {"field", "value", "state", "source", "absent"},
     "reply": {"turn", "matches", "not_matches"},
+    "options_reply": {"top", "turn"},
 }
 _REQUIRED: dict[str, set[str]] = {"tool_called": {"name"}, "tool_not_called": {"name"}}
 
@@ -95,6 +105,7 @@ class Trace:
     # (turn, violations) for every shown reply, re-checked by the guard after the run
     guard_rechecks: list[tuple[int, list[str]]] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)  # e.g. a rep turn with no open ticket
+    employee_messages: list[tuple[int, str]] = field(default_factory=list)  # (turn, text)
 
 
 @dataclass
@@ -237,12 +248,59 @@ def _reply(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
     return (not problems), "; ".join(problems)
 
 
+# How a reply names the waiver option (a car is named by its commercial name).
+WAIVER_HE = "ויתור"
+
+
+def _option_name(option: dict[str, Any]) -> str:
+    return WAIVER_HE if option["scenario"]["kind"] == "waiver" else option["commercial_name"]
+
+
+def _named_at(text: str, name: str) -> int | None:
+    """Where `name` is first named in `text`: a whole Latin token, so "COROLLA" is not found in
+    "COROLLA CROSS" and "MAZDA 3" is not found in "MAZDA 30"."""
+    if name == WAIVER_HE:
+        found = re.search(WAIVER_HE, text)
+    else:
+        found = re.search(
+            rf"(?<![A-Za-z0-9]){re.escape(name)}(?![A-Za-z0-9]|[ .\-][A-Za-z])", text, re.I
+        )
+    return found.start() if found else None
+
+
+def _options_reply(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
+    turn = args.get("turn")
+    listed = [
+        c
+        for c in trace.calls
+        if c.name == "list_options" and c.ok and (turn is None or c.turn <= turn)
+    ]
+    if not listed:
+        return False, "no list_options result"
+    call = listed[-1]
+    texts = [r.text for r in trace.replies if r.turn == call.turn and r.kind != "error"]
+    if not texts:
+        return False, f"no reply in t{call.turn}"
+    options = call.result.get("options", [])
+    top = args.get("top", 3)
+    best = [_option_name(o) for o in options if o["eligibility"]["status"] == "eligible"][:top]
+    named = sorted(
+        (at, name)
+        for name in dict.fromkeys(_option_name(o) for o in options)
+        if (at := _named_at(texts[-1], name)) is not None
+    )
+    first = [name for _, name in named[:top]]
+    detail = f"leads with {first}; top {top} eligible {best}"
+    return set(first) == set(best), detail
+
+
 _CHECKS = {
     "tool_called": _tool_called,
     "tool_not_called": _tool_not_called,
     "comparison": _comparison,
     "slot": _slot,
     "reply": _reply,
+    "options_reply": _options_reply,
 }
 
 
@@ -270,6 +328,13 @@ def global_checks(trace: Trace) -> list[CheckResult]:
         for name, pattern in FORBIDDEN_HE.items()
         if re.search(pattern, r.text)
     ]
+    unprompted = [
+        f"t{r.turn} {name}"
+        for r in shown
+        for name, word in ONLY_AFTER_EMPLOYEE_HE.items()
+        if word in r.text
+        and not any(word in text for turn, text in trace.employee_messages if turn <= r.turn)
+    ]
     return [
         CheckResult(
             "[global] script ran as written", not trace.problems, "; ".join(trace.problems)
@@ -281,4 +346,9 @@ def global_checks(trace: Trace) -> list[CheckResult]:
         ),
         CheckResult("[global] shown numbers pass the guard", not violations, "; ".join(violations)),
         CheckResult("[global] no forbidden phrases", not forbidden, "; ".join(forbidden)),
+        CheckResult(
+            "[global] no payslip unless the employee mentioned one",
+            not unprompted,
+            "; ".join(unprompted),
+        ),
     ]

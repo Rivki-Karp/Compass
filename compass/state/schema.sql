@@ -62,3 +62,9 @@ CREATE TABLE IF NOT EXISTS events (
     created_at    TEXT NOT NULL,
     PRIMARY KEY (session_id, seq)
 );
+
+-- Model spend per UTC day, across every session (the live server's daily cap). Micro-USD.
+CREATE TABLE IF NOT EXISTS daily_spend (
+    day        TEXT PRIMARY KEY,  -- YYYY-MM-DD, UTC
+    micro_usd  INTEGER NOT NULL
+);

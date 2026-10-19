@@ -1,0 +1,47 @@
+name: group_exception
+description: 'Today''s car above the occupation''s group, a claimed special approval and an unknown
+  participation: one ticket for both, the rep approves ג and 300 -> ATTO 3 eligible, +661'
+turns:
+- employee: אני מפתח תוכנה. שכר בסיס 18,500, אין לי עמלות או בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%, 3
+    נקודות זיכוי. היום יש לי קורולה קרוס 2025 — יש לי אישור מיוחד לקבוצה ג', ואני לא יודע כמה אני משתתף
+    בה. אפשר לבדוק את שניהם מול הנציג? ומה יקרה לנטו אם אעבור ל-ATTO 3?
+- rep:
+    field: group_exception
+    values:
+      current_participation: 300
+      group_exception: ג
+checks:
+- tool_called:
+    name: ask_representative
+    ok: true
+    turn: 0
+    input:
+      blocking_fields:
+      - current_participation
+      - group_exception
+# The employee's word is not an approval: the model never sets the group itself.
+- tool_not_called:
+    name: save_profile
+    input:
+      group: ג
+- slot:
+    field: group
+    value: ג
+    source: representative
+- slot:
+    field: current_participation
+    source: representative
+# After the answer: the group is ג (eligibility re-checked), today's participation confirmed.
+- comparison:
+    alternative:
+      kind: car
+      car_id: CAR-10
+    turn: 1
+    today_net: 11000
+    alternative_net: 11661
+    diff: 661
+    hypothetical: false
+- reply:
+    turn: 1
+    matches:
+    - נציג

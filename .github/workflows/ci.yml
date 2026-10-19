@@ -144,7 +144,8 @@ jobs:
           done
           docker inspect --format '{{.State.Health.Status}}' compass
           test "$status" = healthy
-          test "$(docker exec compass id -u)" != 0
+          # the server (PID 1, after the entrypoint's gosu) runs as the app user, never root
+          test "$(docker exec compass awk '/^Uid:/{print $2}' /proc/1/status)" = 10001
 
       - name: Image size
         run: docker image ls compass:ci --format '{{.Repository}}:{{.Tag}} {{.Size}}'

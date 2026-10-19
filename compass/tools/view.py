@@ -20,17 +20,25 @@ from compass.engine.models import DeltaLineName
 from compass.labels import (
     COMPUTED_BY_LABELS,
     DELTA_LABELS,
+    GROUP_NOT_APPROVED_LABEL,
     RULE_LABELS,
     alternative_title,
     car_details,
     field_label,
+    group_approved_label,
     group_label,
     group_letter,
     ticket_field_title,
     warning_message,
 )
 from compass.state import Slot, Ticket
-from compass.tools.profile import ALTERNATIVE_PARTICIPATION, CURRENT_PARTICIPATION, SLOT_OF
+from compass.tools.profile import (
+    ALTERNATIVE_PARTICIPATION,
+    CURRENT_PARTICIPATION,
+    GROUP_EXCEPTION,
+    NOT_APPROVED,
+    SLOT_OF,
+)
 from compass.tools.services import Services
 
 VIEW_VERSION = 1
@@ -318,6 +326,26 @@ def build_view(
         for tool, unit in _PROFILE_INPUTS
         if SLOT_OF[tool] in slots and slots[SLOT_OF[tool]].state != "unknown"
     ]
+    exception = slots.get(GROUP_EXCEPTION)
+    if exception is not None and exception.state == "pending_rep":
+        # the group in effect until a representative answers the group exception
+        inputs = [i for i in inputs if i.id != "group"]
+        group_input = (
+            _profile_input(services, "group", "text", slots["group"])
+            if ("group" in slots and slots["group"].state != "unknown")
+            else None
+        )
+        inputs.insert(
+            1 if inputs and inputs[0].id == "occupation" else 0,
+            ViewInput(
+                id="group",
+                label=field_label("group"),
+                value=None if group_input is None else group_input.value,
+                unit="text",
+                source="pending_rep",
+                ticket_field=GROUP_EXCEPTION,
+            ),
+        )
     inputs += _scenario_inputs(services, payload, today_label)
     present = {i.id for i in inputs}
 
@@ -400,19 +428,43 @@ def _computed_by(payload: Mapping[str, Any]) -> ViewComputedBy:
 # --- the representative's inbox ---------------------------------------------------------------
 
 
-class TicketFieldView(_View):
-    field: str  # the ticket's field, e.g. "alternative_participation:CAR-10"
-    label: str
-    unit: Unit
-    car_id: str | None
-    car_name: str | None
-    catalog_default: int | None  # the participation the comparison uses until answered
+class TicketOptionView(_View):
+    value: str  # what the answer sends for the field, e.g. "ג" or "not_approved"
+    label: str  # "מאושר לקבוצה ג׳"
+
+
+class TicketFactView(_View):
+    label: str  # "קבוצה לפי העיסוק"
+    value: str  # "קבוצה ב׳"
 
 
 class TicketComparisonView(_View):
     alternative_title: str
     display_diff: int
     pending: bool
+
+
+class TicketFieldView(_View):
+    field: str  # the ticket's field, e.g. "alternative_participation:CAR-10"
+    title: str  # the section heading, e.g. "השתתפות עצמית" / "אישור חריג לקבוצה"
+    label: str
+    unit: Unit
+    car_id: str | None
+    car_name: str | None
+    # the participation the comparison uses until answered; None: today's car is not in the
+    # catalog (the screen says so)
+    catalog_default: int | None
+    # A field answered by a choice (group_exception: radio buttons); empty for a typed value.
+    options: list[TicketOptionView] = []
+    # What the representative needs to decide it, as text tiles (group_exception).
+    facts: list[TicketFactView] = []
+    # Answered in an earlier part of a partial answer (the ticket stays open for the rest):
+    # what the representative answered, display-ready (whole ILS, or the chosen option's label).
+    answered: bool = False
+    answer: int | str | None = None
+    # The employee's latest comparison that this field affects: that car's own comparison for a
+    # car's participation; the latest one otherwise. Never another car's.
+    comparison: TicketComparisonView | None = None
 
 
 class TicketView(_View):
@@ -425,7 +477,76 @@ class TicketView(_View):
 _PROFILE_UNITS: dict[str, Unit] = dict(_PROFILE_INPUTS)
 
 
-def _ticket_field(services: Services, field: str) -> TicketFieldView:
+def _group_exception_field(services: Services, session_id: str) -> TicketFieldView:
+    """The choices for a group exception: each group above the occupation's group, up to
+    today's car's group (all of them when today's car is not above it or not in the catalog),
+    then "not approved"."""
+    ctx = services.ctx
+    order = list(ctx.rules.group_order)
+    slots = services.store.slots(session_id)
+
+    def filled(slot_field: str) -> Any:
+        slot = slots.get(slot_field)
+        return slot.value if slot is not None and slot.state == "filled" else None
+
+    occupation = ctx.occupations.get(filled("occupation") or "")
+    base = occupation.group if occupation is not None else filled("group")
+    stored = services.store.scenarios(session_id).get("today") or {}
+    car = ctx.catalog.get((stored.get("scenario") or {}).get("car_id") or "")
+    car_group = car.group if car is not None and car.group in order else None
+    start = order.index(base) + 1 if base in order else 0
+    above = car_group is not None and order.index(car_group) >= start
+    end = order.index(car_group) + 1 if above else len(order)
+    options = [TicketOptionView(value=g, label=group_approved_label(g)) for g in order[start:end]]
+    options.append(TicketOptionView(value=NOT_APPROVED, label=GROUP_NOT_APPROVED_LABEL))
+    facts = []
+    if base in order:
+        where = "קבוצה לפי העיסוק" if occupation is not None else "הקבוצה שנמסרה"
+        facts.append(TicketFactView(label=where, value=group_label(base)))
+    today = _today_title(stored)
+    if today:
+        value = today if car_group is None else f"{today} · {group_label(car_group)}"
+        facts.append(TicketFactView(label=field_label("today_car"), value=value))
+    return TicketFieldView(
+        field=GROUP_EXCEPTION,
+        title=ticket_field_title(GROUP_EXCEPTION),
+        label=field_label(GROUP_EXCEPTION),
+        unit="text",
+        car_id=None,
+        car_name=None,
+        catalog_default=None,
+        options=options,
+        facts=facts,
+    )
+
+
+def _current_car_field(services: Services, session_id: str) -> TicketFieldView:
+    """Today's participation: today's car with its registration year ("COROLLA CROSS 2025"),
+    and the catalog default when today's car is a catalog car (None otherwise)."""
+    stored = services.store.scenarios(session_id).get("today") or {}
+    scenario = stored.get("scenario") or {}
+    car = services.ctx.catalog.get(scenario.get("car_id") or "")
+    name = _today_title(stored) if scenario.get("kind") != "current_maintenance" else None
+    if car is not None and name == car.commercial_name:  # no year given: the catalog's
+        name = f"{name} {car.registration_year}"
+    return TicketFieldView(
+        field=CURRENT_PARTICIPATION,
+        title=ticket_field_title(CURRENT_PARTICIPATION),
+        label=field_label(CURRENT_PARTICIPATION),
+        unit="ils",
+        car_id=None if car is None else car.id,
+        car_name=name or None,
+        catalog_default=None
+        if car is None
+        else to_display(car.default_employee_participation, services.ctx.rules),
+    )
+
+
+def _ticket_field(services: Services, ticket: Ticket, field: str) -> TicketFieldView:
+    if field == GROUP_EXCEPTION:
+        return _group_exception_field(services, ticket.session_id)
+    if field == CURRENT_PARTICIPATION:
+        return _current_car_field(services, ticket.session_id)
     car_id: str | None = None
     if field.startswith(ALTERNATIVE_PARTICIPATION):
         car_id = field.removeprefix(ALTERNATIVE_PARTICIPATION)
@@ -436,6 +557,7 @@ def _ticket_field(services: Services, field: str) -> TicketFieldView:
     participation = field == CURRENT_PARTICIPATION or car_id is not None
     return TicketFieldView(
         field=field,
+        title=ticket_field_title(field),
         label=field_label(field),
         unit="ils" if participation else _PROFILE_UNITS.get(field, "text"),
         car_id=car_id,
@@ -444,22 +566,62 @@ def _ticket_field(services: Services, field: str) -> TicketFieldView:
     )
 
 
+def _ticket_comparison(view: Mapping[str, Any] | None) -> TicketComparisonView | None:
+    if view is None:
+        return None
+    return TicketComparisonView(
+        alternative_title=view["alternative_title"],
+        display_diff=view["display_diff"],
+        pending=view["pending"],
+    )
+
+
+def _answer_display(services: Services, field: TicketFieldView, raw: Any) -> int | str | None:
+    if field.options:
+        return next((o.label for o in field.options if o.value == raw), str(raw))
+    if field.unit == "ils":
+        return to_display(Decimal(str(raw).replace(",", "")), services.ctx.rules)
+    return None if raw is None else str(raw)
+
+
+def _ticket_title(fields: list[TicketFieldView]) -> str:
+    """Built from the fields, never from the model's question: "השתתפות עצמית · MG4",
+    "השתתפות עצמית · 3 רכבים", and the other fields' titles, joined with " + "."""
+    cars = [f for f in fields if f.field.startswith(ALTERNATIVE_PARTICIPATION)]
+    parts: list[str] = []
+    for f in fields:
+        if f in cars:
+            if f is cars[0]:
+                what = f.car_name if len(cars) == 1 else f"{len(cars)} רכבים"
+                parts.append(f"{f.title} · {what}")
+        else:
+            parts.append(f"{f.title} · {f.car_name}" if f.car_name else f.title)
+    return " + ".join(parts) if parts else "שאלה מהעובד/ת"
+
+
 def build_ticket_view(services: Services, ticket: Ticket) -> dict[str, Any]:
     """Display-ready facts for one ticket in the representative's inbox, JSON-ready."""
-    fields = [_ticket_field(services, f) for f in ticket.blocking_fields]
-    first = ticket.blocking_fields[0] if ticket.blocking_fields else None
-    title = "שאלה מהעובד/ת" if first is None else ticket_field_title(first)
-    if fields and fields[0].car_name:
-        title = f"{title} · {fields[0].car_name}"
-    last = services.store.last_comparison(ticket.session_id)
-    view = (last or {}).get("view")
-    comparison = (
-        None
-        if view is None
-        else TicketComparisonView(
-            alternative_title=view["alternative_title"],
-            display_diff=view["display_diff"],
-            pending=view["pending"],
+    views = [
+        e.payload.get("view")
+        for e in services.store.events_after(ticket.session_id)
+        if e.type == "comparison_ready"
+    ]
+    latest = views[-1] if views else None
+
+    def latest_for(car_id: str) -> Mapping[str, Any] | None:
+        return next((v for v in reversed(views) if v and v["alternative_car_id"] == car_id), None)
+
+    answered: dict[str, Any] = (ticket.answer or {}).get("values") or {}
+    fields = []
+    for name in ticket.blocking_fields:
+        field = _ticket_field(services, ticket, name)
+        car_view = (
+            latest_for(field.car_id) if field.car_id and name != CURRENT_PARTICIPATION else latest
         )
-    )
-    return TicketView(title=title, fields=fields, comparison=comparison).model_dump(mode="json")
+        update: dict[str, Any] = {"comparison": _ticket_comparison(car_view)}
+        if name in answered:
+            update |= {"answered": True, "answer": _answer_display(services, field, answered[name])}
+        fields.append(field.model_copy(update=update))
+    return TicketView(
+        title=_ticket_title(fields), fields=fields, comparison=_ticket_comparison(latest)
+    ).model_dump(mode="json")

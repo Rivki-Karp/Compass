@@ -100,12 +100,20 @@ export interface PayloadByType {
     answered_field?: string; // the server settled it when the rep answered this field
     [key: string]: unknown;
   };
+  comparison_set_ready: {
+    origin: "server";
+    tool: "list_options";
+    // every eligible alternative, best first, each with the view compare would give it
+    options: { alternative: Record<string, unknown>; view: ComparisonView }[];
+  };
   ticket_opened: { ticket: Ticket };
   ticket_answered: {
     ticket_id: string;
-    answer: unknown;
+    answer: unknown; // this answer (one part of a partial one)
     fields: Record<string, unknown>;
     unknown: string[];
+    partial?: boolean; // the ticket stays open: `pending` fields still wait for the rep
+    pending?: string[];
   };
   agent_started: { trigger: "employee_turn" | "rep_answer" };
   agent_finished: {
@@ -157,6 +165,8 @@ export interface Health {
   llm: "anthropic" | "scripted" | "none";
   demo_scripts: DemoScript[] | null;
   dev_tools: boolean;
+  /** Whether each token is set on the server (never its value). */
+  auth?: { rep: boolean; admin: boolean };
 }
 
 /** GET /api/admin/stats: judges mode's tiles, from committed files. Money is display-ready

@@ -90,7 +90,12 @@ def profile_warnings(
     warnings: list[EngineWarning] = []
     order = ctx.rules.group_order
     occupation = None if profile.occupation is None else ctx.occupations.get(profile.occupation)
-    if profile.group is not None and occupation is not None and occupation.group != profile.group:
+    if (
+        profile.group is not None
+        and occupation is not None
+        and occupation.group != profile.group
+        and not profile.group_approved
+    ):
         warnings.append(
             EngineWarning(
                 code="group_mismatch_with_occupation",

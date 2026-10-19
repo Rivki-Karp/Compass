@@ -58,6 +58,9 @@ class EmployeeProfile(_Frozen):
     study_fund_pct: OptionalFraction = None  # employee study-fund rate, 0.025 = 2.5%
     credit_points: OptionalAmount = None
     children_under_23: Annotated[int | None, Field(ge=0)] = None
+    # A representative approved this group (an exception above the occupation's group): it is
+    # not flagged as a mismatch with the occupation. None: no approval (like every default here).
+    group_approved: bool | None = None
 
 
 # --- scenarios ------------------------------------------------------------------------------
