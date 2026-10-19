@@ -85,8 +85,8 @@ def _llm(value: str | None) -> str:
     return value
 
 
-# Cross-origin callers (the UI as a Render static site): none by default, same origin only. In dev the
-# Vite proxy keeps the browser on one origin, so it needs none either.
+# Cross-origin callers (the UI as a Render static site): none by default, same origin only. In
+# dev the Vite proxy keeps the browser on one origin, so it needs none either.
 DEFAULT_CORS_ORIGINS: tuple[str, ...] = ()
 
 

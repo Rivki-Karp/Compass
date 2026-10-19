@@ -59,7 +59,8 @@ REPO = BACKEND.parent
 def test_render_blueprint() -> None:
     blueprint = yaml.safe_load((REPO / "render.yaml").read_text(encoding="utf-8"))
     service, web = blueprint["services"]
-    assert (service["name"], service["type"], service["runtime"]) == ("compass-api", "web", "docker")
+    assert service["name"] == "compass-api"
+    assert (service["type"], service["runtime"]) == ("web", "docker")
     # with rootDir, Render resolves the Docker paths inside it
     assert service["rootDir"] == "backend"
     assert service["dockerfilePath"] == "./Dockerfile"
