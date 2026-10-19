@@ -12,7 +12,16 @@ from compass.agent.llm import ScriptedClient, Usage, text_response, tool_respons
 from compass.api.settings import Settings
 from compass.state import Store
 from compass.tools.services import Services
-from evals.checks import Comparison, Reply, Trace, evaluate, global_checks, matches, parse_check
+from evals.checks import (
+    Call,
+    Comparison,
+    Reply,
+    Trace,
+    evaluate,
+    global_checks,
+    matches,
+    parse_check,
+)
 from evals.harness import Harness, RunResult
 from evals.report import Ledger, OverBudget, render
 from evals.scenario import FALLBACK_HE, Scenario, load_all
@@ -261,6 +270,63 @@ def test_a_payslip_only_after_the_employee_mentions_one() -> None:
         replies=[Reply(0, "אפשר להעלות תלוש", "reply")],
     )
     assert check(early)[0] is False
+
+
+# list_options for E-001 (round 2, all_options repeat 2): best first, the eligible ones first
+_OPTIONS = (
+    [("waiver", None, "eligible")]
+    + [
+        ("company_car", name, "eligible")
+        for name in ["MG4", "BYD DOLPHIN", "KONA EV", "PICANTO", "EV3", "ATTO 3", "NIRO"]
+        + ["YARIS CROSS HSD", "LEON", "COROLLA", "MAZDA 3", "TUCSON"]
+    ]
+    + [("family_car", name, "not_eligible") for name in ["SANTA FE", "CARNIVAL"]]
+)
+
+
+def _options_trace(reply: str) -> Trace:
+    options = [
+        {"scenario": {"kind": kind}, "eligibility": {"status": status}}
+        | ({"commercial_name": name} if name else {})
+        for kind, name, status in _OPTIONS
+    ]
+    call = Call(0, "list_options", {}, True, {"ok": True, "options": options})
+    return Trace(calls=[call], replies=[Reply(0, reply, "reply")])
+
+
+def _options_reply(reply: str) -> tuple[bool, str]:
+    (result,) = evaluate(_options_trace(reply), [{"options_reply": {"top": 3}}])[:1]
+    return result.passed, result.detail
+
+
+def test_options_reply_leads_with_the_top_three_and_may_name_more() -> None:
+    # round 2, all_options repeat 2: failed on "TUCSON"/"MAZDA 3", both eligible, numbers from
+    # the set; it leads with the top three, so it passes now
+    reply = (
+        "הרכב של היום: קורולה קרוס 2025. האפשרויות המובילות: - **ויתור על הרכב:** +3,199 ₪. "
+        "- **MG4 (חשמלי, קבוצה ב'):** +1,013 ₪. - **BYD DOLPHIN (חשמלי):** +994 ₪. "
+        "יש גם KONA EV ו-EV3. ההפרש בחלקם שלילי, למשל MAZDA 3 ו-TUCSON. "
+        "המסלול המשפחתי (SANTA FE ו-CARNIVAL) לא זמין לך."
+    )
+    assert _options_reply(reply)[0] is True
+    # in another order is fine; the top three are what it leads with
+    assert _options_reply("MG4, BYD DOLPHIN, ויתור על הרכב, ואחר כך TUCSON")[0] is True
+
+
+def test_options_reply_fails_when_a_worse_option_comes_first() -> None:
+    passed, detail = _options_reply("TUCSON, MG4, BYD DOLPHIN ואחר כך ויתור")
+    assert passed is False
+    assert "TUCSON" in detail
+    # an ineligible car before the top three is not leading with them either
+    assert _options_reply("SANTA FE לא זמין. ויתור, MG4, BYD DOLPHIN")[0] is False
+
+
+def test_options_reply_reads_whole_names() -> None:
+    # "COROLLA CROSS 2025" is today's car, not the COROLLA option; "ATTO 3 2025" is ATTO 3
+    assert _options_reply("היום COROLLA CROSS 2025. ויתור, MG4, BYD DOLPHIN")[0] is True
+    assert _options_reply("ATTO 3 2025, ויתור, MG4")[0] is False
+    assert _options_reply("no list")[1].startswith("leads with []")
+    assert evaluate(Trace(), [{"options_reply": {}}])[0].detail == "no list_options result"
 
 
 def test_comparison_check_picks_the_last_matching_compare() -> None:
