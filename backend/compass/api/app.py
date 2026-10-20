@@ -34,6 +34,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sse_starlette import EventSourceResponse, ServerSentEvent
 from starlette.concurrency import run_in_threadpool
 
+from compass.api.admin_users import add_admin_user_routes
 from compass.api.agent import AgentRunner
 from compass.api.auth import Auth, add_auth_routes, mark_guard
 from compass.api.broker import TICKETS, Broker
@@ -230,8 +231,8 @@ def create_app(
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),
-        # (DELETE: a user deleting their own conversation, only with accounts on)
-        allow_methods=["GET", "POST", "DELETE"] if settings.auth else ["GET", "POST"],
+        # (PATCH, DELETE: conversations and the admin's user management, only with accounts on)
+        allow_methods=["GET", "POST", "PATCH", "DELETE"] if settings.auth else ["GET", "POST"],
         # Content-Type: the JSON bodies; Last-Event-ID: an SSE stream resuming (frontend sse.ts)
         allow_headers=["Authorization", "Content-Type", "Last-Event-ID"],
     )
@@ -476,8 +477,9 @@ def create_app(
     if auth is not None:
         add_auth_routes(api, settings, auth, app.state.login_guard)
 
-    # /api/conversations (COMPASS_AUTH=1; off: the routes do not exist)
+    # /api/conversations and /api/admin/users, /api/admin/invites (COMPASS_AUTH=1; off: absent)
     if auth is not None:
+        add_admin_user_routes(api, settings, auth, accounts, store, broker)
         add_conversation_routes(api, store, broker, auth.current_user, session_access)
 
     # POST /api/sessions/{id}/payslip (COMPASS_PAYSLIP=1, otherwise 404)

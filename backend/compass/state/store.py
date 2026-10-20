@@ -317,6 +317,13 @@ class Store:
                 )
         return rows
 
+    def owned_session_ids(self, owner_user_id: str) -> list[str]:
+        with self._read() as conn:
+            rows = conn.execute(
+                "SELECT id FROM sessions WHERE owner_user_id = ?", (owner_user_id,)
+            ).fetchall()
+        return [r["id"] for r in rows]
+
     def delete_session(self, session_id: str) -> bool:
         """Delete a conversation and everything of it: messages, events (the pending payslip
         candidate among them), profile, scenarios and tickets (open ones included). Pages are

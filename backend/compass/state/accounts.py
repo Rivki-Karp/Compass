@@ -23,6 +23,10 @@ LAST_SEEN_EVERY = timedelta(minutes=1)
 KEEP_EXPIRED = timedelta(days=1)
 
 
+class LastAdminError(Exception):
+    """The change would leave no active admin."""
+
+
 class User(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -134,6 +138,66 @@ class Accounts:
                 count += 1
         return count
 
+    def list_users(self) -> list[User]:
+        """Every account, oldest first."""
+        with self.store._read() as conn:
+            rows = conn.execute("SELECT * FROM users ORDER BY created_at, email").fetchall()
+        return [_user(r) for r in rows]
+
+    def count_active_admins(self) -> int:
+        with self.store._read() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM users WHERE role = 'admin' AND status = 'active'"
+            ).fetchone()
+        return int(row[0])
+
+    @staticmethod
+    def _guard_last_admin(conn: Any, user_id: str) -> None:
+        """Inside the write transaction (so two admins removing each other cannot both pass):
+        refuse to remove the only active admin."""
+        count = conn.execute(
+            "SELECT COUNT(*) FROM users WHERE role = 'admin' AND status = 'active'"
+        ).fetchone()[0]
+        target = conn.execute(
+            "SELECT 1 FROM users WHERE id = ? AND role = 'admin' AND status = 'active'", (user_id,)
+        ).fetchone()
+        if target is not None and count <= 1:
+            raise LastAdminError
+
+    def update_user(self, user_id: str, role: str | None, status: str | None) -> User | None:
+        """Set the role and/or status; a disabled user's login sessions end at once. None: no
+        such user. Raises LastAdminError if it would leave no active admin."""
+        with self.store._write() as (conn, _events):
+            if conn.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone() is None:
+                return None
+            if (role is not None and role != "admin") or status == "disabled":
+                self._guard_last_admin(conn, user_id)
+            if role is not None:
+                conn.execute("UPDATE users SET role = ? WHERE id = ?", (role, user_id))
+            if status is not None:
+                conn.execute("UPDATE users SET status = ? WHERE id = ?", (status, user_id))
+            if status == "disabled":
+                conn.execute(
+                    "UPDATE auth_sessions SET revoked_at = ? WHERE user_id = ? "
+                    "AND revoked_at IS NULL",
+                    (self._now(), user_id),
+                )
+        return self.user_by_id(user_id)
+
+    def delete_user(self, user_id: str) -> bool:
+        """Delete the account, its login sessions and its invites, in one transaction (its
+        conversations are the caller's to delete afterwards). False: no such user. Raises
+        LastAdminError if it is the only active admin."""
+        with self.store._write() as (conn, _events):
+            row = conn.execute("SELECT email FROM users WHERE id = ?", (user_id,)).fetchone()
+            if row is None:
+                return False
+            self._guard_last_admin(conn, user_id)
+            conn.execute("DELETE FROM auth_sessions WHERE user_id = ?", (user_id,))
+            conn.execute("DELETE FROM invites WHERE email = ?", (row["email"],))
+            conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        return True
+
     def record_login(self, user_id: str) -> None:
         with self.store._write() as (conn, _events):
             conn.execute("UPDATE users SET last_login_at = ? WHERE id = ?", (self._now(), user_id))
@@ -143,7 +207,14 @@ class Accounts:
     def create_invite(self, email: str, role: str, created_by: str, ttl_hours: float) -> str:
         """A new one-time invite for `email`, replacing its unused one. Returns the code as the
         admin sees it (XXXXX-XXXXX): the only time it exists in plain text."""
+        return self.issue_invite(email, role, created_by, ttl_hours)[0]
+
+    def issue_invite(
+        self, email: str, role: str, created_by: str, ttl_hours: float
+    ) -> tuple[str, str]:
+        """create_invite, with the time it expires: (code, expires_at)."""
         code = new_invite_code()
+        expires_at = self._later(ttl_hours)
         with self.store._write() as (conn, _events):
             email = normalize_email(email)
             conn.execute("DELETE FROM invites WHERE email = ? AND used_at IS NULL", (email,))
@@ -157,10 +228,10 @@ class Accounts:
                     hash_secret(code),
                     created_by,
                     self._now(),
-                    self._later(ttl_hours),
+                    expires_at,
                 ),
             )
-        return format_code(code)
+        return format_code(code), expires_at
 
     def register(
         self, email: str, code: str, name: str, password_hash: str, session_ttl_hours: float
