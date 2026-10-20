@@ -260,6 +260,9 @@ ERROR_MESSAGES: dict[str, Callable[[Params], str]] = {
     "payslip_too_many_pages": lambda p: f"אפשר להעלות תלוש של עד {p['max']} עמודים.",
     "payslip_unreadable": lambda p: "לא הצלחנו לפתוח את הקובץ. נסו קובץ אחר.",
     "payslip_unavailable": lambda p: "קריאת תלושים לא זמינה כרגע. אפשר להזין את הנתונים בצ'אט.",
+    "payslip_extraction_failed": lambda p: (
+        "לא הצלחנו לקרוא את נתוני השכר מהתלוש. אפשר לנסות שוב או להזין אותם בצ'אט."
+    ),
 }
 
 

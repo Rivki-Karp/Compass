@@ -118,6 +118,63 @@ function Room({ turns }: { turns: typeof guardRetry.turns }) {
   return <EngineRoom turns={turns} selected={selected} onSelect={setSelected} />;
 }
 
+describe("the payslip read", () => {
+  const log = walkthroughLog as SessionEvent[];
+  const last = must(log.at(-1));
+  const at = (offset: number, type: string, payload: unknown) =>
+    ({ ...last, seq: last.seq + offset, type, payload }) as SessionEvent;
+  const events = [
+    ...log,
+    at(1, "payslip_extracted", {
+      fields: {
+        base_salary: { value: "18500", confidence: "high", flag: null },
+        pension_percent: { value: null, confidence: "high", flag: "out_of_range" },
+      },
+      dropped_keys: 2,
+      model: "claude-haiku-5-5",
+      fallback: false,
+      latency_ms: 2100,
+      cost_usd: 0.0002,
+    }),
+    at(2, "payslip_failed", { code: "payslip_extraction_failed" }),
+    at(3, "agent_started", { trigger: "employee_turn" }),
+  ];
+  const state = events.reduce(reduce, initialSession);
+  const turn = must(state.turns.at(-1));
+
+  it("goes to the next run's cards, with its fields and the failure", () => {
+    const cards = engineCards(turn);
+    expect(cards.map((c) => c.kind)).toEqual(["payslip", "payslip_failed"]);
+    const card = must(cards[0]);
+    if (card.kind !== "payslip") throw new Error();
+    expect(card.fields.map(([name]) => name)).toEqual(["base_salary", "pension_percent"]);
+    expect([card.model, card.fallback, card.droppedKeys]).toEqual(["claude-haiku-5-5", false, 2]);
+  });
+
+  it("shows field, value, confidence and flag; never a file", () => {
+    render(<EngineRoom turns={state.turns} selected={null} onSelect={() => {}} />);
+    const table = screen.getByRole("table", { name: "שדות שנקראו מהתלוש" });
+    expect(within(table).getByText("base_salary")).toBeTruthy();
+    expect(within(table).getByText("18500")).toBeTruthy();
+    expect(within(table).getByText("out_of_range")).toBeTruthy();
+    expect(within(table).getAllByText("גבוהה")).toHaveLength(2);
+    expect(screen.getByText("2 מפתחות לא מוכרים נזרקו")).toBeTruthy();
+    expect(screen.getByText("payslip_extraction_failed")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("%PDF");
+  });
+
+  it("without the admin token: the numbers, no model or cost", () => {
+    const publicEvents = events.map((e) =>
+      e.type === "payslip_extracted"
+        ? { ...e, payload: { fields: e.payload.fields, dropped_keys: e.payload.dropped_keys } }
+        : e,
+    ) as SessionEvent[];
+    const card = must(engineCards(must(publicEvents.reduce(reduce, initialSession).turns.at(-1)))[0]);
+    if (card.kind !== "payslip") throw new Error();
+    expect([card.model, card.costUsd]).toEqual([null, null]);
+  });
+});
+
 describe("EngineRoom", () => {
   it("shows the latest run: stats pills, tool cards, the rejected draft struck through", () => {
     render(<Room turns={guardRetry.turns} />);

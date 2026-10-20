@@ -612,6 +612,17 @@ class Store:
             ).fetchone()
         return int(row[0])
 
+    def last_event_payload(self, session_id: str, type_: str) -> Any:
+        """The payload of the session's latest event of `type_`, or None."""
+        with self._read() as conn:
+            self._require_session(conn, session_id)
+            row = conn.execute(
+                "SELECT payload_json FROM events WHERE session_id = ? AND type = ? "
+                "ORDER BY seq DESC LIMIT 1",
+                (session_id, type_),
+            ).fetchone()
+        return None if row is None else json.loads(row[0])
+
     def last_comparison(self, session_id: str) -> dict[str, Any] | None:
         """The payload of the session's latest comparison_ready, if any."""
         with self._read() as conn:

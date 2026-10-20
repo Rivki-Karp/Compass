@@ -12,12 +12,26 @@ import httpx2
 import pytest
 
 from compass.api import Settings
+from compass.payslip.extractor import SYSTEM_PROMPT
 from evals import payslip_live
-from evals.payslip_live import closest_ids, probe_pdf, probe_png, redact, thinking_off
+from evals.payslip_live import EXPECTED, closest_ids, probe_pdf, probe_png, redact
 from evals.report import Ledger
 
 FAKE_KEY = "sk-ant-" + "fake-key-for-tests-" * 2  # built, never a literal
 LISTED = ["claude-haiku-5-5", "claude-opus-5-5", "claude-sonnet-5-5"]
+# a correct read of the synthetic payslip (its invented values)
+READ = json.dumps(
+    {
+        "base_salary": {"value": 18500, "confidence": "high"},
+        "commissions": {"value": 1200, "confidence": "high"},
+        "bonus": {"value": 0, "confidence": "high"},
+        "pension_percent": {"value": 6, "confidence": "high"},
+        "study_fund_percent": {"value": 2.5, "confidence": "high"},
+        "credit_points": {"value": 2.25, "confidence": "medium"},
+        "car_benefit_value": {"value": 3480, "confidence": "high"},
+        "payslip_month": {"value": "2026-09", "confidence": "high"},
+    }
+)
 CAPS = {
     "image_input": {"supported": True},
     "pdf_input": {"supported": True},
@@ -35,7 +49,7 @@ class FakeClient:
         self,
         listed: list[str] = LISTED,
         errors: dict[str, Exception] | None = None,
-        reply: str = '{"ok": true}',
+        reply: str = READ,
         caps: dict[str, Any] = CAPS,
     ) -> None:
         self.calls: list[dict[str, Any]] = []
@@ -100,7 +114,9 @@ def test_both_models_usable_and_the_request_shape(
         ("claude-sonnet-5-5", "image"),
     ]
     for call in client.calls:
-        assert "tools" not in call and "tool_choice" not in call and "system" not in call
+        # the extraction's own request: no tools, no conversation, its fixed system prompt
+        assert "tools" not in call and "tool_choice" not in call
+        assert call["system"] == SYSTEM_PROMPT
         assert call["max_tokens"] == 800 and len(call["messages"]) == 1
         assert call["output_config"]["format"]["type"] == "json_schema"
     assert client.calls[0]["thinking"] == {"type": "disabled"}  # Haiku 5.5
@@ -109,7 +125,8 @@ def test_both_models_usable_and_the_request_shape(
     assert len(entries) == 4 and "provider" not in entries[0]
     # Haiku 5.5: 1500 in at $0.10/M, 10 out at $0.50/M
     assert entries[0]["cost_usd"] == pytest.approx((1500 * 0.10 + 10 * 0.50) / 1e6, abs=1e-6)
-    assert "average/payslip: $0.000155" in out
+    assert "cost/payslip:    $0.000155 (the PDF read)" in out
+    assert out.count(f"read correctly:  {len(EXPECTED)} of {len(EXPECTED)} fields") == 2
     assert FAKE_KEY not in out
 
 
@@ -149,8 +166,8 @@ def test_a_refused_input_or_off_schema_reply_fails(
     bad = _status_error(anthropic.BadRequestError, 400, "unsupported media type")
     code, _ = _run(tmp_path, FakeClient(errors={"claude-haiku-5-5": bad}))
     assert code == 1 and "sent a PDF:      refused: BadRequestError" in capsys.readouterr().out
-    code, _ = _run(tmp_path, FakeClient(reply='{"ok": true, "extra": 1}'))
-    assert code == 1 and "refused: not the schema" in capsys.readouterr().out
+    code, _ = _run(tmp_path, FakeClient(reply="not json at all"))
+    assert code == 1 and "refused: the answer is not JSON" in capsys.readouterr().out
 
 
 def test_a_model_without_pdf_support_is_not_probed(
@@ -169,12 +186,20 @@ def test_no_key_no_call(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
     assert "ANTHROPIC_API_KEY is empty" in capsys.readouterr().out and client.calls == []
 
 
-def test_redact_and_thinking_off() -> None:
+def test_a_wrong_read_is_reported_field_by_field(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    wrong = READ.replace('"value": 18500', '"value": 99999')
+    code, _ = _run(tmp_path, FakeClient(reply=wrong))
+    out = capsys.readouterr().out
+    assert code == 0  # the models work; how well they read is reported, not a failure
+    assert "base_salary          99999 (expected 18500)" in out
+
+
+def test_redact() -> None:
     assert redact(f"x {FAKE_KEY} y", FAKE_KEY) == "x <redacted> y"
     other = "sk-ant-" + "B" * 20  # shaped like a key, not this one
     assert redact(f"key: {other}", None) == "key: <redacted>"
-    assert thinking_off("claude-haiku-5-5") == {"type": "disabled"}
-    assert thinking_off("claude-sonnet-5-5") == {"type": "between_tools"}
 
 
 def test_probe_files_are_what_they_claim() -> None:

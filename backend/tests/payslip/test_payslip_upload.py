@@ -77,7 +77,7 @@ def test_an_unknown_session_is_404(client: TestClient) -> None:
 def test_a_valid_file_passes_every_check(
     client: TestClient, sid: str, body: bytes, content_type: str
 ) -> None:
-    # Stage 3: no extractor yet, so a valid file ends at "unavailable"
+    # live mode without a key has no extractor, so a valid file ends at "unavailable"
     response = upload(client, sid, body, content_type)
     assert response.status_code == 503 and code_of(response) == "payslip_unavailable"
 
@@ -190,7 +190,7 @@ def test_the_daily_spend_cap_in_live_mode_not_in_demo(
     with make_client(llm="scripted", app_db=tmp_path / "demo.db", daily_spend_cap_usd=1.0) as demo:
         sid = demo.post("/api/sessions").json()["id"]
         demo.app.state.services.store.add_spend(today, 99.0)  # type: ignore[attr-defined]
-        assert code_of(upload(demo, sid, pdf())) == "payslip_unavailable"
+        assert upload(demo, sid, pdf()).status_code == 201  # demo mode: no cap, read as scripted
 
 
 def test_the_order_session_cap_before_type_and_size(

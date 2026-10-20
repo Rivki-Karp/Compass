@@ -44,6 +44,7 @@ from compass.config import CATALOG_JSON, OCCUPATIONS_JSON
 from compass.engine.context import ContextError
 from compass.engine.serialize import plain_json
 from compass.labels import error_message
+from compass.payslip.service import build_service
 from compass.rules import RulesError
 from compass.state import NotFound, Store
 from compass.tools import ToolRunner
@@ -224,6 +225,8 @@ def create_app(
     app.state.services = services
     app.state.runner = runner
     app.state.agent = agent
+    # the payslip upload's extraction; None when the flag is off (or live mode has no key)
+    app.state.payslip = build_service(settings, store)
     api = APIRouter(prefix="/api")
     messages_limiter = RateLimiter(settings.message_rate_per_minute)
     rep_only = Depends(

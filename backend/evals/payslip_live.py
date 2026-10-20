@@ -3,20 +3,19 @@
     check   (tasks.py payslip-check) lists the Claude models ANTHROPIC_API_KEY can see, and for
             each configured model (COMPASS_PAYSLIP_MODEL, COMPASS_PAYSLIP_FALLBACK_MODEL)
             confirms it exists, reports image / PDF / structured-output support, has a price
-            entry, and accepts a synthetic PDF and PNG in the extraction's request shape (a JSON
-            schema, max_tokens 800, thinking off, no tools). A missing ID is reported with the
-            closest real ones; nothing is picked for you. A rate limit or an unpaid balance is
-            reported as "quota/billing", never as missing.
+            entry, and reads a synthetic payslip PDF (invented values) and a small PNG through
+            the real extraction request (compass.payslip.extractor: the system prompt, the JSON
+            schema, max_tokens 800, thinking off, no tools), one model at a time, no fallback.
+            A missing ID is reported with the closest real ones; nothing is picked for you. A
+            rate limit or an unpaid balance is reported as "quota/billing", never as missing.
 
 Result: OK (exit 0) when both models pass; PARTIAL (exit 0) when the only failures are
 quota/billing and at least one model passes; FAIL (exit 1) otherwise. Every call's cost goes to
-evals/spend.jsonl and the average per synthetic payslip is printed. Nothing printed ever contains
-the key: every line goes through `redact`.
+evals/spend.jsonl; the cost per payslip is the PDF read's (the PNG only proves image input).
+Nothing printed ever contains the key: every line goes through `redact`.
 """
 
-import base64
 import difflib
-import json
 import re
 import struct
 import sys
@@ -25,19 +24,36 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
-from compass.agent.llm import PRICES, Usage
+from compass.agent.llm import PRICES
 from compass.api.settings import Settings
+from compass.payslip.extractor import ClaudeExtractor
+from compass.payslip.schema import InvalidExtraction, PayslipCandidate
 from evals.report import Ledger, OverBudget
 
 _KEY_SHAPE = re.compile(r"sk-ant-[A-Za-z0-9_\-]{10,}")
 REDACTED = "<redacted>"
-MAX_TOKENS = 800
-PROBE_TEXT_BLOCK = {"type": "text", "text": "This is a connectivity check. Set ok to true."}
-PROBE_SCHEMA = {
-    "type": "object",
-    "properties": {"ok": {"type": "boolean"}},
-    "required": ["ok"],
-    "additionalProperties": False,
+# What the synthetic payslip prints (invented), and what a correct read gives.
+PAYSLIP_LINES = (
+    "Strauss Group Ltd - Payslip for 2026-09 (synthetic, for testing)",
+    "Employee: Dana Bdaya   ID 000000018   Employee no. 4417",
+    "Bank account 12-345-678901",
+    "Base salary            18,500.00",
+    "Commissions             1,200.00",
+    "Bonus                       0.00",
+    "Pension, employee           6%",
+    "Study fund, employee      2.5%",
+    "Tax credit points         2.25",
+    "Car value of use        3,480.00",
+)
+EXPECTED = {
+    "base_salary": "18500",
+    "commissions": "1200",
+    "bonus": "0",
+    "pension_percent": "6",
+    "study_fund_percent": "2.5",
+    "credit_points": "2.25",
+    "car_benefit_value": "3480",
+    "payslip_month": "2026-09",
 }
 ACCEPTED = "accepted"
 QUOTA = "quota/billing"
@@ -50,17 +66,11 @@ def redact(text: str, secret: str | None) -> str:
     return _KEY_SHAPE.sub(REDACTED, text)
 
 
-def thinking_off(model: str) -> dict[str, str]:
-    """No thinking for a short extraction: Haiku 5.5 takes `disabled`; Sonnet 5.5 rejects it
-    and takes `between_tools` (at effort high or below), which with no tools means none."""
-    if model.startswith("claude-sonnet-5"):
-        return {"type": "between_tools"}
-    return {"type": "disabled"}
-
-
 def probe_pdf() -> bytes:
-    """A one-page PDF that says "Compass check": no personal data, built here, never a file."""
-    stream = b"BT /F1 18 Tf 72 720 Td (Compass check) Tj ET"
+    """A one-page synthetic payslip (PAYSLIP_LINES): invented values and identifiers, built
+    here, never a real person's and never a file."""
+    lines = b" ".join(b"(%s) Tj 0 -18 Td" % line.encode("latin-1") for line in PAYSLIP_LINES)
+    stream = b"BT /F1 11 Tf 72 740 Td " + lines + b" ET"
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
         b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -101,13 +111,6 @@ def probe_png(size: int = 16) -> bytes:
     )
 
 
-def file_block(data: bytes, media_type: str) -> dict[str, Any]:
-    """A PDF as a document block, an image as an image block (base64, in memory only)."""
-    source = {"type": "base64", "media_type": media_type, "data": base64.b64encode(data).decode()}
-    kind = "document" if media_type == "application/pdf" else "image"
-    return {"type": kind, "source": source}
-
-
 @dataclass
 class ModelCheck:
     setting: str
@@ -118,7 +121,8 @@ class ModelCheck:
     pdf: str = "not tried"
     image: str = "not tried"
     closest: tuple[str, ...] = ()
-    costs: list[float] = field(default_factory=list)
+    costs: dict[str, float] = field(default_factory=dict)  # "pdf" / "image" -> USD
+    read: dict[str, str | None] = field(default_factory=dict)  # the PDF's fields as read
 
     @property
     def usable(self) -> bool:
@@ -169,24 +173,8 @@ def _supported(capabilities: Any, *path: str) -> bool | None:
     return node.get("supported") if isinstance(node, dict) else None
 
 
-def _probe(client: Any, model: str, data: bytes, media_type: str) -> Any:
-    return client.messages.create(
-        model=model,
-        max_tokens=MAX_TOKENS,
-        thinking=thinking_off(model),
-        output_config={"effort": "low", "format": {"type": "json_schema", "schema": PROBE_SCHEMA}},
-        messages=[{"role": "user", "content": [file_block(data, media_type), PROBE_TEXT_BLOCK]}],
-    )
-
-
-def _usage(response: Any) -> Usage:
-    usage = response.usage
-    return Usage(
-        input_tokens=usage.input_tokens or 0,
-        output_tokens=usage.output_tokens or 0,
-        cache_read_input_tokens=getattr(usage, "cache_read_input_tokens", 0) or 0,
-        cache_creation_input_tokens=getattr(usage, "cache_creation_input_tokens", 0) or 0,
-    )
+def _values(candidate: PayslipCandidate) -> dict[str, str | None]:
+    return {name: f.value for name, f in candidate.fields.items()}
 
 
 def check(settings: Settings, ledger: Ledger | None = None, client: Any = None) -> int:
@@ -200,6 +188,13 @@ def check(settings: Settings, ledger: Ledger | None = None, client: Any = None) 
     ledger = ledger or Ledger()
     if client is None:  # one retry on a transient error, as the extractor does
         client = anthropic.Anthropic(api_key=key, timeout=settings.payslip_timeout_s, max_retries=1)
+    extractor = ClaudeExtractor(
+        key,
+        settings.payslip_model,
+        settings.payslip_fallback_model,
+        timeout_seconds=settings.payslip_timeout_s,
+        sdk_client=client,
+    )
 
     def say(line: str = "") -> None:
         print(redact(line, key), flush=True)
@@ -249,25 +244,25 @@ def check(settings: Settings, ledger: Ledger | None = None, client: Any = None) 
                 say(f"payslip-check: {error}")
                 return 1
             try:
-                response = _probe(client, result.model, data, media_type)
+                candidate, usage = extractor.call(result.model, data, media_type)
+            except InvalidExtraction as error:
+                usage = getattr(error, "usage", None)
+                if usage is not None:
+                    cost = usage.cost_usd(result.model) or 0.0
+                    result.costs[kind] = cost
+                    ledger.record_call(f"payslip-check ({kind})", result.model, cost)
+                setattr(result, kind, f"refused: {error}")
+                continue
             except Exception as error:  # noqa: BLE001 - reported, redacted
                 label = QUOTA if is_quota_error(error) else "refused"
                 setattr(result, kind, f"{label}: {type(error).__name__}: {error}"[:300])
                 continue
-            cost = _usage(response).cost_usd(result.model) or 0.0
-            result.costs.append(cost)
+            cost = usage.cost_usd(result.model) or 0.0
+            result.costs[kind] = cost
             ledger.record_call(f"payslip-check ({kind})", result.model, cost)
-            text = "".join(b.text for b in response.content if b.type == "text")
-            try:
-                parsed = json.loads(text)
-            except ValueError:
-                parsed = None
-            if response.stop_reason == "refusal":
-                setattr(result, kind, "refused: stop_reason refusal")
-            elif not isinstance(parsed, dict) or set(parsed) != {"ok"}:
-                setattr(result, kind, f"refused: not the schema (stop {response.stop_reason})")
-            else:
-                setattr(result, kind, ACCEPTED)
+            setattr(result, kind, ACCEPTED)
+            if kind == "pdf":
+                result.read = _values(candidate)
 
     def flag(value: bool | None) -> str:
         return "not reported" if value is None else ("yes" if value else "NO")
@@ -284,11 +279,17 @@ def check(settings: Settings, ledger: Ledger | None = None, client: Any = None) 
         say(f"  price entry:     {'yes' if result.priced else 'NO (add it to llm.PRICES)'}")
         say(f"  sent a PDF:      {result.pdf}")
         say(f"  sent a PNG:      {result.image}")
-        if result.costs:
-            average = sum(result.costs) / len(result.costs)
-            say(f"  cost:            ${sum(result.costs):.6f} ({len(result.costs)} calls)")
-            say(f"  average/payslip: ${average:.6f}")
-    total = sum(sum(r.costs) for r in results)
+        if result.read:
+            right = sum(1 for name, value in EXPECTED.items() if result.read.get(name) == value)
+            say(f"  read correctly:  {right} of {len(EXPECTED)} fields")
+            for name, value in result.read.items():
+                mark = "ok" if EXPECTED.get(name) == value else f"expected {EXPECTED.get(name)}"
+                say(f"    {name:20} {value} ({mark})")
+        if "pdf" in result.costs:
+            say(f"  cost/payslip:    ${result.costs['pdf']:.6f} (the PDF read)")
+        if "image" in result.costs:
+            say(f"  cost/PNG probe:  ${result.costs['image']:.6f}")
+    total = sum(sum(r.costs.values()) for r in results)
     if all(r.ok for r in results):
         verdict, code = "OK", 0
     elif any(r.ok for r in results) and all(r.ok or r.quota_blocked for r in results):

@@ -27,6 +27,7 @@ from starlette.concurrency import run_in_threadpool
 from compass.api.ratelimit import RateLimiter, client_ip
 from compass.api.settings import Settings
 from compass.labels import error_message
+from compass.payslip.service import PayslipService
 from compass.payslip.upload import (
     MAGIC,
     PayslipRejected,
@@ -87,8 +88,10 @@ def add_payslip_routes(
             409: {"description": "An upload for this session is still being read"},
             413: {"description": "Over COMPASS_PAYSLIP_MAX_BYTES"},
             415: {"description": "Not a PDF, JPEG or PNG, or the content is not the type"},
+            201: {"description": "The pending candidate: {fields, dropped_keys}"},
             422: {"description": "Encrypted, over COMPASS_PAYSLIP_MAX_PAGES, or unreadable"},
             429: {"description": "This session's uploads, or this IP's rate (Retry-After)"},
+            502: {"description": "Neither model could read the payslip"},
             503: {"description": "The daily spend cap, or reading payslips is unavailable"},
         },
     )
@@ -128,9 +131,17 @@ def add_payslip_routes(
             meta["pages"] = await run_in_threadpool(
                 check_file, data, declared, settings.payslip_max_pages
             )
-            del data  # nothing keeps the file past this request
-            # The extractor arrives in Stage 4; until then a valid file reaches this.
-            raise PayslipRejected(503, "payslip_unavailable")
+            service: PayslipService | None = request.app.state.payslip
+            if service is None:  # live mode without a key
+                raise PayslipRejected(503, "payslip_unavailable")
+            try:
+                extracted = await run_in_threadpool(service.extract, session_id, data, declared)
+            finally:
+                del data  # nothing keeps the file past this request
+            meta["cost"] = None if extracted.cost_usd is None else round(extracted.cost_usd, 6)
+            outcome = "extracted"
+            # the employee's own candidate, for the confirmation card; the same as the event
+            return JSONResponse(status_code=201, content=extracted.candidate.to_dict())
         except PayslipRejected as error:
             outcome = error.code
             return rejected(error)

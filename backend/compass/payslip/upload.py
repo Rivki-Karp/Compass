@@ -27,6 +27,7 @@ PayslipErrorCode = Literal[
     "payslip_too_many_pages",
     "payslip_unreadable",
     "payslip_unavailable",
+    "payslip_extraction_failed",
 ]
 
 # Content-Type -> the file's first bytes

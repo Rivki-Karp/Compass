@@ -293,3 +293,7 @@
 {"at": "2026-10-20T11:01:12+00:00", "scenario": "payslip-check (image)", "model": "claude-haiku-5-5", "cost_usd": 2.5e-05}
 {"at": "2026-10-20T11:01:14+00:00", "scenario": "payslip-check (pdf)", "model": "claude-sonnet-5-5", "cost_usd": 0.003666}
 {"at": "2026-10-20T11:01:15+00:00", "scenario": "payslip-check (image)", "model": "claude-sonnet-5-5", "cost_usd": 0.00051}
+{"at": "2026-10-20T12:07:22+00:00", "scenario": "payslip-check (pdf)", "model": "claude-haiku-5-5", "cost_usd": 0.000461}
+{"at": "2026-10-20T12:07:26+00:00", "scenario": "payslip-check (image)", "model": "claude-haiku-5-5", "cost_usd": 0.000284}
+{"at": "2026-10-20T12:07:29+00:00", "scenario": "payslip-check (pdf)", "model": "claude-sonnet-5-5", "cost_usd": 0.009218}
+{"at": "2026-10-20T12:07:32+00:00", "scenario": "payslip-check (image)", "model": "claude-sonnet-5-5", "cost_usd": 0.005672}

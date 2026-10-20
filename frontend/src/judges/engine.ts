@@ -5,7 +5,12 @@
  * less, they never guess.
  */
 
-import type { ComparisonView, GuardCheckPayload, PayloadByType } from "../api/types";
+import type {
+  ComparisonView,
+  GuardCheckPayload,
+  PayloadByType,
+  PayslipCandidateField,
+} from "../api/types";
 import type { Turn } from "../state/session";
 
 export type EngineCard =
@@ -31,6 +36,17 @@ export type EngineCard =
       origin: "tool" | "server";
     }
   | { kind: "guard"; seq: number; guard: GuardCheckPayload }
+  | {
+      /** A payslip read into a pending candidate: numbers and confidences, never the file. */
+      kind: "payslip";
+      seq: number;
+      fields: [string, PayslipCandidateField][];
+      droppedKeys: number;
+      model: string | null; // admin only
+      fallback: boolean | null; // admin only
+      costUsd: number | null; // admin only
+    }
+  | { kind: "payslip_failed"; seq: number; code: string }
   | { kind: "template"; seq: number; text: string }
   | { kind: "error"; seq: number; error: string; message: string | null };
 
@@ -83,6 +99,20 @@ export function engineCards(turn: Turn): EngineCard[] {
         if (event.payload.kind === "template") {
           cards.push({ kind: "template", seq: event.seq, text: event.payload.text });
         }
+        break;
+      case "payslip_extracted":
+        cards.push({
+          kind: "payslip",
+          seq: event.seq,
+          fields: Object.entries(event.payload.fields),
+          droppedKeys: event.payload.dropped_keys,
+          model: event.payload.model ?? null,
+          fallback: event.payload.fallback ?? null,
+          costUsd: event.payload.cost_usd ?? null,
+        });
+        break;
+      case "payslip_failed":
+        cards.push({ kind: "payslip_failed", seq: event.seq, code: event.payload.code });
         break;
       case "agent_error":
         cards.push({
