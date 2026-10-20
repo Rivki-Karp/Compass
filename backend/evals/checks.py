@@ -15,6 +15,8 @@ Check types (one key per check):
                      the server's recomputes (a ticket opened, or the rep's answer settled it);
                      `origin: tool` only at compare's own results. `input_sources`: the view's
                      input chips by id, e.g. {occupation: representative}
+    no_template      {turn?}   no reply (in that turn) was the fixed template: the guard did not
+                     reject the draft and its rewrite
     ticket           {bound_fields?, free_types?, occupation_options_from_table?,
                       allow_pending_participation?}
                      some ticket opened in the session has exactly these bound fields and
@@ -27,6 +29,9 @@ Check types (one key per check):
     reply            {turn?, matches?, not_matches?}   regexes on the shown replies of `turn`
                      (default: all replies); every `matches` regex must match some reply,
                      no `not_matches` regex may match any
+    option_set       {today_unknown?, min_options?}   the last option set the server put on
+                     screen (comparison_set_ready) has these values: whether today was still
+                     unknown when it was computed, and at least this many options
     options_reply    {top?, turn?}   the reply after the last list_options (at or before `turn`)
                      leads with its `top` (default 3) best eligible options: the first `top`
                      options it names are exactly those. Naming more options after them, or one
@@ -82,7 +87,9 @@ _ARGS: dict[str, set[str]] = {
     },
     "slot": {"field", "value", "state", "source", "absent"},
     "reply": {"turn", "matches", "not_matches"},
+    "no_template": {"turn"},
     "options_reply": {"top", "turn"},
+    "option_set": {"today_unknown", "min_options"},
 }
 _REQUIRED: dict[str, set[str]] = {"tool_called": {"name"}, "tool_not_called": {"name"}}
 
@@ -126,6 +133,8 @@ class Trace:
     employee_messages: list[tuple[int, str]] = field(default_factory=list)  # (turn, text)
     # the payslip upload was on for this run: the agent may bring up a payslip (once)
     payslip_enabled: bool = False
+    # every comparison_set_ready payload, in order
+    option_sets: list[dict[str, Any]] = field(default_factory=list)
     # every ticket opened: {"bound_fields", "free_types", "occupation_options_from_table"}
     tickets: list[dict[str, Any]] = field(default_factory=list)
 
@@ -310,6 +319,14 @@ def _reply(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
     return (not problems), "; ".join(problems)
 
 
+def _no_template(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
+    """No reply (in the turn, if given) was the fixed template: the guard rejected the draft and
+    its one rewrite, and the employee got the template instead of an answer."""
+    sent = [r for r in trace.replies if "turn" not in args or r.turn == args["turn"]]
+    templates = [f"t{r.turn}" for r in sent if r.kind == "template"]
+    return not templates, "template reply in " + ", ".join(templates) if templates else ""
+
+
 # How a reply names the waiver option (a car is named by its commercial name).
 WAIVER_HE = "ויתור"
 
@@ -356,15 +373,39 @@ def _options_reply(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
     return set(first) == set(best), detail
 
 
+def _option_set(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
+    if not trace.option_sets:
+        return False, "no option set was put on screen"
+    last = trace.option_sets[-1]
+    if "today_unknown" in args and last["today_unknown"] != args["today_unknown"]:
+        return False, f"today_unknown is {last['today_unknown']}, expected {args['today_unknown']}"
+    if len(last["options"]) < args.get("min_options", 0):
+        return False, f"{len(last['options'])} options, expected at least {args['min_options']}"
+    return True, f"{len(last['options'])} options, today_unknown={last['today_unknown']}"
+
+
 _CHECKS = {
     "tool_called": _tool_called,
     "tool_not_called": _tool_not_called,
     "comparison": _comparison,
     "slot": _slot,
     "reply": _reply,
+    "no_template": _no_template,
     "options_reply": _options_reply,
+    "option_set": _option_set,
     "ticket": _ticket,
 }
+
+
+def _option_set(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
+    if not trace.option_sets:
+        return False, "no option set was put on screen"
+    last = trace.option_sets[-1]
+    if "today_unknown" in args and last["today_unknown"] != args["today_unknown"]:
+        return False, f"today_unknown is {last['today_unknown']}, expected {args['today_unknown']}"
+    if len(last["options"]) < args.get("min_options", 0):
+        return False, f"{len(last['options'])} options, expected at least {args['min_options']}"
+    return True, f"{len(last['options'])} options, today_unknown={last['today_unknown']}"
 
 
 def _label(kind: str, args: dict[str, Any]) -> str:

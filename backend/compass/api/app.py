@@ -34,6 +34,7 @@ from starlette.concurrency import run_in_threadpool
 
 from compass.api.agent import AgentRunner
 from compass.api.broker import TICKETS, Broker
+from compass.api.car import add_car_routes
 from compass.api.payslip import add_payslip_routes
 from compass.api.ratelimit import RateLimiter, client_ip
 from compass.api.redact import public_message, public_payload
@@ -362,6 +363,9 @@ def create_app(
 
     # POST /api/sessions/{id}/payslip (COMPASS_PAYSLIP=1, otherwise 404)
     add_payslip_routes(api, settings, services, agent, require_session)
+
+    # POST /api/sessions/{id}/current-car (the catalog picker's answer)
+    add_car_routes(api, services, agent, require_session)
 
     # --- representative -------------------------------------------------------------------
 

@@ -19,6 +19,7 @@ export function ChatPanel({
   onNewSession,
   attach = null,
   tray = null,
+  intro = null,
 }: {
   messages: ChatMessage[];
   turns: Turn[];
@@ -33,6 +34,8 @@ export function ChatPanel({
    * and confirmation card above it. Null: nothing changes. */
   attach?: ReactNode;
   tray?: ReactNode;
+  /** A card above the messages (the payslip offer, in the empty state). */
+  intro?: ReactNode;
 }) {
   const [draft, setDraft] = useState("");
   const list = useRef<HTMLOListElement>(null);
@@ -69,6 +72,8 @@ export function ChatPanel({
           שומר המספרים פעיל
         </span>
       </div>
+
+      {intro}
 
       {/* Focusable, so keyboard users can scroll it (axe scrollable-region-focusable). */}
       <ol

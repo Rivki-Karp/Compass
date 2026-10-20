@@ -55,9 +55,21 @@ confidence (high, medium or low):
   עובד לפנסיה), e.g. 6 for 6%. Only if the payslip prints the percent.
 - study_fund_percent: the employee's own study fund contribution as a percent (קרן השתלמות,
   עובד), e.g. 2.5 for 2.5%. Only if the payslip prints the percent.
+- employee_pension_amount: the employee's own pension deduction in ILS, as printed (e.g. a line
+  "כלל פנסיה", "ניכוי עובד לפנסיה", "תגמולי עובד"). Not the employer's part.
+- pension_wage: the wage the pension is calculated on, as printed (שכר לקופ"ג, שכר פנסיוני),
+  ILS. Not the base salary unless that is the number printed there.
+- employee_study_fund_amount: the employee's own study fund deduction in ILS, as printed
+  (e.g. "כלל השתלמות", "ניכוי עובד לקרן השתלמות"). Not the employer's part.
+- study_fund_wage: the wage the study fund is calculated on, as printed (שכר לקה"ל, שכר
+  לקרן השתלמות), ILS.
 - credit_points: tax credit points (נקודות זיכוי).
 - car_benefit_value: the company car's value of use (שווי שימוש ברכב), ILS.
 - payslip_month: the month the payslip is for, as YYYY-MM.
+
+Most payslips print the deduction amount and its wage, not a percent: fill the amount and the
+wage fields and leave the percent null. Never divide one by the other: the percent is computed
+elsewhere.
 
 A number is written plainly: no currency sign, no thousands separator. Use null when the payslip
 does not show a field, when it is unclear, or when you are unsure. Never compute, add up,

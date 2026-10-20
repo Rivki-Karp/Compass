@@ -454,8 +454,8 @@ to see a real reply. Open https://compass-web-hcpz.onrender.com/rep and enter th
 
 ## 10. The payslip upload (optional, behind a flag)
 
-Off by default (`COMPASS_PAYSLIP=0`, also in `render.yaml`): nothing on stage or on the deployed
-site changes. Turn it on only after you have tried it by hand.
+Off by default in the code (`COMPASS_PAYSLIP=0`), **on in production**: `render.yaml` sets
+`COMPASS_PAYSLIP=1` for `compass-api`. Locally and in tests it stays off unless you set it.
 
 **Before you turn it on (live)**
 

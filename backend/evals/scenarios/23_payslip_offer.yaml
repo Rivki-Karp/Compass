@@ -1,0 +1,21 @@
+name: payslip_offer
+description: 'Payslip upload on: the first reply that asks for salary data offers the upload, once;
+  the second reply (the employee answers) does not offer it again'
+payslip_on: true
+turns:
+- employee: היי, אני מנהלת מוצר ואני רוצה לבדוק מה יקרה לנטו שלי אם אעבור לרכב אחר.
+- employee: שכר הבסיס שלי 18,500, ואין לי עמלות או בונוסים.
+checks:
+# offered in the first reply that asks for salary data...
+- reply:
+    turn: 0
+    matches:
+    - תלוש
+# ...and only there: not asked for again, not pushed
+- reply:
+    turn: 1
+    not_matches:
+    - תלוש
+    - אטב
+- tool_not_called:
+    name: ask_representative

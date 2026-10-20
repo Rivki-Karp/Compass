@@ -6,6 +6,7 @@
  */
 
 import type {
+  CarPicker,
   ComparisonView,
   PayloadByType,
   SessionEvent,
@@ -101,6 +102,9 @@ export interface SessionState {
   between: SessionEvent[];
   /** A payslip read and waiting for the employee to confirm it (COMPASS_PAYSLIP=1), else null. */
   payslip: PendingPayslip | null;
+  /** The catalog picker the server offered for today's car, until it is answered (the car is
+   * set, the employee picks, or a representative is asked), else null. */
+  carPicker: CarPicker | null;
 }
 
 export interface PendingPayslip {
@@ -121,6 +125,7 @@ export const initialSession: SessionState = {
   openTickets: [],
   lastError: null,
   payslip: null,
+  carPicker: null,
   between: [],
 };
 
@@ -283,7 +288,20 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
     }
 
     case "ticket_opened":
-      return { ...next, openTickets: [...next.openTickets, event.payload.ticket] };
+      return {
+        ...next,
+        openTickets: [...next.openTickets, event.payload.ticket],
+        // a representative is asked which car it is: the picker has done its job
+        carPicker: event.payload.ticket.blocking_fields?.includes("current_car")
+          ? null
+          : next.carPicker,
+      };
+
+    case "current_car_offered":
+      return { ...next, carPicker: event.payload };
+
+    case "current_car_picked":
+      return { ...next, carPicker: null };
 
     case "ticket_answered": {
       const rep = repMessage(event.payload);
@@ -309,10 +327,13 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
     case "payslip_confirmed":
       return { ...next, payslip: null };
 
+    case "current_situation_set":
+      return { ...next, carPicker: null }; // today is known, however it got set
+
     case "session_created":
+    case "options_requested":
     case "payslip_failed":
     case "profile_updated":
-    case "current_situation_set":
     case "guard_check":
       return next; // kept in the turn's events (judges mode); nothing else to show
   }

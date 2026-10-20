@@ -201,6 +201,8 @@ class Harness:
                     source = compare_input
                 inputs_by_seq[event.seq] = source
                 trace.comparisons.append(Comparison(turn, source, p))
+            elif event.type == "comparison_set_ready":
+                trace.option_sets.append(p)
             elif event.type == "assistant_message":
                 trace.replies.append(Reply(turn, p["text"], p["kind"]))
             elif event.type == "user_message":

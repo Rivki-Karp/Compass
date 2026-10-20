@@ -128,7 +128,15 @@ export interface PayloadByType {
       note: string | null;
     }[];
   };
-  agent_started: { trigger: "employee_turn" | "rep_answer" | "payslip_confirmed" };
+  agent_started: {
+    trigger: "employee_turn" | "rep_answer" | "payslip_confirmed" | "car_picked";
+  };
+  // Today's car is unknown: the catalog picker the server offers (built from the catalog), and
+  // what the employee chose in it.
+  // list_options was asked: pending until a comparison_set_ready answers it
+  options_requested: { stated: Record<string, string> };
+  current_car_offered: CarPicker;
+  current_car_picked: { outcome: "car" | "no_car" | "not_in_list" | "check_year"; car_id?: string };
   agent_finished: {
     outcome: "reply" | "template" | "error" | "limit";
     // admin only
@@ -175,12 +183,46 @@ export interface PayslipConfirmed {
   kept_representative: string[]; // a representative's value wins
   waiting_for_rep: string[];
   car_hint: { car_id: string; commercial_name: string } | null;
+  // the salary fields that did not become values, so the agent can say why
+  not_in_payslip?: string[]; // the payslip does not show them
+  unreadable?: string[]; // printed, but not a valid number
+  removed_by_employee?: string[];
+}
+
+/** The picker for today's car: manufacturer, then model, then year, from the catalog. */
+export interface PickerYear {
+  car_id: string;
+  year: number;
+  label: string; // "2025 · חשמלי · קבוצה ג׳"
+}
+export interface PickerModel {
+  id: string;
+  label: string;
+  years: PickerYear[];
+}
+export interface PickerManufacturer {
+  id: string;
+  label: string;
+  models: PickerModel[];
+}
+export interface PickerChoice {
+  id: string;
+  label: string;
+}
+export interface CarPicker {
+  manufacturers: PickerManufacturer[];
+  /** "הרכב שלי לא ברשימה", "אין לי רכב היום" */
+  extra: PickerChoice[];
+  /** The year step's last choice: "שנה אחרת — לבדיקת נציג" (opens a current_car ticket). */
+  year_check: PickerChoice;
 }
 
 export interface PayslipCandidateField {
   value: string | null; // a Decimal as text (or YYYY-MM); null when unknown or flagged
   confidence: "high" | "medium" | "low";
   flag: "wrong_type" | "out_of_range" | "too_many_decimals" | "not_a_step" | "invalid" | null;
+  /** A percent the server derived from a printed deduction amount and its wage: its source. */
+  basis?: { amount: string; wage: string };
 }
 
 /** One event as the session stream sends it (`data` of an SSE message). */

@@ -416,7 +416,13 @@ def build_view(
     alt_net = comparison["alternative"]["display"]["net"]
     total = sum(line["net_effect"] for line in comparison["display_delta_lines"])
     if display_diff is None:  # today unknown: no lines, and the alternative's own net
-        if comparison["display_delta_lines"] or today is not None or alt_net is None:
+        # (None only while the contribution rates are unknown too: the net needs them)
+        rates_unknown = bool({"pension_pct", "study_fund_pct"} & set(comparison["missing"]))
+        if (
+            comparison["display_delta_lines"]
+            or today is not None
+            or (alt_net is None and not rates_unknown)
+        ):
             raise ViewInvariantError("no diff: no lines and no today, but the alternative's net")
     elif total != display_diff:
         raise ViewInvariantError(f"lines sum to {total}, display_diff is {display_diff}")

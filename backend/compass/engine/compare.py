@@ -224,10 +224,13 @@ def compare(
 def _without_today(
     profile: EmployeeProfile, alternative: Scenario, ctx: EngineContext
 ) -> Comparison:
-    """The alternative alone: its net needs every input of its own (contribution rates
-    included) and none of today's. The diff waits for today."""
+    """The alternative alone: its net needs every input of its own and none of today's. The
+    diff waits for today. Unknown contribution rates are a partial result as they are with
+    today known: the alternative's lines that do not depend on them are computed, its net
+    (and the pension and study fund lines) are None, and `missing` lists them after
+    CURRENT_SITUATION. Any other unknown input raises."""
     missing = missing_inputs(profile, alternative)
-    if missing:
+    if any(field not in CONTRIBUTION_FIELDS for field in missing):
         raise MissingInputs([CURRENT_SITUATION, *missing])
     breakdown = compute_with_rates(
         profile, alternative, ctx, profile.pension_pct, profile.study_fund_pct
@@ -241,7 +244,7 @@ def _without_today(
         display_delta_lines=(),
         explanation_facts=(),
         warnings=profile_warnings(profile, None, ctx),
-        missing=(CURRENT_SITUATION,),
+        missing=(CURRENT_SITUATION, *missing),
     )
 
 

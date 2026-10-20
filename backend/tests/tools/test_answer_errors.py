@@ -9,6 +9,7 @@ from compass.labels import ERROR_MESSAGES, error_message
 from compass.payslip.upload import PayslipErrorCode
 from compass.state import Store
 from compass.tools import Services, ToolRunner
+from compass.tools.car_pick import PickErrorCode
 from compass.tools.profile import FieldErrorCode
 from compass.tools.tickets import TicketAnswerError, TicketErrorCode, answer_ticket
 
@@ -17,7 +18,7 @@ ATTO = "alternative_participation:CAR-10"
 
 def test_every_error_code_has_a_hebrew_message() -> None:
     codes = set(get_args(TicketErrorCode)) | set(get_args(FieldErrorCode))
-    codes |= set(get_args(PayslipErrorCode))
+    codes |= set(get_args(PayslipErrorCode)) | set(get_args(PickErrorCode))
     assert set(ERROR_MESSAGES) == codes
     params = {"min": 0, "max": 20_000, "groups": ["א", "ב"], "max_mb": 5}
     for code in codes:

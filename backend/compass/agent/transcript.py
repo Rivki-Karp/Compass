@@ -35,10 +35,13 @@ REP_TAG = "rep_notification"
 REP_LABEL_HE = "עדכון אוטומטי ממערכת הנציגים"
 PAYSLIP_TAG = "payslip_notification"
 PAYSLIP_LABEL_HE = "לפי התלוש"
+CAR_TAG = "car_notification"
+CAR_LABEL_HE = "בחירה מהבורר"
 
 # Our structural tags, opening or closing, in any case or spacing: neutralised in untrusted text.
 _TAG_PATTERN = re.compile(
-    rf"<\s*/?\s*({EMPLOYEE_TAG}|{REP_TAG}|{PAYSLIP_TAG}|system[_ -]?notice)\b", re.IGNORECASE
+    rf"<\s*/?\s*({EMPLOYEE_TAG}|{REP_TAG}|{PAYSLIP_TAG}|{CAR_TAG}|system[_ -]?notice)\b",
+    re.IGNORECASE,
 )
 
 ModelMessage = dict[str, Any]
@@ -112,6 +115,11 @@ def payslip_block(event: dict[str, Any]) -> str:
         "kept_representative": event.get("kept_representative", []),
         "waiting_for_rep": event.get("waiting_for_rep", []),
     }
+    # The salary fields that did NOT come from the payslip, and why (server-written): the
+    # payslip does not show them, they could not be read, or the employee removed them.
+    for key in ("not_in_payslip", "unreadable", "removed_by_employee"):
+        if event.get(key):
+            payload[key] = event[key]
     if event.get("car_hint"):
         # one catalog car has exactly the payslip's value of use: ask, never assume
         payload["car_hint"] = _escaped(event["car_hint"])
@@ -121,13 +129,37 @@ def payslip_block(event: dict[str, Any]) -> str:
     return f'<{PAYSLIP_TAG} label="{PAYSLIP_LABEL_HE}">\n{body}\n</{PAYSLIP_TAG}>'
 
 
+def car_block(event: dict[str, Any]) -> str:
+    """What the employee chose in the catalog picker, as structured data (server-written):
+    the outcome, today's situation after it, and the comparisons the server recomputed."""
+    payload: dict[str, Any] = {
+        "outcome": event["outcome"],
+        "today_after": _escaped(event.get("today_after")),
+    }
+    if event.get("car_id"):
+        payload["car_id"] = event["car_id"]
+    if event.get("ticket_id"):
+        payload["ticket_id"] = event["ticket_id"]  # a representative was asked to check the year
+    if event.get("server_comparisons"):
+        payload["server_comparisons"] = event["server_comparisons"]
+    body = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    return f'<{CAR_TAG} label="{CAR_LABEL_HE}">\n{body}\n</{CAR_TAG}>'
+
+
 def guard_note(violations: Sequence[str]) -> str:
+    """The retry instruction after the number guard rejected a draft: the exact numbers, and
+    what to do about them. The draft itself is not in the conversation, so the model cannot see
+    which sentence they were in: it must be told to drop them, and that a number inside a
+    question to the employee (an age, a count) is dropped too, the question asked in words."""
     listed = ", ".join(violations)
     return (
-        "Automated number check: your draft reply contained numbers that do not come from "
-        f"any tool result, the employee's words or get_rule: {listed}. The draft was not shown. "
-        "Write the reply again using only numbers that appear in tool results (display values) "
-        "or that the employee wrote. Do not compute, round or estimate."
+        "Automated number check: your draft reply was NOT shown, because it contained numbers "
+        "that no tool result, employee message or representative answer supports: "
+        f"{listed}. Write the reply again WITHOUT these exact numbers: do not write them, do "
+        "not round them, do not swap in another figure. If one of them was inside a question to "
+        "the employee (an age, a count, an amount), ask that question in words with no number. "
+        "Every number you do write must appear in a tool result already in this conversation "
+        "(display values) or be one the employee wrote. Do not compute or estimate."
     )
 
 
@@ -168,6 +200,10 @@ def build_model_messages(rows: Sequence[Message]) -> list[ModelMessage]:
             elif kind == "payslip_confirmed":
                 text = payslip_block(content)
                 out.append({"role": "user", "content": [{"type": "text", "text": text}]})
+            elif kind == "car_picked":
+                out.append(
+                    {"role": "user", "content": [{"type": "text", "text": car_block(content)}]}
+                )
             elif kind == "guard_correction":
                 out.append({"role": "system", "content": guard_note(content["violations"])})
         elif row.role == "assistant":
@@ -235,17 +271,25 @@ def model_view(name: str, result: dict[str, Any]) -> str:
                     "status": option["eligibility"]["status"],
                     "reason": option["eligibility"]["reason"],
                 },
-                "display_diff": option["comparison"]["display_diff"],
-                "net": option["comparison"]["alternative"]["display"]["net"],
-                "partial": option["comparison"]["partial"],
+                # no amounts (comparison None): an input every net needs is unknown
+                "display_diff": None
+                if option["comparison"] is None
+                else option["comparison"]["display_diff"],
+                "net": None
+                if option["comparison"] is None
+                else option["comparison"]["alternative"]["display"]["net"],
+                "partial": True
+                if option["comparison"] is None
+                else option["comparison"]["partial"],
                 "participation_source": option.get("participation_source"),
                 "pending_rep": option.get("pending_rep"),
             }
             for option in result["options"]
         ]
-        today = result["options"][0]["comparison"]["today"] if result["options"] else None
+        first = result["options"][0]["comparison"] if result["options"] else None
+        today = None if first is None else first["today"]
         if today is not None:  # today's net is the same in every option
             view["today_net"] = today["display"]["net"]
-        elif result["options"]:  # each option's own net; the diffs wait for today's car
+        elif first is not None:  # each option's own net; the diffs wait for today's car
             view["today_unknown"] = True
     return json.dumps(view, ensure_ascii=False, separators=(",", ":"), sort_keys=True)

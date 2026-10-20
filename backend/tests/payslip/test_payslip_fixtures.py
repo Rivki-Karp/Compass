@@ -35,6 +35,7 @@ EXPECTED: dict[str, tuple[str, int, str | None]] = {
     "08_encrypted.pdf": (PDF, 422, "payslip_encrypted"),
     "09_renamed_text.pdf": (PDF, 415, "payslip_type_mismatch"),
     "10_over_5mb.pdf": (PDF, 413, "payslip_too_large"),
+    "11_amounts.pdf": (PDF, 201, None),
 }
 
 # a model that misbehaves: a real read plus every identifier it was shown
@@ -130,3 +131,41 @@ def test_no_identifier_is_extracted_stored_or_logged(
     # what was kept is only the schema's fields, and the unknown keys were only counted
     kept = response.json()
     assert set(kept["fields"]) <= set(FIELDS) and kept["dropped_keys"] >= 4
+
+
+def test_the_amounts_fixture_prints_amounts_and_wages_and_no_percent() -> None:
+    """The usual Israeli layout, synthetic: deduction amounts with their wage, no percent sign,
+    no commissions or bonus line."""
+    text = PdfText.of("11_amounts.pdf")
+    for printed in ("1,200.00", "500.00", "20,000.00", "14,000.00"):
+        assert printed in text
+    assert "%" not in text and "ommission" not in text and "Bonus" not in text
+    for identifier in IDENTIFIERS:
+        assert identifier in text  # the identifiers are there to prove they are not extracted
+
+
+def test_the_amounts_fixture_gives_6_and_2_5_through_the_upload(tmp_path: Path) -> None:
+    """What a correct read of fixture 11 returns: four printed numbers; the server's percents
+    are 1,200 / 20,000 = 6 and 500 / 20,000 = 2.5."""
+    read = {
+        "base_salary": {"value": 14000, "confidence": "high"},
+        "employee_pension_amount": {"value": 1200, "confidence": "high"},
+        "pension_wage": {"value": 20000, "confidence": "high"},
+        "employee_study_fund_amount": {"value": 500, "confidence": "high"},
+        "study_fund_wage": {"value": 20000, "confidence": "high"},
+        "credit_points": {"value": 2.75, "confidence": "high"},
+    }
+    app = create_app(Settings(app_db=tmp_path / "app.db", payslip=True))
+    store = app.state.services.store
+    app.state.payslip = PayslipService(store, ScriptedExtractor([read]), count_spend=False)
+    with TestClient(app) as client:
+        sid = client.post("/api/sessions").json()["id"]
+        data = (FIXTURES / "11_amounts.pdf").read_bytes()
+        response = client.post(
+            f"/api/sessions/{sid}/payslip", content=data, headers={"Content-Type": PDF}
+        )
+    fields = response.json()["fields"]
+    assert fields["pension_percent_derived"]["value"] == "6"
+    assert fields["study_fund_percent_derived"]["value"] == "2.5"
+    assert fields["pension_percent_derived"]["basis"] == {"amount": "1200", "wage": "20000"}
+    assert "pension_percent" not in fields  # nothing printed as a percent, nothing invented

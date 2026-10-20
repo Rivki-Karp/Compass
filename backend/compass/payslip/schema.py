@@ -15,12 +15,20 @@ where the extractor tries the fallback model.
 
 Every field maps to an existing profile slot except car_benefit_value (the engine derives the
 value of use from the catalog car) and payslip_month: those two are information only.
+
+Israeli payslips usually print the pension and study fund DEDUCTION AMOUNTS, with the wage they
+are calculated on, and not the percentage. The model copies the four numbers as printed
+(employee_pension_amount, pension_wage, employee_study_fund_amount, study_fund_wage); the code
+computes the percent, never the model: `<name>_derived` = amount / wage * 100, exact (Decimal,
+no rounding), checked against the same range and the same 2-decimal rule as a printed percent.
+No wage, no derivation. A derived percent is a candidate field of its own (with its `basis`:
+the amount and the wage it came from), next to the printed one if the payslip has both.
 """
 
 import json
 import re
 from dataclasses import dataclass, field
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, localcontext
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -40,8 +48,26 @@ PROFILE_FIELD_OF: dict[str, str] = {
 }
 # shown to the employee, never a calculation input
 INFO_FIELDS: tuple[str, ...] = ("car_benefit_value", "payslip_month")
-NUMBER_FIELDS: tuple[str, ...] = (*PROFILE_FIELD_OF, "car_benefit_value")
+# printed amounts and wages: the inputs of a derived percent, never a slot themselves
+AMOUNT_FIELDS: tuple[str, ...] = (
+    "employee_pension_amount",
+    "pension_wage",
+    "employee_study_fund_amount",
+    "study_fund_wage",
+)
+# percent field -> (its amount, its wage): the percent is derived as amount / wage * 100
+DERIVED_FROM: dict[str, tuple[str, str]] = {
+    "pension_percent": ("employee_pension_amount", "pension_wage"),
+    "study_fund_percent": ("employee_study_fund_amount", "study_fund_wage"),
+}
+DERIVED_SUFFIX = "_derived"
+NUMBER_FIELDS: tuple[str, ...] = (*PROFILE_FIELD_OF, "car_benefit_value", *AMOUNT_FIELDS)
 FIELDS: tuple[str, ...] = (*NUMBER_FIELDS, "payslip_month")
+
+
+def derived_name(percent_field: str) -> str:
+    return percent_field + DERIVED_SUFFIX
+
 
 # Inclusive ranges, in the employee's units (6.5 = 6.5%). Each lies inside the slot's own limits
 # (compass.tools.profile), so a value kept here also passes to_slot_value.
@@ -53,6 +79,10 @@ RANGES: dict[str, tuple[Decimal, Decimal]] = {
     "study_fund_percent": (Decimal(0), Decimal(10)),
     "credit_points": (Decimal(0), Decimal(15)),
     "car_benefit_value": (Decimal(0), Decimal(20_000)),
+    "employee_pension_amount": (Decimal(0), Decimal(100_000)),
+    "pension_wage": (Decimal(1), Decimal(200_000)),
+    "employee_study_fund_amount": (Decimal(0), Decimal(100_000)),
+    "study_fund_wage": (Decimal(1), Decimal(200_000)),
 }
 CREDIT_POINT_STEP = Decimal("0.25")
 CENT = Decimal("0.01")
@@ -104,6 +134,10 @@ class PayslipExtraction(BaseModel):
     study_fund_percent: FieldReading | None = None
     credit_points: FieldReading | None = None
     car_benefit_value: FieldReading | None = None
+    employee_pension_amount: FieldReading | None = None
+    pension_wage: FieldReading | None = None
+    employee_study_fund_amount: FieldReading | None = None
+    study_fund_wage: FieldReading | None = None
     payslip_month: FieldReading | None = None
 
 
@@ -115,9 +149,18 @@ class CandidateField:
     value: str | None
     confidence: Confidence
     flag: Flag | None = None
+    # a derived percent only: the printed numbers it was computed from {"amount", "wage"}
+    basis: dict[str, str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {"value": self.value, "confidence": self.confidence, "flag": self.flag}
+        out: dict[str, Any] = {
+            "value": self.value,
+            "confidence": self.confidence,
+            "flag": self.flag,
+        }
+        if self.basis is not None:
+            out["basis"] = self.basis
+        return out
 
 
 @dataclass(frozen=True)
@@ -170,6 +213,31 @@ def _number(name: str, raw: Any) -> tuple[str | None, Flag | None]:
     return format(value.normalize(), "f"), None
 
 
+_CONFIDENCE_RANK = {"low": 0, "medium": 1, "high": 2}
+
+
+def derive_percent(
+    percent_field: str, amount: CandidateField | None, wage: CandidateField | None
+) -> CandidateField | None:
+    """The percent a printed deduction amount and its wage give: amount / wage * 100, exact.
+    None when there is nothing to derive from (no amount, no wage, or either unread). A result
+    outside the percent's range, or with more than 2 decimals, is flagged and has no value: it
+    never reaches a slot (the same rules as a printed percent, nothing is rounded)."""
+    if amount is None or wage is None or amount.value is None or wage.value is None:
+        return None
+    confidence = min(amount.confidence, wage.confidence, key=_CONFIDENCE_RANK.__getitem__)
+    basis = {"amount": amount.value, "wage": wage.value}
+    with localcontext() as context:
+        context.prec = 50
+        percent = Decimal(amount.value) / Decimal(wage.value) * 100
+        low, high = RANGES[percent_field]
+        if not low <= percent <= high:
+            return CandidateField(None, confidence, "out_of_range", basis)
+        if percent != percent.quantize(CENT):
+            return CandidateField(None, confidence, "too_many_decimals", basis)
+        return CandidateField(format(percent.normalize(), "f"), confidence, None, basis)
+
+
 def _month(raw: Any) -> tuple[str | None, Flag | None]:
     if raw is None:
         return None, None
@@ -204,6 +272,10 @@ def normalise(raw: dict[str, Any]) -> PayslipCandidate:
             _month(reading.value) if name == "payslip_month" else _number(name, reading.value)
         )
         fields[name] = CandidateField(value, confidence, flag)
+    for percent_field, (amount_name, wage_name) in DERIVED_FROM.items():
+        derived = derive_percent(percent_field, fields.get(amount_name), fields.get(wage_name))
+        if derived is not None:
+            fields[derived_name(percent_field)] = derived
     return PayslipCandidate(fields=fields, dropped_keys=dropped)
 
 

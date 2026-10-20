@@ -41,7 +41,8 @@ function messageOf(error: unknown): string {
 /**
  * The payslip upload in the chat (COMPASS_PAYSLIP=1, as /api/health says; never a frontend
  * flag): the attach button, the privacy notice once per session, the states (uploading,
- * reading, error with retry) and the confirmation card for the pending candidate.
+ * reading, error with retry) and the confirmation card for the pending candidate. `open` starts
+ * the same upload from elsewhere (the offer card in the empty state); null while one is running.
  */
 export function usePayslip({
   sessionId,
@@ -57,7 +58,7 @@ export function usePayslip({
 
   useEffect(() => setPhase({ kind: "idle" }), [sessionId]);
 
-  if (!limits || !sessionId) return { attach: null, tray: null };
+  if (!limits || !sessionId) return { attach: null, tray: null, open: null };
   const id = sessionId;
   const busy = ["uploading", "extracting", "confirming"].includes(phase.kind);
 
@@ -186,5 +187,5 @@ export function usePayslip({
       </p>
     );
   }
-  return { attach, tray };
+  return { attach, tray, open: busy ? null : open };
 }

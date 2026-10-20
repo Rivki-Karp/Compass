@@ -1,0 +1,21 @@
+name: options_partial_data
+description: 'Item 4: the employee asks for all her options with commissions, bonus, pension and
+  today''s car unknown: list_options does not refuse (no red ✕); the reply gives what is known,
+  quotes no amounts it does not have, and asks for what is missing'
+turns:
+- employee: אני מפתחת תוכנה, שכר בסיס 7,000, קרן השתלמות 2.25%, 3 נקודות זיכוי. אני לא יודעת איזה
+    רכב יש לי היום. מה כל האפשרויות שלי?
+checks:
+- tool_called:
+    name: list_options
+    turn: 0
+- tool_not_called:
+    name: list_options
+    ok: false
+# the reply says what is missing, and does not stop on it
+- reply:
+    turn: 0
+    matches:
+    - עמלות|בונוס|פנסיה
+    not_matches:
+    - \|

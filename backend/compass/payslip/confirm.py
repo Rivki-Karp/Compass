@@ -1,7 +1,10 @@
 """The employee confirms a pending candidate: the accepted fields become profile values.
 
-    unchanged value   source "payslip" (the chip "לפי התלוש")
-    edited value      source "employee" (the employee typed it)
+    unchanged value   source "payslip" (the chip "לפי התלוש"); a pension or study fund percent
+                      the server derived from the printed amount and wage counts as the
+                      payslip's, like a printed one
+    edited value      source "employee" (the employee typed it; "אין" = 0 for commissions or a
+                      bonus the payslip does not show is the employee's answer)
     left out          rejected: nothing changes
 
 Precedence: a value a representative set is never overwritten, and a field a representative is
@@ -20,7 +23,12 @@ from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from compass.payslip.schema import PROFILE_FIELD_OF, CandidateField, PayslipCandidate
+from compass.payslip.schema import (
+    PROFILE_FIELD_OF,
+    CandidateField,
+    PayslipCandidate,
+    derived_name,
+)
 from compass.payslip.upload import PayslipRejected
 from compass.state import SlotUpdate
 from compass.tools.handlers import refresh_after_profile_change
@@ -38,6 +46,12 @@ class Confirmed:
     waiting_for_rep: list[str] = field(default_factory=list)
     car_hint: dict[str, str] | None = None
     comparisons: list[dict[str, Any]] = field(default_factory=list)  # compare's own shape
+    # The salary fields that did NOT become values, so the agent can say why instead of "I have
+    # no access to the payslip": the payslip does not show them, they were printed but could not
+    # be read as a valid number, or the employee removed a value that was read.
+    not_in_payslip: list[str] = field(default_factory=list)
+    unreadable: list[str] = field(default_factory=list)
+    removed_by_employee: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -45,6 +59,9 @@ class Confirmed:
             "kept_representative": self.kept_representative,
             "waiting_for_rep": self.waiting_for_rep,
             "car_hint": self.car_hint,
+            "not_in_payslip": self.not_in_payslip,
+            "unreadable": self.unreadable,
+            "removed_by_employee": self.removed_by_employee,
         }
 
 
@@ -67,6 +84,32 @@ def _same(raw: Any, candidate: CandidateField | None) -> bool:
         return Decimal(str(raw).replace(",", "").strip()) == Decimal(candidate.value)
     except InvalidOperation:
         return False
+
+
+def _payslip_value(candidate: PayslipCandidate, name: str, raw: Any) -> str | None:
+    """The candidate's value the employee left unchanged (the printed percent or the derived
+    one), as the string the slot validation takes; None when `raw` is neither."""
+    for key in (name, derived_name(name)):
+        field = candidate.fields.get(key)
+        if _same(raw, field):
+            return field.value if field is not None else None
+    return None
+
+
+def _not_applied(candidate: PayslipCandidate, accepted: set[str]) -> dict[str, list[str]]:
+    """Why each salary field the employee did not accept has no value from this payslip."""
+    out: dict[str, list[str]] = {"not_in_payslip": [], "unreadable": [], "removed": []}
+    for name in PROFILE_FIELD_OF:
+        if name in accepted:
+            continue
+        readings = [candidate.fields.get(k) for k in (name, derived_name(name))]
+        if any(f is not None and f.value is not None for f in readings):
+            out["removed"].append(name)
+        elif any(f is not None and f.flag is not None for f in readings):
+            out["unreadable"].append(name)
+        else:
+            out["not_in_payslip"].append(name)
+    return out
 
 
 def car_hint(services: Services, value: Any) -> dict[str, str] | None:
@@ -108,9 +151,10 @@ def confirm(services: Services, session_id: str, accepted: dict[str, Any]) -> Co
         if slot is not None and slot.state == "filled" and slot.source == "representative":
             kept.append(name)  # the representative's value wins
             continue
-        unchanged = _same(raw, candidate.fields.get(name))
+        read = _payslip_value(candidate, name, raw)
+        unchanged = read is not None
         try:
-            value = to_slot_value(name, candidate.fields[name].value if unchanged else raw, ctx)
+            value = to_slot_value(name, read if unchanged else raw, ctx)
         except FieldError:
             invalid.append(name)
             continue
@@ -123,6 +167,7 @@ def confirm(services: Services, session_id: str, accepted: dict[str, Any]) -> Co
     hint = None
     if "car_benefit_value" in accepted:
         hint = car_hint(services, accepted["car_benefit_value"])
+    not_applied = _not_applied(candidate, set(accepted))
     store.update_slots(session_id, updates)  # the existing path: profile_updated
     store.append_event(
         session_id,
@@ -133,9 +178,21 @@ def confirm(services: Services, session_id: str, accepted: dict[str, Any]) -> Co
             "kept_representative": kept,
             "waiting_for_rep": waiting,
             "car_hint": hint,
+            "not_in_payslip": not_applied["not_in_payslip"],
+            "unreadable": not_applied["unreadable"],
+            "removed_by_employee": not_applied["removed"],
         },
     )
     comparisons = (
         refresh_after_profile_change(services, session_id, {"payslip_seq": seq}) if updates else []
     )
-    return Confirmed(applied, kept, waiting, hint, comparisons)
+    return Confirmed(
+        applied,
+        kept,
+        waiting,
+        hint,
+        comparisons,
+        not_applied["not_in_payslip"],
+        not_applied["unreadable"],
+        not_applied["removed"],
+    )

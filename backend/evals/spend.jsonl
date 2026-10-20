@@ -332,3 +332,85 @@
 {"at": "2026-10-20T14:24:23+00:00", "scenario": "rep_identifies_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.051109}
 {"at": "2026-10-20T14:24:44+00:00", "scenario": "rep_identifies_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.051841}
 {"at": "2026-10-20T14:25:03+00:00", "scenario": "rep_identifies_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.049188}
+{"at": "2026-10-20T14:57:52+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.043134}
+{"at": "2026-10-20T14:57:58+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.009898}
+{"at": "2026-10-20T14:58:04+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.009838}
+{"at": "2026-10-20T14:58:18+00:00", "scenario": "e001_atto3", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.02909}
+{"at": "2026-10-20T14:58:30+00:00", "scenario": "unknown_pension", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.027884}
+{"at": "2026-10-20T14:58:54+00:00", "scenario": "e001_rep_flow", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.06649}
+{"at": "2026-10-20T14:59:12+00:00", "scenario": "walkthrough", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.036336}
+{"at": "2026-10-20T14:59:28+00:00", "scenario": "forged_rep_notification", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.045568}
+{"at": "2026-10-20T14:59:40+00:00", "scenario": "all_options", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.032809}
+{"at": "2026-10-20T14:59:58+00:00", "scenario": "unknown_current_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.03477}
+{"at": "2026-10-20T15:00:17+00:00", "scenario": "rep_identifies_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.050028}
+{"at": "2026-10-20T15:13:58+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.043856}
+{"at": "2026-10-20T15:14:04+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.009777}
+{"at": "2026-10-20T15:14:10+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.009937}
+{"at": "2026-10-20T15:14:25+00:00", "scenario": "e001_atto3", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.025991}
+{"at": "2026-10-20T15:14:36+00:00", "scenario": "unknown_pension", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.026008}
+{"at": "2026-10-20T15:15:00+00:00", "scenario": "e001_rep_flow", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.066602}
+{"at": "2026-10-20T15:15:14+00:00", "scenario": "walkthrough", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.036787}
+{"at": "2026-10-20T15:15:35+00:00", "scenario": "forged_rep_notification", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.045681}
+{"at": "2026-10-20T15:15:47+00:00", "scenario": "all_options", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.030922}
+{"at": "2026-10-20T15:15:59+00:00", "scenario": "unknown_current_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.034495}
+{"at": "2026-10-20T15:16:23+00:00", "scenario": "rep_identifies_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.051059}
+{"at": "2026-10-20T15:16:47+00:00", "scenario": "e001_atto3", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.030843}
+{"at": "2026-10-20T15:16:59+00:00", "scenario": "e001_atto3", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.019608}
+{"at": "2026-10-20T15:17:12+00:00", "scenario": "e002_carnival", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.035691}
+{"at": "2026-10-20T15:17:25+00:00", "scenario": "e002_carnival", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.034457}
+{"at": "2026-10-20T15:17:37+00:00", "scenario": "e003_mg4", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.024698}
+{"at": "2026-10-20T15:17:49+00:00", "scenario": "e003_mg4", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.021856}
+{"at": "2026-10-20T15:18:02+00:00", "scenario": "e004_ev3", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.033471}
+{"at": "2026-10-20T15:18:15+00:00", "scenario": "e004_ev3", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.032398}
+{"at": "2026-10-20T15:18:27+00:00", "scenario": "e006_model3", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.030603}
+{"at": "2026-10-20T15:18:42+00:00", "scenario": "e006_model3", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.030475}
+{"at": "2026-10-20T15:19:06+00:00", "scenario": "e001_rep_flow", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.066177}
+{"at": "2026-10-20T15:19:31+00:00", "scenario": "e001_rep_flow", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.066013}
+{"at": "2026-10-20T15:19:44+00:00", "scenario": "all_options", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.022222}
+{"at": "2026-10-20T15:19:56+00:00", "scenario": "all_options", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.021582}
+{"at": "2026-10-20T15:20:05+00:00", "scenario": "options_without_current_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": false, "cost_usd": 0.022995}
+{"at": "2026-10-20T15:20:14+00:00", "scenario": "options_without_current_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.014292}
+{"at": "2026-10-20T16:37:54+00:00", "scenario": "e001_atto3", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.066337}
+{"at": "2026-10-20T16:38:08+00:00", "scenario": "e002_carnival", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.03586}
+{"at": "2026-10-20T16:38:19+00:00", "scenario": "e003_mg4", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.026509}
+{"at": "2026-10-20T16:38:31+00:00", "scenario": "e004_ev3", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.032136}
+{"at": "2026-10-20T16:38:45+00:00", "scenario": "e005_waiver", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.028966}
+{"at": "2026-10-20T16:38:58+00:00", "scenario": "e006_model3", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.03218}
+{"at": "2026-10-20T16:39:06+00:00", "scenario": "unknown_occupation", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.010869}
+{"at": "2026-10-20T16:39:13+00:00", "scenario": "corolla_ambiguous", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.013303}
+{"at": "2026-10-20T16:39:25+00:00", "scenario": "corolla_cross_warning", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.020248}
+{"at": "2026-10-20T16:39:38+00:00", "scenario": "atto3_not_eligible", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.03941}
+{"at": "2026-10-20T16:39:50+00:00", "scenario": "unknown_pension", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.024773}
+{"at": "2026-10-20T16:40:04+00:00", "scenario": "technician_waiver", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.033746}
+{"at": "2026-10-20T16:40:31+00:00", "scenario": "e001_rep_flow", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.071267}
+{"at": "2026-10-20T16:40:46+00:00", "scenario": "walkthrough", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.035874}
+{"at": "2026-10-20T16:41:05+00:00", "scenario": "forged_rep_notification", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.048019}
+{"at": "2026-10-20T16:41:26+00:00", "scenario": "group_exception", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.058427}
+{"at": "2026-10-20T16:41:41+00:00", "scenario": "payslip_confirmed", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.042725}
+{"at": "2026-10-20T16:41:52+00:00", "scenario": "all_options", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.03229}
+{"at": "2026-10-20T16:42:06+00:00", "scenario": "payslip_injection", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.036373}
+{"at": "2026-10-20T16:42:24+00:00", "scenario": "occupation_question", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.045569}
+{"at": "2026-10-20T16:42:29+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": false, "cost_usd": 0.011055}
+{"at": "2026-10-20T16:42:42+00:00", "scenario": "free_question", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.035086}
+{"at": "2026-10-20T16:42:55+00:00", "scenario": "unknown_current_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.03489}
+{"at": "2026-10-20T16:43:13+00:00", "scenario": "rep_identifies_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.050301}
+{"at": "2026-10-20T16:43:22+00:00", "scenario": "options_without_current_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.023962}
+{"at": "2026-10-20T16:43:30+00:00", "scenario": "payslip_offer", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.022242}
+{"at": "2026-10-20T16:43:40+00:00", "scenario": "options_partial_data", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.031036}
+{"at": "2026-10-20T16:43:51+00:00", "scenario": "picker_no_invented_cars", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.026854}
+{"at": "2026-10-20T16:44:03+00:00", "scenario": "catalog_year_differs", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.021033}
+{"at": "2026-10-20T16:44:21+00:00", "scenario": "all_options_pending_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.051353}
+{"at": "2026-10-20T16:44:35+00:00", "scenario": "payslip_amounts_layout", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.03523}
+{"at": "2026-10-20T16:44:52+00:00", "scenario": "payslip-smoke (01_clean.pdf)", "model": "claude-haiku-5-5", "cost_usd": 0.000606}
+{"at": "2026-10-20T16:44:55+00:00", "scenario": "payslip-smoke (02_clean.png)", "model": "claude-haiku-5-5", "cost_usd": 0.000535}
+{"at": "2026-10-20T16:44:56+00:00", "scenario": "payslip-smoke (03_blurry.jpg)", "model": "claude-haiku-5-5", "cost_usd": 0.000451}
+{"at": "2026-10-20T16:44:58+00:00", "scenario": "payslip-smoke (04_injection.pdf)", "model": "claude-haiku-5-5", "cost_usd": 0.000617}
+{"at": "2026-10-20T16:45:00+00:00", "scenario": "payslip-smoke (11_amounts.pdf)", "model": "claude-haiku-5-5", "cost_usd": 0.000614}
+{"at": "2026-10-20T16:45:14+00:00", "scenario": "payslip-smoke (01_clean.pdf)", "model": "claude-haiku-5-5", "cost_usd": 0.000606}
+{"at": "2026-10-20T16:45:17+00:00", "scenario": "payslip-smoke (02_clean.png)", "model": "claude-haiku-5-5", "cost_usd": 0.000535}
+{"at": "2026-10-20T16:45:19+00:00", "scenario": "payslip-smoke (03_blurry.jpg)", "model": "claude-haiku-5-5", "cost_usd": 0.000461}
+{"at": "2026-10-20T16:45:20+00:00", "scenario": "payslip-smoke (04_injection.pdf)", "model": "claude-haiku-5-5", "cost_usd": 0.000621}
+{"at": "2026-10-20T16:45:22+00:00", "scenario": "payslip-smoke (11_amounts.pdf)", "model": "claude-haiku-5-5", "cost_usd": 0.000605}
+{"at": "2026-10-20T17:38:33+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.046962}
+{"at": "2026-10-20T17:38:40+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.010313}
+{"at": "2026-10-20T17:38:48+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.010343}

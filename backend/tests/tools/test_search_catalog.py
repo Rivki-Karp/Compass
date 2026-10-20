@@ -73,6 +73,6 @@ def test_the_list_changes_nothing(tools: ToolRunner, sid: str) -> None:
     assert len(store.events_after(sid)) == before
 
 
-def test_an_empty_query_is_invalid(tools: ToolRunner, sid: str) -> None:
+def test_an_empty_query_is_the_whole_catalog_not_an_error(tools: ToolRunner, sid: str) -> None:
     result = tools.run(sid, "search_catalog", {"query": ""})
-    assert result["ok"] is False and result["error"]["code"] == "invalid_input"
+    assert result["ok"] is True and result["all"] is True

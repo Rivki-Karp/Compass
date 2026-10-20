@@ -1,6 +1,37 @@
 {
   "components": {
     "schemas": {
+      "CurrentCarPick": {
+        "additionalProperties": false,
+        "properties": {
+          "car_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Car Id"
+          },
+          "choice": {
+            "enum": [
+              "car",
+              "check_year",
+              "no_car",
+              "not_in_list"
+            ],
+            "title": "Choice",
+            "type": "string"
+          }
+        },
+        "required": [
+          "choice"
+        ],
+        "title": "CurrentCarPick",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -429,6 +460,56 @@
           }
         ],
         "summary": "Get Session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/sessions/{session_id}/current-car": {
+      "post": {
+        "description": "The employee's choice in the picker: a catalog car, 'no car', 'not in the list' or\n'another year, a representative checks'.",
+        "operationId": "pick_car_api_sessions__session_id__current_car_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurrentCarPick"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "No such session"
+          },
+          "409": {
+            "description": "Today's car is known already, or a representative was asked"
+          },
+          "422": {
+            "description": "An unknown car, or a choice that does not fit"
+          }
+        },
+        "summary": "Pick Car",
         "tags": [
           "sessions"
         ]

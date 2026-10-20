@@ -4,15 +4,44 @@ import { describe, expect, it, vi } from "vitest";
 import type { PayslipCandidateField, SessionEvent } from "../api/types";
 import { initialSession, reduce } from "../state/session";
 import { must } from "../test/views";
-import { confirmBody, plain, precheck, ready, rows, warning } from "./payslip";
+import {
+  basisCaption,
+  confirmBody,
+  grouped,
+  offerVisible,
+  plain,
+  precheck,
+  ready,
+  rows,
+  warning,
+} from "./payslip";
 import { PayslipCard } from "./PayslipCard";
+import { PayslipOffer } from "./PayslipOffer";
 import { usePayslip } from "./usePayslip";
 
 const field = (
   value: string | null,
   confidence: PayslipCandidateField["confidence"] = "high",
   flag: PayslipCandidateField["flag"] = null,
-): PayslipCandidateField => ({ value, confidence, flag });
+  basis?: { amount: string; wage: string },
+): PayslipCandidateField => ({ value, confidence, flag, ...(basis ? { basis } : {}) });
+
+// The usual layout: the payslip prints "כלל פנסיה 1,200 / שכר לקופ"ג 20,000" and "כלל השתלמות 500
+// / שכר לקה"ל 20,000", not a percent; no commissions or bonus line.
+const AMOUNTS = {
+  base_salary: field("14000"),
+  commissions: field(null),
+  bonus: field(null),
+  pension_percent: field(null, "low"),
+  study_fund_percent: field(null, "low"),
+  employee_pension_amount: field("1200"),
+  pension_wage: field("20000"),
+  employee_study_fund_amount: field("500"),
+  study_fund_wage: field("20000"),
+  pension_percent_derived: field("6", "high", null, { amount: "1200", wage: "20000" }),
+  study_fund_percent_derived: field("2.5", "high", null, { amount: "500", wage: "20000" }),
+  credit_points: field("2.75"),
+};
 
 const FIELDS = {
   base_salary: field("18500"),
@@ -95,7 +124,8 @@ describe("PayslipCard", () => {
     await userEvent.type(salary, "19000");
     await userEvent.click(within(card).getByRole("button", { name: "הסרת בונוס" }));
     expect(within(card).getByText("0").tagName).toBe("BDI"); // the removed value, isolated
-    await userEvent.click(must(within(card).getAllByRole("button", { name: "החזרה" })[1]));
+    // commissions (not on the payslip) offers "אין" instead; the removed bonus comes back
+    await userEvent.click(must(within(card).getAllByRole("button", { name: "החזרה" })[0]));
     await userEvent.click(confirm);
     expect(onConfirm).toHaveBeenCalledWith({ base_salary: "19000", bonus: "0", credit_points: "2.25" });
   });
@@ -131,7 +161,7 @@ describe("usePayslip", () => {
     const { result } = renderHook(() =>
       usePayslip({ sessionId: "s", limits: undefined, pending: null }),
     );
-    expect(result.current).toEqual({ attach: null, tray: null });
+    expect(result.current).toEqual({ attach: null, tray: null, open: null });
   });
 
   it("the attach button asks for the privacy notice first, once per session", async () => {
@@ -153,5 +183,134 @@ describe("usePayslip", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "צירוף תלוש שכר" }));
     expect(screen.queryByRole("dialog")).toBeNull(); // acknowledged for this session
+  });
+});
+
+
+describe("a payslip that prints amounts, not percents", () => {
+  const byName = (fields: Record<string, PayslipCandidateField>) =>
+    Object.fromEntries(rows(fields).map((r) => [r.name, r]));
+
+  it("the derived percent fills the row, with where it came from", () => {
+    const { pension_percent, study_fund_percent } = byName(AMOUNTS);
+    expect(pension_percent?.value).toBe("6");
+    expect(pension_percent?.removed).toBe(false);
+    expect(study_fund_percent?.value).toBe("2.5");
+    expect(basisCaption(must(pension_percent))).toBe("(חושב מהתלוש: 1,200 מתוך 20,000)");
+    expect(grouped("1234.5")).toBe("1,234.5");
+    // the helper amount/wage fields are never rows of their own
+    expect(rows(AMOUNTS).map((r) => r.name)).not.toContain("pension_wage");
+  });
+
+  it("an edit hides the basis: it no longer describes the value", () => {
+    const row = must(byName(AMOUNTS).pension_percent);
+    expect(basisCaption({ ...row, value: "7" })).toBeNull();
+  });
+
+  it("a printed percent that differs from the derived one: both offered, none chosen", () => {
+    const fields = { ...AMOUNTS, pension_percent: field("6.5") };
+    const row = must(byName(fields).pension_percent);
+    expect(row.choices?.map((c) => c.value)).toEqual(["6.5", "6"]);
+    expect(row.value).toBe(""); // the employee picks
+    expect(ready([row])).toBe(false);
+    expect(warning(row)).toBe("בתלוש מופיעים שני ערכים שונים. בחרו את הנכון.");
+    // the same printed and derived value is no conflict
+    const same = must(byName({ ...AMOUNTS, pension_percent: field("6") }).pension_percent);
+    expect(same.choices).toBeNull();
+    expect(same.value).toBe("6");
+  });
+
+  it("a derived percent that is not a valid percent is not offered as a value", () => {
+    const fields = {
+      ...AMOUNTS,
+      pension_percent_derived: field(null, "high", "too_many_decimals", {
+        amount: "1000",
+        wage: "30000",
+      }),
+    };
+    const row = must(byName(fields).pension_percent);
+    expect(row.read).toBeNull();
+    expect(row.removed).toBe(false); // shown, so the employee types the percent or removes it
+    expect(warning(row)).toBe(
+      "חושב מהתלוש: 1,000 מתוך 30,000, אך התוצאה אינה אחוז תקין. הזינו את האחוז או הסירו את השדה.",
+    );
+  });
+
+  it("an amount without its wage derives nothing, and says so", () => {
+    const rest: Record<string, PayslipCandidateField> = { ...AMOUNTS };
+    delete rest.pension_wage;
+    delete rest.pension_percent_derived;
+    const row = must(byName(rest).pension_percent);
+    expect(row.removed).toBe(true);
+    expect(warning(row)).toBe(
+      "נמצא ניכוי של 1,200 ₪ אך לא השכר שעליו הוא מחושב, ולכן לא חושב אחוז.",
+    );
+  });
+
+  it("the card sends the derived percent, and one tap on אין answers 0 for commissions and bonus", async () => {
+    const onConfirm = vi.fn();
+    render(<PayslipCard pending={{ seq: 9, fields: AMOUNTS }} busy={false} onConfirm={onConfirm} />);
+    const card = screen.getByRole("region", { name: "מה קראנו מהתלוש" });
+    expect(within(card).getAllByText("לא נמצא בתלוש — אין?")).toHaveLength(2); // commissions, bonus
+    expect(within(card).getByLabelText("הפרשת עובד לפנסיה")).toHaveValue("6");
+    expect(within(card).getByText("(חושב מהתלוש: 1,200 מתוך 20,000)")).toBeInTheDocument();
+    await userEvent.click(must(within(card).getAllByRole("button", { name: "אין" })[0]));
+    await userEvent.click(must(within(card).getAllByRole("button", { name: "אין" })[0]));
+    await userEvent.click(within(card).getByRole("button", { name: "אישור ושמירה" }));
+    expect(onConfirm).toHaveBeenCalledWith({
+      base_salary: "14000",
+      commissions: "0",
+      bonus: "0",
+      pension_percent: "6",
+      study_fund_percent: "2.5",
+      credit_points: "2.75",
+    });
+  });
+
+  it("two readings: the employee picks one, then the button is enabled", async () => {
+    const onConfirm = vi.fn();
+    const fields = { ...AMOUNTS, pension_percent: field("6.5") };
+    render(<PayslipCard pending={{ seq: 9, fields }} busy={false} onConfirm={onConfirm} />);
+    const card = screen.getByRole("region", { name: "מה קראנו מהתלוש" });
+    const confirm = within(card).getByRole("button", { name: "אישור ושמירה" });
+    expect(confirm).toBeDisabled();
+    await userEvent.click(within(card).getByLabelText("6.5% (מודפס בתלוש)"));
+    expect(confirm).toBeEnabled();
+  });
+});
+
+
+describe("the payslip offer in the empty state", () => {
+  const employee = { seq: 1, role: "employee", text: "שלום", kind: null, turn: null } as const;
+
+  it("shows before the employee writes anything, and only then", () => {
+    expect(offerVisible({ messages: [], payslip: null })).toBe(true);
+    expect(offerVisible({ messages: [employee], payslip: null })).toBe(false);
+    // a payslip waiting for confirmation has its own card
+    expect(offerVisible({ messages: [], payslip: { seq: 2, fields: FIELDS } })).toBe(false);
+  });
+
+  it("the card says what the upload does, and its button opens the upload", async () => {
+    const onUpload = vi.fn();
+    render(<PayslipOffer onUpload={onUpload} />);
+    const card = screen.getByRole("region", { name: "העלאת תלוש שכר ממלאת את רוב הפרטים" });
+    await userEvent.click(within(card).getByRole("button", { name: "העלאת תלוש" }));
+    expect(onUpload).toHaveBeenCalledOnce();
+  });
+
+  it("the hook's open() asks for the privacy notice first, like the paperclip", async () => {
+    sessionStorage.clear();
+    function Harness() {
+      const { open, tray } = usePayslip({ sessionId: "s7", limits: LIMITS, pending: null });
+      return (
+        <div>
+          {tray}
+          {open ? <PayslipOffer onUpload={open} /> : null}
+        </div>
+      );
+    }
+    render(<Harness />);
+    await userEvent.click(screen.getByRole("button", { name: "העלאת תלוש" }));
+    expect(screen.getByRole("dialog", { name: "לפני שמעלים תלוש" })).toBeInTheDocument();
   });
 });

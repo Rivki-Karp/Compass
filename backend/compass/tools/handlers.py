@@ -6,7 +6,8 @@ runner turns into {"ok": false, "error": {...}}.
 """
 
 import logging
-from collections.abc import Callable, Mapping
+import re
+from collections.abc import Callable, Mapping, Sequence
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -25,11 +26,13 @@ from compass.engine.models import (
     Scenario,
     Waiver,
 )
+from compass.engine.options import list_eligibility as engine_eligibility_list
 from compass.engine.options import list_options as engine_options
 from compass.engine.serialize import plain_json, to_api_dict
 from compass.labels import car_details
 from compass.search import SearchResult
 from compass.state import Slot, SlotUpdate
+from compass.tools.car_picker import grouped_catalog, offer_current_car, open_offer
 from compass.tools.profile import (
     ALTERNATIVE_PARTICIPATION,
     CURRENT_CAR,
@@ -38,6 +41,7 @@ from compass.tools.profile import (
     PROFILE_FIELDS,
     REQUIRED_FIELDS,
     SLOT_OF,
+    TOOL_OF,
     FieldError,
     alternative_participation,
     is_fillable,
@@ -141,7 +145,14 @@ class SaveProfileInput(_Input):
     pension_percent: Decimal | None = Field(None, description="Employee pension rate, percent")
     study_fund_percent: Decimal | None = Field(None, description="Employee study fund, percent")
     credit_points: Decimal | None = Field(None, description="Tax credit points (0.25 steps)")
-    children_under_23: int | None = Field(None, description="Children under 23")
+    children_under_23: int | None = Field(
+        None,
+        description=(
+            "Number of the employee's children who count toward this benefit (the age limit is "
+            "defined in the rules). When asking the employee, either call get_rule first and "
+            "quote the limit from its result, or ask in words without stating an age."
+        ),
+    )
     unknown_fields: list[str] = Field(
         default_factory=list, description="Fields the employee said they don't know"
     )
@@ -211,6 +222,7 @@ def save_profile(services: Services, session_id: str, data: SaveProfileInput) ->
             )
 
     store.update_slots(session_id, updates)
+    satisfy_pending_options(services, session_id, list(updates))
     slots = store.slots(session_id)
     summary = {
         "saved": {
@@ -374,10 +386,12 @@ def lookup_vehicle(services: Services, session_id: str, data: LookupVehicleInput
 
 class SearchCatalogInput(_Input):
     query: str = Field(
-        min_length=1,
+        "",
         max_length=200,
         description="The car as the employee wrote it: part of the name, the manufacturer, or "
-        "the name in Hebrew letters",
+        "the name in Hebrew letters, with the registration year if they gave one. Empty or "
+        "'all': the whole catalog grouped by manufacturer (the employee gave nothing, or does "
+        "not know)",
     )
 
 
@@ -389,15 +403,37 @@ CATALOG_EXTRA_CHOICES = (
 )
 
 
+ALL_WORDS = frozenset({"all", "everything", "הכל", "הכול", "כל הרכבים", "כולם"})
+_YEAR = re.compile(r"(?<!\d)((?:19|20)\d{2})(?!\d)")
+CHECK_WITH_REP = "check_with_rep"
+
+
 def search_catalog(services: Services, session_id: str, data: SearchCatalogInput):  # type: ignore[no-untyped-def]
     """The catalog cars the employee may mean, as numbered choices, then "not in the list" and
-    "no car today". Never a pick: the employee chooses."""
+    "no car today". Never a pick: the employee chooses.
+
+    No query, or "all": the whole catalog, grouped by manufacturer (`manufacturers`), the list
+    the agent may read from; the catalog picker is on the employee's screen too. A query that
+    names no catalog car also puts the picker on screen. A registration year in the query that
+    differs from the matched car's year marks that car `year_differs` (the model is in the
+    catalog, the year is not the employee's): the choice is then "לבדיקת נציג", never "a
+    different car"."""
     ctx = services.ctx
-    choices: list[dict[str, Any]] = []
-    for number, candidate in enumerate(services.searcher.search_catalog(data.query), start=1):
-        car = ctx.catalog[candidate.id]
-        choices.append(
-            {
+    query = data.query.strip()
+    everything = not query or query.casefold() in ALL_WORDS
+    stated = _YEAR.search(query)
+    stated_year = None if everything or stated is None else int(stated.group(1))
+    out: dict[str, Any]
+    if everything:
+        groups = grouped_catalog(services)
+        total = sum(len(g["cars"]) for g in groups)
+        out = {"query": query, "all": True, "cars": [], "manufacturers": groups}
+        first_extra = total + 1
+    else:
+        choices: list[dict[str, Any]] = []
+        for number, candidate in enumerate(services.searcher.search_catalog(query), start=1):
+            car = ctx.catalog[candidate.id]
+            choice = {
                 "choice": number,
                 "car_id": car.id,
                 "name": car.commercial_name,
@@ -406,16 +442,28 @@ def search_catalog(services: Services, session_id: str, data: SearchCatalogInput
                 "drive": car.drive,
                 "details_he": car_details(car.drive, car.group),
             }
+            if stated_year is not None and stated_year != car.registration_year:
+                choice["year_differs"] = True  # the model matches; the employee's year does not
+            choices.append(choice)
+        out = {"query": query, "cars": choices}
+        if stated_year is not None:
+            out["stated_year"] = stated_year
+        first_extra = len(choices) + 1
+    others = [
+        {"choice": first_extra + i, "id": key, "label_he": label}
+        for i, (key, label) in enumerate(CATALOG_EXTRA_CHOICES)
+    ]
+    if any(c.get("year_differs") for c in out["cars"]):
+        others.append(
+            {"choice": first_extra + len(others), "id": CHECK_WITH_REP, "label_he": "לבדיקת נציג"}
         )
-    first_extra = len(choices) + 1
-    return {
-        "query": data.query,
-        "cars": choices,
-        "other_choices": [
-            {"choice": first_extra + i, "id": key, "label_he": label}
-            for i, (key, label) in enumerate(CATALOG_EXTRA_CHOICES)
-        ],
-    }
+    out["other_choices"] = others
+    # The catalog picker: on screen whenever the whole catalog is asked for or nothing matched
+    # (the employee's way to pick without typing); a named car keeps the numbered list.
+    if everything or not out["cars"]:
+        offer_current_car(services, session_id)
+    out["picker_on_screen"] = open_offer(services, session_id)
+    return out
 
 
 # --- 4. set_current_situation -----------------------------------------------------------------
@@ -454,8 +502,10 @@ def _today_scenario(services: Services, today: Any) -> tuple[Scenario, str]:
         if today.registration_year not in (None, car.registration_year):
             raise ToolError(
                 "not_found",
-                f"{car.id} is the {car.registration_year} model; look up the "
-                f"{today.registration_year} model with lookup_vehicle",
+                f"{car.commercial_name} is in the catalog as the {car.registration_year} model, "
+                f"not {today.registration_year}. Do not tell the employee it is a different car: "
+                "offer the catalog model and 'לבדיקת נציג' (ask_representative, bound_field "
+                "current_car), or the picker on their screen",
                 car_id=car.id,
             )
         cls = FamilyCar if ctx.is_family_car(car.id) else CompanyCar
@@ -535,14 +585,15 @@ def representative_today(services: Services, car_id: str) -> dict[str, Any]:
 
 def refresh_without_today(
     services: Services, session_id: str, extra: Mapping[str, Any] | None = None
-) -> None:
+) -> list[dict[str, Any]]:
     """What is on screen without today's car, computed again with no model call: once today
     is known (the diffs appear), or when a current_car ticket opens or is answered without a
     car (the pending chip comes and goes). The latest option set, if it was computed without
     today, is computed again (the same stated participations), and so is the latest
     comparison, if it was; each one exactly as list_options and compare compute it. `extra`
-    goes into the comparison's event (the ticket that caused it)."""
-    _refresh(services, session_id, extra, only_without_today=True)
+    goes into the comparison's event (the ticket that caused it). Returns the refreshed
+    comparison in compare's own shape, if any."""
+    return _refresh(services, session_id, extra, only_without_today=True)
 
 
 def refresh_after_profile_change(
@@ -564,7 +615,10 @@ def _refresh(
 ) -> list[dict[str, Any]]:
     events = services.store.events_after(session_id)
     sets = [e for e in events if e.type == "comparison_set_ready"]
-    if sets and (not only_without_today or sets[-1].payload.get("today_unknown")):
+    pending = _pending_options_request(events)
+    if pending is not None:
+        _satisfy_options_request(services, session_id, pending)
+    elif sets and (not only_without_today or sets[-1].payload.get("today_unknown")):
         stated = {k: Decimal(v) for k, v in (sets[-1].payload.get("stated") or {}).items()}
         try:
             options = _engine_options(services, session_id, stated)
@@ -591,6 +645,58 @@ def _refresh(
     refreshed = {**payload, "origin": "server", "recomputed_from": latest.seq, **(extra or {})}
     _record_comparison(services, session_id, scenario, refreshed)
     return [{"ok": True, **payload}]
+
+
+def _pending_options_request(events: Sequence[Any]) -> Mapping[str, Decimal] | None:
+    """The stated participations of the latest list_options request that no option set has
+    answered yet, or None."""
+    requests = [e for e in events if e.type == "options_requested"]
+    if not requests:
+        return None
+    answered = [e for e in events if e.type == "comparison_set_ready" and e.seq > requests[-1].seq]
+    if answered:
+        return None
+    return {k: Decimal(v) for k, v in (requests[-1].payload.get("stated") or {}).items()}
+
+
+def _satisfy_options_request(
+    services: Services, session_id: str, stated: Mapping[str, Decimal]
+) -> bool:
+    """Compute and put the pending request's option set on screen if the inputs allow it now,
+    exactly as list_options does; otherwise it stays pending."""
+    try:
+        options = _engine_options(services, session_id, stated)
+    except ToolError as error:  # still missing something every net needs
+        log.info("options request still pending in %s: %s", session_id, error)
+        return False
+    _emit_option_set(services, session_id, options, stated)
+    return True
+
+
+def satisfy_pending_options(
+    services: Services, session_id: str, changed: Sequence[str] = ()
+) -> bool:
+    """Called when the profile changes (save_profile; `changed`: the slot fields written): the
+    employee's earlier request for every option is answered as soon as it can be, with no model
+    call; and an option set shown partial is computed again when it was missing exactly what
+    just arrived."""
+    events = services.store.events_after(session_id)
+    pending = _pending_options_request(events)
+    if pending is not None:
+        return _satisfy_options_request(services, session_id, pending)
+    sets = [e for e in events if e.type == "comparison_set_ready"]
+    if not sets or not changed:
+        return False
+    arrived = {TOOL_OF.get(f, f) for f in changed}
+    waiting = {
+        m["field"]
+        for option in sets[-1].payload["options"]
+        for m in option["view"].get("missing", [])
+    }
+    if not arrived & waiting:
+        return False
+    stated = {k: Decimal(v) for k, v in (sets[-1].payload.get("stated") or {}).items()}
+    return _satisfy_options_request(services, session_id, stated)
 
 
 # --- 5/6. alternatives: check_eligibility and compare -----------------------------------------
@@ -734,6 +840,8 @@ def compare(services: Services, session_id: str, data: CompareInput) -> dict[str
         explicit=data.alternative.participation is not None,
     )
     kind = _record_comparison(services, session_id, scenario, payload)
+    if payload["comparison"]["today_unknown"]:
+        offer_current_car(services, session_id)  # the screen waits for today's car
     return {"alternative_kind": kind, **payload}
 
 
@@ -796,13 +904,32 @@ class ListOptionsInput(_Input):
 
 
 def list_options(services: Services, session_id: str, data: ListOptionsInput) -> dict[str, Any]:
-    """Each car's participation is resolved exactly as compare() resolves it."""
+    """Each car's participation is resolved exactly as compare() resolves it.
+
+    Never a refusal for a missing profile input: what is unknown is marked (`partial`,
+    `missing`). Unknown pension / study fund rates and an unknown today's car give a partial
+    comparison per option (as compare does); when an input every net needs is unknown
+    (salary, commissions, bonus, credit points) the options are listed with their eligibility
+    only."""
     ctx = services.ctx
     unknown = sorted(set(data.participation) - set(ctx.catalog))
     if unknown:
         raise ToolError("not_found", "unknown catalog car id in participation", car_ids=unknown)
     infos: dict[str, dict[str, Any]] = {}
-    options = _engine_options(services, session_id, data.participation, infos)
+    # The employee asked for every option: kept as a pending request until a set is on screen
+    # (a refusal or an amounts-free answer leaves it pending), so the server satisfies it by
+    # itself once the inputs are there (today's car, commissions, the rates).
+    services.store.append_event(
+        session_id, "options_requested", {"stated": plain_json(dict(data.participation))}
+    )
+    try:
+        options = _engine_options(services, session_id, data.participation, infos)
+    except ToolError as error:
+        if error.code != "missing_inputs":
+            raise
+        if _today(services, session_id) is None:
+            offer_current_car(services, session_id)  # no amounts, and no car either
+        return _options_without_amounts(services, session_id, error)
     listed = to_api_dict(options, ctx.rules)
     for option, data_out in zip(options, listed, strict=True):
         info = infos.get(getattr(option.scenario, "car_id", ""), {})
@@ -817,7 +944,40 @@ def list_options(services: Services, session_id: str, data: ListOptionsInput) ->
         data_out["group"] = None if car is None else car.group
         data_out["drive"] = None if car is None else car.drive
     _emit_option_set(services, session_id, options, data.participation)
-    return {"options": listed}
+    if any(o.comparison.today_unknown for o in options):
+        offer_current_car(services, session_id)  # the screen waits for today's car
+    missing = list(dict.fromkeys(f for o in options for f in tool_fields(o.comparison.missing)))
+    return {"options": listed, "partial": bool(missing), "missing": missing}
+
+
+def _options_without_amounts(
+    services: Services, session_id: str, error: ToolError
+) -> dict[str, Any]:
+    """The eligibility of every alternative and no money, for when an input every net needs
+    is unknown. Nothing goes on screen."""
+    ctx = services.ctx
+    slots = services.store.slots(session_id)
+    today, _ = _today_for_engine(services, session_id, slots)
+    verdicts = engine_eligibility_list(profile_from_slots(slots), today, ctx)
+    listed = []
+    for scenario, verdict in verdicts:
+        car = ctx.catalog.get(getattr(scenario, "car_id", ""))
+        listed.append(
+            {
+                "scenario": plain_json(scenario),
+                "eligibility": to_api_dict(verdict, ctx.rules),
+                "comparison": None,  # no amounts: an input every net needs is unknown
+                "commercial_name": None if car is None else car.commercial_name,
+                "group": None if car is None else car.group,
+                "drive": None if car is None else car.drive,
+            }
+        )
+    return {
+        "options": listed,
+        "partial": True,
+        "no_amounts": True,
+        "missing": error.details["fields"],
+    }
 
 
 def _engine_options(
@@ -877,7 +1037,9 @@ def _emit_option_set(
         alternative = scenario.model_dump(mode="json")
         view = build_view(services, session_id, alternative, {**payload, "origin": "server"})
         entries.append({"alternative": alternative, "view": view})
-    entries.sort(key=lambda e: -_rank(e["view"]))
+    ranks = [_rank(e["view"]) for e in entries]
+    if None not in ranks:  # else (no nets at all): the engine's order, which ranks them too
+        entries = [e for _, e in sorted(zip(ranks, entries, strict=True), key=lambda r: -r[0])]
     services.store.append_event(
         session_id,
         "comparison_set_ready",
@@ -891,8 +1053,9 @@ def _emit_option_set(
     )
 
 
-def _rank(view: Mapping[str, Any]) -> int:
-    """A view's place in the selector: its diff, or its own net while today is unknown."""
+def _rank(view: Mapping[str, Any]) -> int | None:
+    """A view's place in the selector: its diff, or its own net while today is unknown (None
+    when both are unknown: the engine ranked the options by the net at zero rates)."""
     diff = view["display_diff"]
     return view["alternative_net"] if diff is None else diff
 

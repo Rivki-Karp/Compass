@@ -53,6 +53,11 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string |
   return body as T;
 }
 
+/** POST /sessions/{id}/current-car: what the employee chose in the catalog picker. */
+export type CarPick =
+  | { choice: "car" | "check_year"; car_id: string }
+  | { choice: "not_in_list" | "no_car" };
+
 export const api = {
   health: () => request<Health>("/health"),
   createSession: () => request<{ id: string }>("/sessions", { method: "POST" }),
@@ -60,6 +65,11 @@ export const api = {
     request<{ message_seq: number }>(`/sessions/${sessionId}/messages`, {
       method: "POST",
       body: JSON.stringify({ text }),
+    }),
+  pickCurrentCar: (sessionId: string, pick: CarPick) =>
+    request<{ outcome: string }>(`/sessions/${sessionId}/current-car`, {
+      method: "POST",
+      body: JSON.stringify(pick),
     }),
   judgesStats: (token: string) => request<JudgesStats>("/admin/stats", {}, token),
   openTickets: (token: string) => request<TicketWithView[]>("/tickets?status=open", {}, token),
