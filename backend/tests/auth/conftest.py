@@ -1,11 +1,11 @@
 import json
 import shutil
-import sys
 from collections.abc import Callable, Iterator
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from authkit import EMAILS, PASSWORD, STATIC_ADMIN, STATIC_REP
 from fastapi.testclient import TestClient
 
 from compass.api import Settings, create_app
@@ -14,20 +14,6 @@ from compass.auth.passwords import hash_password
 from compass.auth.seed import parse_seed_users
 from compass.config import RULES_YAML
 from compass.state.accounts import Accounts
-
-# the helpers of tests/api (live server, SSE reader) and tests/payslip (synthetic files)
-for _helpers in ("api", "payslip"):
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / _helpers))
-
-PASSWORD = "correct horse battery"
-STATIC_REP, STATIC_ADMIN = "rep-static-token", "admin-static-token"
-# role -> the seeded account's email; every one logs in with PASSWORD
-EMAILS = {
-    "employee": "dana@example.com",
-    "other": "avi@example.com",
-    "rep": "rep@example.com",
-    "admin": "admin@example.com",
-}
 
 
 @pytest.fixture(scope="session")

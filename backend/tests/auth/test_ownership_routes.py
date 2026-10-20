@@ -10,7 +10,7 @@ from typing import Any
 
 import httpx
 import pytest
-from conftest import EMAILS, PASSWORD
+from authkit import EMAILS, PASSWORD
 from fastapi import FastAPI
 from fastapi.routing import APIRoute, iter_route_contexts
 from fastapi.testclient import TestClient
@@ -35,6 +35,7 @@ LOGIN_ONLY = {
     "/api/sessions": "starts a conversation owned by the caller",
     "/api/auth/logout": "ends the caller's own login",
     "/api/auth/me": "the caller's own name and role",
+    "/api/conversations": "the caller's own conversations",
 }
 
 

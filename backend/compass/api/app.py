@@ -38,6 +38,7 @@ from compass.api.agent import AgentRunner
 from compass.api.auth import Auth, add_auth_routes, mark_guard
 from compass.api.broker import TICKETS, Broker
 from compass.api.car import add_car_routes
+from compass.api.conversations import add_conversation_routes
 from compass.api.payslip import add_payslip_routes
 from compass.api.ratelimit import RateLimiter, client_ip
 from compass.api.redact import public_message, public_payload
@@ -229,7 +230,8 @@ def create_app(
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),
-        allow_methods=["GET", "POST"],
+        # (DELETE: a user deleting their own conversation, only with accounts on)
+        allow_methods=["GET", "POST", "DELETE"] if settings.auth else ["GET", "POST"],
         # Content-Type: the JSON bodies; Last-Event-ID: an SSE stream resuming (frontend sse.ts)
         allow_headers=["Authorization", "Content-Type", "Last-Event-ID"],
     )
@@ -473,6 +475,10 @@ def create_app(
     # /api/auth/* (COMPASS_AUTH=1; off: the routes do not exist)
     if auth is not None:
         add_auth_routes(api, settings, auth, app.state.login_guard)
+
+    # /api/conversations (COMPASS_AUTH=1; off: the routes do not exist)
+    if auth is not None:
+        add_conversation_routes(api, store, broker, auth.current_user, session_access)
 
     # POST /api/sessions/{id}/payslip (COMPASS_PAYSLIP=1, otherwise 404)
     add_payslip_routes(api, settings, services, agent, session_access)

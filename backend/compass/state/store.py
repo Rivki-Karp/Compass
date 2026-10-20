@@ -286,6 +286,59 @@ class Store:
             owner = self._require_session(conn, session_id)["owner_user_id"]
         return None if owner is None else str(owner)
 
+    def conversation_rows(self, owner_user_id: str) -> list[dict[str, Any]]:
+        """The account's own sessions, newest first, each with the latest event of the kinds a
+        list entry is built from: {id, status, updated_at, latest: {type: (seq, payload)}}."""
+        kinds = ("comparison_ready", "comparison_set_ready", "options_requested")
+        with self._read() as conn:
+            sessions = conn.execute(
+                "SELECT id, status, updated_at FROM sessions WHERE owner_user_id = ? "
+                "ORDER BY updated_at DESC, created_at DESC, id",
+                (owner_user_id,),
+            ).fetchall()
+            rows = []
+            for s in sessions:
+                latest = {}
+                for kind in kinds:
+                    event = conn.execute(
+                        "SELECT seq, payload_json FROM events WHERE session_id = ? AND type = ? "
+                        "ORDER BY seq DESC LIMIT 1",
+                        (s["id"], kind),
+                    ).fetchone()
+                    if event is not None:
+                        latest[kind] = (event["seq"], json.loads(event["payload_json"]))
+                rows.append(
+                    {
+                        "id": s["id"],
+                        "status": s["status"],
+                        "updated_at": s["updated_at"],
+                        "latest": latest,
+                    }
+                )
+        return rows
+
+    def delete_session(self, session_id: str) -> bool:
+        """Delete a conversation and everything of it: messages, events (the pending payslip
+        candidate among them), profile, scenarios and tickets (open ones included). Pages are
+        scrubbed when freed and the write-ahead log is checkpointed, so the content does not
+        linger in the files. Nothing about the content is recorded. False: no such session."""
+        with self._write() as (conn, _events):
+            conn.execute("PRAGMA secure_delete = ON")
+            found = conn.execute("SELECT 1 FROM sessions WHERE id = ?", (session_id,)).fetchone()
+            if found is None:
+                return False
+            for table in ("events", "messages", "profile_slots", "scenarios", "tickets"):
+                conn.execute(f"DELETE FROM {table} WHERE session_id = ?", (session_id,))
+            conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        conn = self._connect()
+        try:
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")  # best effort: a reader may hold it
+        except sqlite3.Error:
+            pass
+        finally:
+            conn.close()
+        return True
+
     def count_user_events(self, user_id: str, types: tuple[str, ...], since: str) -> int:
         """How many events of `types`, at or after `since` (an ISO UTC time), the sessions of
         this account have (the per-user daily payslip count)."""

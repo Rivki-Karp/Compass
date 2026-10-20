@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
-from conftest import EMAILS, PASSWORD, STATIC_ADMIN, STATIC_REP
+from authkit import EMAILS, PASSWORD, STATIC_ADMIN, STATIC_REP
 from fastapi.testclient import TestClient
 from live import SSEReader, live_server
 

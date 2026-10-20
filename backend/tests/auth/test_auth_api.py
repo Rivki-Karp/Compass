@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
-from conftest import EMAILS, PASSWORD
+from authkit import EMAILS, PASSWORD
 from fastapi import Depends
 from fastapi.testclient import TestClient
 

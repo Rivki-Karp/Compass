@@ -32,6 +32,14 @@ class Broker:
         if event.type in TICKET_EVENTS:
             loop.call_soon_threadsafe(self._wake, TICKETS)
 
+    def wake(self, *channels: str) -> None:
+        """Wake streams without an event (a session was deleted; the inbox lost a ticket)."""
+        loop = self._loop
+        if loop is None or loop.is_closed():
+            return
+        for channel in channels:
+            loop.call_soon_threadsafe(self._wake, channel)
+
     def _wake(self, session_id: str) -> None:
         for waiter in self._waiters.get(session_id, ()):
             waiter.set()
