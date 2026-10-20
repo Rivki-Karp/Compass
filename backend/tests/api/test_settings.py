@@ -16,6 +16,8 @@ ENV_VARS = (
     "COMPASS_CORS_ORIGINS",
     "COMPASS_LLM",
     "COMPASS_DEMO_DB",
+    "COMPASS_MODEL",
+    "COMPASS_EFFORT",
 )
 
 
@@ -90,6 +92,20 @@ def test_empty_shell_variable_does_not_hide_the_file(
     env_file.write_text("ANTHROPIC_API_KEY=from-file\n", encoding="utf-8")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
     assert Settings.from_env(env_file=env_file).anthropic_api_key == "from-file"
+
+
+def test_model_and_effort(tmp_path: Path) -> None:
+    from compass.api.settings import SettingsError
+
+    defaults = Settings.from_env(env_file=tmp_path / "nope.env")
+    assert (defaults.model, defaults.effort) == ("claude-sonnet-5-5", "low")
+    env_file = tmp_path / ".env"
+    env_file.write_text("COMPASS_MODEL=claude-haiku-5-5\nCOMPASS_EFFORT=medium\n", encoding="utf-8")
+    settings = Settings.from_env(env_file=env_file)
+    assert (settings.model, settings.effort) == ("claude-haiku-5-5", "medium")
+    env_file.write_text("COMPASS_EFFORT=huge\n", encoding="utf-8")
+    with pytest.raises(SettingsError, match="COMPASS_EFFORT"):
+        Settings.from_env(env_file=env_file)
 
 
 @pytest.mark.parametrize("value", ["zero", "0", "-3"])

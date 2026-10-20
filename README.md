@@ -126,11 +126,11 @@ server's.
 
 Per-scenario figures are averages over the repeats.
 
-**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-20): pytest **819** · vitest **206** · Playwright **11**. CI runs all of them on every push.
+**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-20): pytest **822** · vitest **206** · Playwright **11**. CI runs all of them on every push.
 
 **Cost per conversation:** **$0.0334**, the last report's run cost over its 22 scenario runs.
 
-**Total spend on evals:** **$8.55** of the $30.00 cap, over every eval run so far: 256 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
+**Total spend on evals:** **$8.64** of the $30.00 cap, over every eval run so far: 287 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
 
 <!-- results:end -->
 
@@ -588,7 +588,8 @@ uv run --project backend python tasks.py eval --only walkthrough,e001_rep_flow -
 ```
 
 Both need `ANTHROPIC_API_KEY` in `backend/.env`; without it they print a Hebrew + English message
-and exit 2. `COMPASS_MAX_TOOL_ROUNDS` (default 8) caps the tool rounds per reply. In
+and exit 2. `COMPASS_MAX_TOOL_ROUNDS` (default 8) caps the tool rounds per reply, and
+`COMPASS_EFFORT` (default `low`) sets the agent's effort. In
 PowerShell the commands are the same; the chat switches the console to UTF-8 and enables
 ANSI colours itself. To try another model for one run:
 
@@ -699,6 +700,13 @@ column is most of every scenario's tokens.
 **Effort `low` vs `medium`** ([backend/evals/report-medium.md](backend/evals/report-medium.md)): the same pass
 rate with no guard retries or template fallbacks; `medium` cost more per run. Same quality at a
 lower cost, so the agent stays at `low`.
+
+**Haiku 5.5 vs Sonnet 5.5** ([backend/evals/report-haiku.md](backend/evals/report-haiku.md),
+[report-haiku-key-x3.md](backend/evals/report-haiku-key-x3.md)): `claude-haiku-5-5` at effort
+`medium` cost $0.05 for the full suite (Sonnet: $0.74), but passed 16/22 scenarios (Sonnet: 22/22): it pointed
+the employee to the payslip unasked, dropped the "not on the list" / "no car today" choices and
+skipped the closing question. The agent stays on Sonnet. Haiku gets no server-side refusal
+fallback (it has none); its price depends on each request's prompt length.
 
 ## UI
 

@@ -31,6 +31,9 @@ def _path(value: str | None, default: Path) -> Path:
 
 
 DEFAULT_MODEL = "claude-sonnet-5-5"
+# The agent's effort (output_config.effort); `low` measured as good as `medium` on Sonnet 5.5.
+DEFAULT_EFFORT = "low"
+EFFORT_CHOICES = ("low", "medium", "high", "xhigh", "max")
 DEFAULT_MAX_TOOL_ROUNDS = 8
 # The session safety limit (Day 5, replaces drop_block): after this many agent runs, or this many
 # input tokens (uncached + cache read + cache write, summed over every model call), the session
@@ -73,6 +76,17 @@ def _positive_float(value: str | None, name: str, default: float) -> float:
 
 
 LLM_CHOICES = ("anthropic", "scripted")
+
+
+def _effort(value: str | None) -> str:
+    """COMPASS_EFFORT: the agent's effort level (default low)."""
+    if not value:
+        return DEFAULT_EFFORT
+    if value not in EFFORT_CHOICES:
+        raise SettingsError(
+            f"COMPASS_EFFORT must be one of {', '.join(EFFORT_CHOICES)} (got {value!r})"
+        )
+    return value
 
 
 def _llm(value: str | None) -> str:
@@ -188,6 +202,7 @@ class Settings:
     # The agent (Claude). No key -> the API runs with NullAgentRunner; chat/eval refuse to start.
     anthropic_api_key: str | None = field(default=None, repr=False)  # never printed
     model: str = DEFAULT_MODEL
+    effort: str = DEFAULT_EFFORT
     max_tool_rounds: int = DEFAULT_MAX_TOOL_ROUNDS
     max_session_turns: int = DEFAULT_MAX_SESSION_TURNS
     max_session_input_tokens: int = DEFAULT_MAX_SESSION_INPUT_TOKENS
@@ -224,6 +239,7 @@ class Settings:
             admin_token=env.get("COMPASS_ADMIN_TOKEN") or None,
             anthropic_api_key=env.get("ANTHROPIC_API_KEY") or None,
             model=env.get("COMPASS_MODEL") or DEFAULT_MODEL,
+            effort=_effort(env.get("COMPASS_EFFORT")),
             llm=llm,
             max_tool_rounds=_positive_int(
                 env.get("COMPASS_MAX_TOOL_ROUNDS"),

@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from compass.agent.llm import Usage
+from compass.agent.llm import Usage, requests_cost_usd
 from compass.agent.runner import ClaudeAgentRunner, Guard, RunOutcome
 from compass.tools.profile import TOOL_OF, to_tool_value
 from compass.tools.questions import OTHER_OCCUPATION, is_free, ticket_questions
@@ -24,6 +24,7 @@ class RunResult:
     rounds: int = 0
     latency_s: float = 0.0
     usage: Usage = field(default_factory=Usage)
+    requests: list[Usage] = field(default_factory=list)  # each model call's own usage
     cost_usd: float = 0.0
 
     @property
@@ -75,7 +76,7 @@ class Harness:
         result.turns = len(bounds)
         self._collect(session_id, bounds, result.trace)
         result.results = evaluate(result.trace, scenario.checks)
-        result.cost_usd = result.usage.cost_usd(self.model) or 0.0
+        result.cost_usd = requests_cost_usd(result.requests, self.model) or 0.0
         return result
 
     # --- turns --------------------------------------------------------------------------
@@ -130,6 +131,7 @@ class Harness:
         if outcome is not None and outcome is not before:
             result.rounds += outcome.rounds
             result.usage += outcome.usage
+            result.requests += outcome.requests
 
     def _last_seq(self, session_id: str) -> int:
         events = self.store.events_after(session_id)

@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from compass.agent.llm import LLMClient, LLMError, LLMResponse, Usage
+from compass.agent.llm import LLMClient, LLMError, LLMResponse, Usage, requests_cost_usd
 from compass.agent.transcript import (
     SERVER_ORIGIN,
     build_model_messages,
@@ -95,6 +95,7 @@ class RunOutcome:
     kind: Literal["reply", "template", "error", "limit"]
     rounds: int = 0
     usage: Usage = field(default_factory=Usage)
+    requests: list[Usage] = field(default_factory=list)  # each call's own usage, for its cost
     guard: list[GuardVerdict] = field(default_factory=list)
     error: str | None = None
     message_seq: int | None = None
@@ -235,7 +236,9 @@ class ClaudeAgentRunner:
                     "latency_ms": round(seconds * 1000),
                     "model": model,
                     "usage": vars(outcome.usage),
-                    "cost_usd": None if model is None else outcome.usage.cost_usd(model),
+                    "cost_usd": None
+                    if model is None
+                    else requests_cost_usd(outcome.requests, model),
                     "limit": outcome.limit,
                 },
             )
@@ -370,6 +373,7 @@ class ClaudeAgentRunner:
         while True:
             response = self._call(session_id)
             outcome.usage += response.usage
+            outcome.requests.append(response.usage)
             if response.stop_reason == "refusal":
                 return self._fail(
                     session_id, "refusal", "the model declined", ERROR_MESSAGE_HE, outcome
@@ -447,6 +451,7 @@ class ClaudeAgentRunner:
         )
         retry = self._call(session_id, tool_choice={"type": "none"})
         outcome.usage += retry.usage
+        outcome.requests.append(retry.usage)
         second = self.guard(retry.text, session_id) if retry.text else GuardVerdict(False)
         outcome.guard.append(second)
         if retry.text and second.passed:
