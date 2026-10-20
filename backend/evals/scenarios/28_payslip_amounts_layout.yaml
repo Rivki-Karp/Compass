@@ -1,0 +1,45 @@
+name: payslip_amounts_layout
+description: 'Item 2 (flag on): a payslip that prints the pension and study fund deduction
+  AMOUNTS with their wage (1,200 of 20,000; 500 of 20,000), no percent, no commissions or bonus
+  line: the server derives 6 and 2.5, the employee confirms with "אין" for commissions and bonus,
+  the agent does not ask for the pension again and does not say it has no access to the payslip'
+payslip_on: true
+turns:
+- employee: אני מפתחת תוכנה. היום יש לי קורולה קרוס 2025 ואני משתתפת ב-300 ₪. מה יקרה לנטו אם אוותר
+    על הרכב?
+- payslip:
+    read:
+      base_salary: {value: 14000, confidence: high}
+      employee_pension_amount: {value: 1200, confidence: high}
+      pension_wage: {value: 20000, confidence: high}
+      employee_study_fund_amount: {value: 500, confidence: high}
+      study_fund_wage: {value: 20000, confidence: high}
+      credit_points: {value: 3, confidence: high}
+    confirm:
+      base_salary: 14000
+      commissions: 0
+      bonus: 0
+      pension_percent: 6
+      study_fund_percent: 2.5
+      credit_points: 3
+until_compare: true
+checks:
+- slot:
+    field: pension_percent
+    value: '6'
+    source: payslip
+- slot:
+    field: study_fund_percent
+    value: '2.5'
+    source: payslip
+- slot:
+    field: commissions
+    value: '0'
+    source: employee
+- tool_not_called:
+    name: save_profile
+    input:
+      pension_percent: 6
+- reply:
+    not_matches:
+    - אין לי גישה

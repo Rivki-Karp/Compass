@@ -1,0 +1,24 @@
+name: all_options_pending_car
+description: 'Item 6: the employee asks for ALL her options while today''s car is unknown and
+  asks the representative to identify it; once the rep answers, the server puts the full option
+  set on screen with the diffs by itself (the pending request), not only the one comparison the
+  agent made'
+turns:
+- employee: אני מפתחת תוכנה, שכר בסיס 18,500, אין לי עמלות או בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%,
+    3 נקודות זיכוי. את הרכב הצמוד קיבלתי מהחברה ואין לי מושג מה הדגם. תבדוק מול הנציג איזה רכב יש
+    לי, ותראה לי את כל האפשרויות שלי.
+- rep:
+    field: current_car
+    answers:
+      current_car:
+        value: CAR-07
+checks:
+- tool_called:
+    name: list_options
+    ok: true
+- ticket:
+    bound_fields:
+    - current_car
+- option_set:
+    today_unknown: false
+    min_options: 5

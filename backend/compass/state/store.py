@@ -47,6 +47,9 @@ EVENT_TYPES = frozenset(
         "comparison_set_ready",
         # today's car is unknown: the catalog picker the server offers, and the employee's pick
         # (compass/tools/car_picker.py)
+        # the employee asked for every option (list_options); fulfilled by the next
+        # comparison_set_ready (the pending request, satisfied by the server once it can)
+        "options_requested",
         "current_car_offered",
         "current_car_picked",
         "ticket_opened",

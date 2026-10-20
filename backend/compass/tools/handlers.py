@@ -7,7 +7,7 @@ runner turns into {"ok": false, "error": {...}}.
 
 import logging
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -41,6 +41,7 @@ from compass.tools.profile import (
     PROFILE_FIELDS,
     REQUIRED_FIELDS,
     SLOT_OF,
+    TOOL_OF,
     FieldError,
     alternative_participation,
     is_fillable,
@@ -221,6 +222,7 @@ def save_profile(services: Services, session_id: str, data: SaveProfileInput) ->
             )
 
     store.update_slots(session_id, updates)
+    satisfy_pending_options(services, session_id, list(updates))
     slots = store.slots(session_id)
     summary = {
         "saved": {
@@ -613,7 +615,10 @@ def _refresh(
 ) -> list[dict[str, Any]]:
     events = services.store.events_after(session_id)
     sets = [e for e in events if e.type == "comparison_set_ready"]
-    if sets and (not only_without_today or sets[-1].payload.get("today_unknown")):
+    pending = _pending_options_request(events)
+    if pending is not None:
+        _satisfy_options_request(services, session_id, pending)
+    elif sets and (not only_without_today or sets[-1].payload.get("today_unknown")):
         stated = {k: Decimal(v) for k, v in (sets[-1].payload.get("stated") or {}).items()}
         try:
             options = _engine_options(services, session_id, stated)
@@ -640,6 +645,58 @@ def _refresh(
     refreshed = {**payload, "origin": "server", "recomputed_from": latest.seq, **(extra or {})}
     _record_comparison(services, session_id, scenario, refreshed)
     return [{"ok": True, **payload}]
+
+
+def _pending_options_request(events: Sequence[Any]) -> Mapping[str, Decimal] | None:
+    """The stated participations of the latest list_options request that no option set has
+    answered yet, or None."""
+    requests = [e for e in events if e.type == "options_requested"]
+    if not requests:
+        return None
+    answered = [e for e in events if e.type == "comparison_set_ready" and e.seq > requests[-1].seq]
+    if answered:
+        return None
+    return {k: Decimal(v) for k, v in (requests[-1].payload.get("stated") or {}).items()}
+
+
+def _satisfy_options_request(
+    services: Services, session_id: str, stated: Mapping[str, Decimal]
+) -> bool:
+    """Compute and put the pending request's option set on screen if the inputs allow it now,
+    exactly as list_options does; otherwise it stays pending."""
+    try:
+        options = _engine_options(services, session_id, stated)
+    except ToolError as error:  # still missing something every net needs
+        log.info("options request still pending in %s: %s", session_id, error)
+        return False
+    _emit_option_set(services, session_id, options, stated)
+    return True
+
+
+def satisfy_pending_options(
+    services: Services, session_id: str, changed: Sequence[str] = ()
+) -> bool:
+    """Called when the profile changes (save_profile; `changed`: the slot fields written): the
+    employee's earlier request for every option is answered as soon as it can be, with no model
+    call; and an option set shown partial is computed again when it was missing exactly what
+    just arrived."""
+    events = services.store.events_after(session_id)
+    pending = _pending_options_request(events)
+    if pending is not None:
+        return _satisfy_options_request(services, session_id, pending)
+    sets = [e for e in events if e.type == "comparison_set_ready"]
+    if not sets or not changed:
+        return False
+    arrived = {TOOL_OF.get(f, f) for f in changed}
+    waiting = {
+        m["field"]
+        for option in sets[-1].payload["options"]
+        for m in option["view"].get("missing", [])
+    }
+    if not arrived & waiting:
+        return False
+    stated = {k: Decimal(v) for k, v in (sets[-1].payload.get("stated") or {}).items()}
+    return _satisfy_options_request(services, session_id, stated)
 
 
 # --- 5/6. alternatives: check_eligibility and compare -----------------------------------------
@@ -859,6 +916,12 @@ def list_options(services: Services, session_id: str, data: ListOptionsInput) ->
     if unknown:
         raise ToolError("not_found", "unknown catalog car id in participation", car_ids=unknown)
     infos: dict[str, dict[str, Any]] = {}
+    # The employee asked for every option: kept as a pending request until a set is on screen
+    # (a refusal or an amounts-free answer leaves it pending), so the server satisfies it by
+    # itself once the inputs are there (today's car, commissions, the rates).
+    services.store.append_event(
+        session_id, "options_requested", {"stated": plain_json(dict(data.participation))}
+    )
     try:
         options = _engine_options(services, session_id, data.participation, infos)
     except ToolError as error:

@@ -133,6 +133,8 @@ export interface PayloadByType {
   };
   // Today's car is unknown: the catalog picker the server offers (built from the catalog), and
   // what the employee chose in it.
+  // list_options was asked: pending until a comparison_set_ready answers it
+  options_requested: { stated: Record<string, string> };
   current_car_offered: CarPicker;
   current_car_picked: { outcome: "car" | "no_car" | "not_in_list" | "check_year"; car_id?: string };
   agent_finished: {

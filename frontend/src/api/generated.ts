@@ -12,6 +12,7 @@ export const EVENT_TYPES = [
   "current_car_picked",
   "current_situation_set",
   "guard_check",
+  "options_requested",
   "payslip_confirmed",
   "payslip_extracted",
   "payslip_failed",

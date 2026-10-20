@@ -331,6 +331,7 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       return { ...next, carPicker: null }; // today is known, however it got set
 
     case "session_created":
+    case "options_requested":
     case "payslip_failed":
     case "profile_updated":
     case "guard_check":

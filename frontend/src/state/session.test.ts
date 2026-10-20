@@ -133,6 +133,7 @@ describe("reduce: every event kind", () => {
         car_hint: null,
       }),
       ev("current_car_picked", { outcome: "no_car" }),
+      ev("options_requested", { stated: {} }),
       ev("session_status", { status: "closed" }),
     ];
     const kinds = new Set(events.map((e) => e.type));
