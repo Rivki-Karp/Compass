@@ -126,7 +126,7 @@ server's.
 
 Per-scenario figures are averages over the repeats.
 
-**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-20): pytest **1076** · vitest **238** · Playwright **15**. CI runs all of them on every push.
+**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-20): pytest **1076** · vitest **238** · Playwright **17**. CI runs all of them on every push.
 
 **Cost per conversation:** **$0.0334**, the last report's run cost over its 22 scenario runs.
 
@@ -182,7 +182,7 @@ browser (React, RTL)  ──POST /messages──▶  FastAPI  ──▶  agent r
   the hard limit is the Anthropic Console's workspace spend limit. The container reads
   configuration from the environment only (`COMPASS_ENV_ONLY=1`). See the runbook, section 8.
 
-## Payslip upload (feature flag, off by default)
+## Payslip upload (feature flag: off in the code, on in production via render.yaml)
 
 With `COMPASS_PAYSLIP=1` an employee can attach a payslip in the chat. Claude reads its salary
 numbers; the employee checks them on a card and confirms; only then do they become profile
@@ -201,6 +201,8 @@ confirmation card ─► POST /api/sessions/{id}/payslip/confirm  (each field ke
                         apply through the existing slots ─► the server recomputes the comparison
                         ─► the agent is told the confirmed values as data
 ```
+
+**Pension base.** The payslip only supplies the rate. The calculation follows the challenge rules and applies the pension and study fund percent to `cash_income` (base salary + commissions + bonus); a payslip's pension wage, which can include other components, is never used as the base. When a payslip prints the deduction amount and its wage instead of a percent, the server derives the rate (amount ÷ wage × 100, exact).
 
 **Models.** `claude-haiku-5-5` reads (about $0.0005 per one-page payslip, measured);
 `claude-sonnet-5-5` only if Haiku hard-fails: an API error after one retry, or an answer that is

@@ -117,3 +117,19 @@ test("the flag off: no attach button at all", async ({ page }) => {
   await expect(page.getByText("מחובר", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "צירוף תלוש שכר" })).toHaveCount(0);
 });
+
+test("the offer card in the empty state: axe clean, and its button starts the upload", async ({ page }, info) => {
+  await page.goto("/");
+  const offer = page.getByRole("region", { name: "העלאת תלוש שכר ממלאת את רוב הפרטים" });
+  await expect(offer).toBeVisible();
+  await page.waitForTimeout(600);
+  const results = await new AxeBuilder({ page })
+    .include("section[aria-labelledby=payslip-offer-title]")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"])
+    .analyze();
+  const blocking = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
+  await info.attach("axe-payslip-offer", { body: JSON.stringify(results.violations, null, 1), contentType: "application/json" });
+  expect(blocking).toEqual([]);
+  await offer.getByRole("button", { name: "העלאת תלוש" }).click();
+  await expect(page.getByRole("dialog", { name: "לפני שמעלים תלוש" })).toBeVisible();
+});
