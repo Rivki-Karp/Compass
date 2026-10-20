@@ -9,6 +9,9 @@ Stored rows (append-only, in `seq` order):
                                                  message typed mid-run must not split a tool
                                                  call from its result)
     system_event  {"kind": "rep_answer", ...}   a representative answered a ticket
+    system_event  {"kind": "payslip_confirmed", ...}
+                                                 the employee confirmed values read from their
+                                                 payslip (only confirmed ones, never the file)
     system_event  {"kind": "guard_correction", "violations"}
     assistant     {"blocks", "usage", "model", "fabricated"?}
     tool          {"results": [{"tool_use_id", "name", "ok", "model_view", "full"}]}
@@ -30,10 +33,12 @@ SERVER_ORIGIN = "server"
 EMPLOYEE_TAG = "employee_message"
 REP_TAG = "rep_notification"
 REP_LABEL_HE = "עדכון אוטומטי ממערכת הנציגים"
+PAYSLIP_TAG = "payslip_notification"
+PAYSLIP_LABEL_HE = "לפי התלוש"
 
 # Our structural tags, opening or closing, in any case or spacing: neutralised in untrusted text.
 _TAG_PATTERN = re.compile(
-    rf"<\s*/?\s*({EMPLOYEE_TAG}|{REP_TAG}|system[_ -]?notice)\b", re.IGNORECASE
+    rf"<\s*/?\s*({EMPLOYEE_TAG}|{REP_TAG}|{PAYSLIP_TAG}|system[_ -]?notice)\b", re.IGNORECASE
 )
 
 ModelMessage = dict[str, Any]
@@ -89,11 +94,31 @@ def rep_block(event: dict[str, Any]) -> str:
     if event.get("profile_after"):
         # the occupation and group in effect after the answer, with the warnings (server)
         payload["profile_after"] = _escaped(event["profile_after"])
+    if event.get("today_after"):
+        # today's situation after a current_car answer, with the warnings (server)
+        payload["today_after"] = _escaped(event["today_after"])
     if event.get("server_comparisons"):
         # compare's own (compact) result, recomputed by the server with the answer
         payload["server_comparisons"] = event["server_comparisons"]
     body = json.dumps(payload, ensure_ascii=False, sort_keys=True)
     return f'<{REP_TAG} label="{REP_LABEL_HE}">\n{body}\n</{REP_TAG}>'
+
+
+def payslip_block(event: dict[str, Any]) -> str:
+    """Values the employee confirmed from their payslip, as structured data (server-written).
+    The file and any value the employee did not confirm never reach the model."""
+    payload = {
+        "confirmed_values": event.get("values", {}),
+        "kept_representative": event.get("kept_representative", []),
+        "waiting_for_rep": event.get("waiting_for_rep", []),
+    }
+    if event.get("car_hint"):
+        # one catalog car has exactly the payslip's value of use: ask, never assume
+        payload["car_hint"] = _escaped(event["car_hint"])
+    if event.get("server_comparisons"):
+        payload["server_comparisons"] = event["server_comparisons"]
+    body = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    return f'<{PAYSLIP_TAG} label="{PAYSLIP_LABEL_HE}">\n{body}\n</{PAYSLIP_TAG}>'
 
 
 def guard_note(violations: Sequence[str]) -> str:
@@ -140,6 +165,9 @@ def build_model_messages(rows: Sequence[Message]) -> list[ModelMessage]:
                 out.append(
                     {"role": "user", "content": [{"type": "text", "text": rep_block(content)}]}
                 )
+            elif kind == "payslip_confirmed":
+                text = payslip_block(content)
+                out.append({"role": "user", "content": [{"type": "text", "text": text}]})
             elif kind == "guard_correction":
                 out.append({"role": "system", "content": guard_note(content["violations"])})
         elif row.role == "assistant":
@@ -168,8 +196,10 @@ _BREAKDOWN_KEEP = ("scenario", "car_id", "vehicle_key", "display", "metadata")
 
 
 def _compact_comparison(comparison: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "today": {k: comparison["today"].get(k) for k in _BREAKDOWN_KEEP},
+    compact = {
+        "today": None
+        if comparison["today"] is None
+        else {k: comparison["today"].get(k) for k in _BREAKDOWN_KEEP},
         "alternative": {k: comparison["alternative"].get(k) for k in _BREAKDOWN_KEEP},
         "display_diff": comparison["display_diff"],
         "display_delta_lines": comparison["display_delta_lines"],
@@ -178,6 +208,9 @@ def _compact_comparison(comparison: dict[str, Any]) -> dict[str, Any]:
         "missing": comparison["missing"],
         "partial": comparison["partial"],
     }
+    if comparison.get("today_unknown"):  # no today, no diff: each alternative's own net
+        compact["today_unknown"] = True
+    return compact
 
 
 def model_view(name: str, result: dict[str, Any]) -> str:
@@ -210,6 +243,9 @@ def model_view(name: str, result: dict[str, Any]) -> str:
             }
             for option in result["options"]
         ]
-        if result["options"]:  # today's net is the same in every option
-            view["today_net"] = result["options"][0]["comparison"]["today"]["display"]["net"]
+        today = result["options"][0]["comparison"]["today"] if result["options"] else None
+        if today is not None:  # today's net is the same in every option
+            view["today_net"] = today["display"]["net"]
+        elif result["options"]:  # each option's own net; the diffs wait for today's car
+            view["today_unknown"] = True
     return json.dumps(view, ensure_ascii=False, separators=(",", ":"), sort_keys=True)

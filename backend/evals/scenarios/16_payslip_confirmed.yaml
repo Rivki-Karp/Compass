@@ -1,0 +1,44 @@
+name: payslip_confirmed
+description: 'The payslip upload (flag on): read, confirmed in part, the server recomputes with the "לפי התלוש" chip, the agent states the new diff'
+turns:
+- employee: אני מפתחת תוכנה. שכר בסיס 18,500, אין לי עמלות או בונוסים. פנסיה 6%, קרן השתלמות
+    2.5%, 3 נקודות זיכוי. היום יש לי קורולה קרוס 2025 ואני משתתפת ב-300 ₪. מה יקרה לנטו
+    אם אוותר על הרכב?
+- payslip:
+    read:
+      base_salary: {value: 20250, confidence: high}
+      pension_percent: {value: 6.5, confidence: high}
+      bonus: {value: 777, confidence: low}
+    confirm:
+      base_salary: 20250
+      pension_percent: 6.5
+until_compare: true
+checks:
+- comparison:
+    turn: 0
+    alternative:
+      kind: waiver
+    diff: 2915
+    input_sources:
+      base_salary: employee_input
+- comparison:
+    turn: 1
+    origin: server
+    alternative:
+      kind: waiver
+    diff: 2985
+    input_sources:
+      base_salary: payslip
+      pension_percent: payslip
+- slot:
+    field: base_salary
+    value: '20250'
+    source: payslip
+- slot:
+    field: bonus
+    value: '0'
+    source: employee
+- reply:
+    turn: 1
+    matches:
+    - 2,985

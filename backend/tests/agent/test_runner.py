@@ -101,7 +101,7 @@ def test_text_reply(services: Services, sid: str) -> None:
     reply = last_reply(services, sid)
     assert reply["text"] == "שלום! מה התפקיד שלך?" and reply["comparison_ref"] is None
     (call,) = llm.calls
-    assert call.system == "SYSTEM" and len(call.tools) == 9
+    assert call.system == "SYSTEM" and len(call.tools) == 10
     assert call.messages == [
         {
             "role": "user",

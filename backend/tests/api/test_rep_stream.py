@@ -91,6 +91,7 @@ def test_inbox_updates_live(make_settings: Callable[..., Settings]) -> None:
             "alternative_title": "ATTO 3",
             "display_diff": 661,
             "pending": True,
+            "diff_note": None,
         }
         # and the field carries this car's own provisional comparison
         assert provisional["view"]["fields"][0]["comparison"] == provisional["view"]["comparison"]
@@ -102,6 +103,7 @@ def test_inbox_updates_live(make_settings: Callable[..., Settings]) -> None:
             "alternative_title": "ATTO 3",
             "display_diff": 661,
             "pending": True,
+            "diff_note": None,
         }
 
         answer = http.post(

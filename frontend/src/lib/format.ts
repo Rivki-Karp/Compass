@@ -52,6 +52,11 @@ export function formatSigned(value: number): string {
 }
 
 /** How a screen reader says a difference: "פלוס 2,914 שקלים", "מינוס 50 שקלים". */
+/** A view's difference as a screen reader hears it; its note while today's car is unknown. */
+export function spokenDiff(view: { display_diff: number | null; diff_note: string | null }) {
+  return view.display_diff === null ? (view.diff_note ?? "") : spokenSigned(view.display_diff);
+}
+
 export function spokenSigned(value: number): string {
   assertWhole(value);
   const digits = whole.format(Math.abs(value));

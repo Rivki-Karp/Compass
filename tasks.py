@@ -8,6 +8,7 @@ Usage:
     tasks.py data      # rebuild all generated data from backend/raw/
     tasks.py test      # run the test suite
     tasks.py lint      # ruff check + ruff format --check
+    tasks.py check     # every suite: ruff, pytest, web lint, typecheck, vitest, build, Playwright
     tasks.py fmt       # apply ruff formatting and safe fixes
     tasks.py demo      # THE demo: reset, build if needed, serve on :8000 (no key)
     tasks.py demo E-001  # Hebrew net breakdown of a golden reference employee
@@ -19,6 +20,8 @@ Usage:
     tasks.py chat      # terminal chat with the agent (ANTHROPIC_API_KEY in backend/.env)
     tasks.py eval      # agent evals against the real model -> backend/evals/report.md
     tasks.py eval --only walkthrough,e001_rep_flow --repeat 3 --effort medium
+    tasks.py payslip-check  # live: both payslip models exist and read a PDF and a PNG
+    tasks.py payslip-smoke  # live, by hand, never CI: synthetic payslips 1-4 through the extractor
     tasks.py openapi   # write backend/openapi.json (commit it with API changes)
     tasks.py ts-types  # write frontend/src/api/generated.ts (commit it with view changes)
     tasks.py test-counts  # write backend/tests/counts.json (judges mode; pytest checks it)
@@ -72,6 +75,17 @@ RUFF_ARGS = ("--config", "pyproject.toml", ".", str(REPO_ROOT / "tasks.py"))
 def lint() -> None:
     run(sys.executable, "-m", "ruff", "check", *RUFF_ARGS)
     run(sys.executable, "-m", "ruff", "format", "--check", *RUFF_ARGS)
+
+
+def check() -> None:
+    """Every suite, in CI's order; stops at the first failure. Playwright builds the UI and
+    starts its own demo-mode server (frontend/playwright.config.ts)."""
+    lint()
+    test()
+    if not (WEB / "node_modules").is_dir():
+        run_in(WEB, NPM, "ci")
+    for script in ("lint", "typecheck", "test", "build", "e2e"):
+        run_in(WEB, NPM, "run", script)
 
 
 def fmt() -> None:
@@ -159,11 +173,20 @@ def _print_token_warnings() -> None:
 
 
 def serve() -> None:
-    from compass.api.settings import Settings, live_token_errors, live_token_message
+    from compass.api.settings import (
+        Settings,
+        live_payslip_errors,
+        live_payslip_message,
+        live_token_errors,
+        live_token_message,
+    )
 
-    errors = live_token_errors(Settings.from_env(BACKEND / ".env"))
-    if errors:  # the server would refuse anyway; say it before uvicorn's reloader starts
+    settings = Settings.from_env(BACKEND / ".env")
+    # the server would refuse anyway; say it before uvicorn's reloader starts
+    if errors := live_token_errors(settings):
         sys.exit(live_token_message(errors))
+    if errors := live_payslip_errors(settings):
+        sys.exit(live_payslip_message(errors))
     _print_token_warnings()
     # One process: the agent's per-session workers and locks live in memory.
     run(
@@ -287,6 +310,17 @@ def chat() -> None:
 
 def evals(*args: str) -> None:
     run(sys.executable, "-m", "evals", *args)
+
+
+def payslip_check() -> None:
+    """Live: calls the Claude API with ANTHROPIC_API_KEY (never printed). By hand, not in CI."""
+    run(sys.executable, "-m", "evals.payslip_live", "check")
+
+
+def payslip_smoke() -> None:
+    """Live: the synthetic payslips 1 to 4 through the real extractor; asserts the injection
+    payslip cannot set the salary or a group. Costs real money (about a cent); by hand only."""
+    run(sys.executable, "-m", "evals.payslip_live", "smoke")
 
 
 def openapi() -> None:
@@ -469,6 +503,7 @@ TASKS: dict[str, Callable[..., None]] = {
     "data": data,
     "test": test,
     "lint": lint,
+    "check": check,
     "fmt": fmt,
     "demo": demo,
     "calc": calc,
@@ -483,6 +518,8 @@ TASKS: dict[str, Callable[..., None]] = {
     "readme": readme,
     "chat": chat,
     "eval": evals,
+    "payslip-check": payslip_check,
+    "payslip-smoke": payslip_smoke,
     "smoke": smoke,
 }
 TAKES_ARGS: set[str] = {"demo", "eval", "smoke"}

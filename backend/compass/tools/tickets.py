@@ -8,7 +8,9 @@ the bound question of that field. Explicit values win over a quick answer's.
 - A bound question's value goes into its slot (source representative), validated by the
   save_profile rules. An approved group becomes the group; an occupation re-derives the group,
   replacing one the employee stated (only a representative-approved group is kept); "another
-  occupation" leaves it unknown.
+  occupation" leaves it unknown. Today's car (current_car) becomes today's situation, source
+  representative, and what was on screen without it is computed again; "not in the catalog"
+  leaves it unknown (the note says what it is).
 - A free question's value is checked against its type and never touches a slot: it goes back
   to the model as data.
 
@@ -27,8 +29,13 @@ from typing import Any, Literal
 from compass.engine.serialize import plain_json
 from compass.state import NotFound, StateError, Ticket
 from compass.state.store import SlotSource
-from compass.tools.handlers import settle_answered
+from compass.tools.handlers import (
+    refresh_without_today,
+    representative_today,
+    settle_answered,
+)
 from compass.tools.profile import (
+    CURRENT_CAR,
     GROUP_EXCEPTION,
     NOT_APPROVED,
     FieldError,
@@ -41,8 +48,9 @@ from compass.tools.questions import (
     MAX_NOTE,
     MAX_TEXT_ANSWER,
     NO,
+    NOTE_FOR_OTHER,
     OCCUPATION,
-    OTHER_OCCUPATION,
+    OTHER,
     YES,
     answer_label,
     is_free,
@@ -247,16 +255,19 @@ def answer_ticket(
         if question is not None and question["id"] not in parts:
             parts[question["id"]] = {"status": "answered", "value": raw, "note": None}
 
-    # "another occupation": answered, but with no title from the table; the note says what
+    # "another occupation" / "not in the catalog": answered, but with nothing from the table;
+    # the note says what
     other: list[str] = []
-    if merged.get(OCCUPATION) == OTHER_OCCUPATION and OCCUPATION in by_field:
-        part = parts[by_field[OCCUPATION]["id"]]
+    for field in NOTE_FOR_OTHER:
+        if merged.get(field) != OTHER or field not in by_field:
+            continue
+        part = parts[by_field[field]["id"]]
         if part["note"] is None and answer_text:
             part["note"] = _note(answer_text)
         if part["note"] is None:
-            refuse(AnswerError("note_required", OCCUPATION), "occupation: other needs a note")
-        del merged[OCCUPATION]
-        other.append(OCCUPATION)
+            refuse(AnswerError("note_required", field), f"{field}: other needs a note")
+        del merged[field]
+        other.append(field)
 
     slot_values: dict[str, Any] = {}
     for field, raw in merged.items():
@@ -302,6 +313,11 @@ def answer_ticket(
             slot_values["group"] = services.ctx.occupations[occupation].group
             sources["group"] = "derived"
 
+    # today's car, answered: today's situation (source representative), in the same write
+    today = None
+    if CURRENT_CAR in slot_values:
+        today = representative_today(services, slot_values[CURRENT_CAR])
+
     so_far = {**earlier, **plain_json(merged)}
     answered_ids = {qid for qid, p in parts.items() if p["status"] == "answered"}
     remaining = [q for q in questions if not done_before(q) and q["id"] not in answered_ids]
@@ -340,12 +356,17 @@ def answer_ticket(
             part=part,
             questions=shown,
             sources=sources,
+            today=today,
         )
     except StateError as error:  # answered concurrently
         raise TicketAnswerError(409, str(error), [AnswerError("ticket_already_answered")]) from None
     # The comparison that waited for this answer turns final now, not when the model next
     # calls compare (it may not).
     settle_answered(services, answered.session_id, ticket_id, [*merged, *other])
+    if CURRENT_CAR in merged or CURRENT_CAR in other:  # the diffs, or the pending chip gone
+        refresh_without_today(
+            services, answered.session_id, {"ticket_id": ticket_id, "answered_field": CURRENT_CAR}
+        )
     return answered
 
 

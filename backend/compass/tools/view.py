@@ -7,6 +7,9 @@ display invariants are checked here before the event is stored:
 
     sum(line.net_effect) == display_diff
     today_net + display_diff == alternative_net        (when both nets are known)
+
+While today's car is unknown there is no diff: display_diff is None, there are no lines, and
+`diff_note` says what is missing ("חסר הרכב של היום"); the alternative's own net is shown.
 """
 
 from collections.abc import Mapping, Sequence
@@ -19,7 +22,9 @@ from compass.engine.decimal_math import to_display
 from compass.engine.models import DeltaLineName
 from compass.labels import (
     COMPUTED_BY_LABELS,
+    CURRENT_CAR_QUESTION_TITLE,
     DELTA_LABELS,
+    DIFF_WAITS_FOR_TODAY,
     FREE_ANSWER_LABELS,
     OCCUPATION_QUESTION_TITLE,
     RULE_LABELS,
@@ -35,14 +40,19 @@ from compass.labels import (
 from compass.state import Slot, Ticket
 from compass.tools.profile import (
     ALTERNATIVE_PARTICIPATION,
+    CURRENT_CAR,
     CURRENT_PARTICIPATION,
     GROUP_EXCEPTION,
     SLOT_OF,
 )
 from compass.tools.questions import (
+    NOTE_FOR_OTHER,
     OCCUPATION,
+    OTHER,
     YES_NO_LABELS,
     answer_label,
+    car_detail,
+    car_option_label,
     group_exception_bounds,
     group_exception_options,
     is_free,
@@ -53,7 +63,7 @@ from compass.tools.services import Services
 VIEW_VERSION = 1
 
 ChipSource = Literal[
-    "employee_input", "occupation", "representative", "catalog_default", "pending_rep"
+    "employee_input", "occupation", "representative", "catalog_default", "pending_rep", "payslip"
 ]
 Unit = Literal["ils", "percent", "points", "count", "text"]
 
@@ -145,8 +155,11 @@ class ComparisonView(_View):
     group_budget: int | None
     today_net: int | None
     alternative_net: int | None
-    display_diff: int
-    direction: Literal["up", "down", "flat"]  # flat: display_diff == 0
+    display_diff: int | None  # None: today unknown (diff_note says so)
+    # flat: display_diff == 0; unknown: no diff yet (today unknown)
+    direction: Literal["up", "down", "flat", "unknown"]
+    # What the diff waits for, in place of it: "חסר הרכב של היום" (None when there is a diff).
+    diff_note: str | None = None
     breakdown: list[ViewLine]  # non-zero lines only, in API order
     inputs: list[ViewInput]
     pending: bool
@@ -165,7 +178,7 @@ class ViewInvariantError(AssertionError):
 
 _SLOT_SOURCE: dict[str, ChipSource] = {
     "employee": "employee_input",
-    "payslip": "employee_input",  # no payslip upload yet; the employee supplied it
+    "payslip": "payslip",  # confirmed by the employee from their payslip: "לפי התלוש"
     "derived": "occupation",  # the group, derived from the occupation
     "representative": "representative",
 }
@@ -232,13 +245,26 @@ def _scenario_inputs(
     services: Services,
     payload: Mapping[str, Any],
     today_label: str | None,
+    today_source: ChipSource = "employee_input",
+    today_pending: bool = False,
 ) -> list[ViewInput]:
     comparison = payload["comparison"]
     today, alt = comparison["today"], comparison["alternative"]
     inputs: list[ViewInput] = []
+    if today is None and today_pending:  # a representative is identifying today's car
+        inputs.append(
+            ViewInput(
+                id="today_car",
+                label=field_label("today_car"),
+                value=None,
+                unit="text",
+                source="pending_rep",
+                ticket_field=CURRENT_CAR,
+            )
+        )
 
-    today_scenario = today["scenario"]
-    if today_scenario["kind"] in ("company_car", "family_car", "external_car"):
+    today_scenario = {} if today is None else today["scenario"]  # None: today unknown
+    if today_scenario.get("kind") in ("company_car", "family_car", "external_car"):
         name = today_label or _car_name(services, today_scenario.get("car_id", ""))
         inputs.append(
             ViewInput(
@@ -246,7 +272,7 @@ def _scenario_inputs(
                 label=field_label("today_car"),
                 value=name,
                 unit="text",
-                source="employee_input",
+                source=today_source,
             )
         )
         info = payload["today_participation"]
@@ -259,7 +285,7 @@ def _scenario_inputs(
                 CURRENT_PARTICIPATION,
             )
         )
-    elif today_scenario["kind"] == "current_maintenance":
+    elif today_scenario.get("kind") == "current_maintenance":
         inputs.append(
             ViewInput(
                 id="today_maintenance",
@@ -355,7 +381,14 @@ def build_view(
                 ticket_field=GROUP_EXCEPTION,
             ),
         )
-    inputs += _scenario_inputs(services, payload, today_label)
+    car_slot = slots.get(CURRENT_CAR)
+    inputs += _scenario_inputs(
+        services,
+        payload,
+        today_label,
+        today_source=_SLOT_SOURCE.get(today_stored.get("source") or "employee", "employee_input"),
+        today_pending=car_slot is not None and car_slot.state == "pending_rep",
+    )
     present = {i.id for i in inputs}
 
     breakdown: list[ViewLine] = []
@@ -377,13 +410,17 @@ def build_view(
             )
         )
 
-    display_diff: int = comparison["display_diff"]
-    today_net = comparison["today"]["display"]["net"]
+    display_diff: int | None = comparison["display_diff"]
+    today = comparison["today"]
+    today_net = None if today is None else today["display"]["net"]
     alt_net = comparison["alternative"]["display"]["net"]
     total = sum(line["net_effect"] for line in comparison["display_delta_lines"])
-    if total != display_diff:
+    if display_diff is None:  # today unknown: no lines, and the alternative's own net
+        if comparison["display_delta_lines"] or today is not None or alt_net is None:
+            raise ViewInvariantError("no diff: no lines and no today, but the alternative's net")
+    elif total != display_diff:
         raise ViewInvariantError(f"lines sum to {total}, display_diff is {display_diff}")
-    if today_net is not None and alt_net is not None and today_net + display_diff != alt_net:
+    elif today_net is not None and alt_net is not None and today_net + display_diff != alt_net:
         raise ViewInvariantError(f"{today_net} + {display_diff} != {alt_net}")
 
     group_slot = slots.get("group")
@@ -406,7 +443,8 @@ def build_view(
         today_net=today_net,
         alternative_net=alt_net,
         display_diff=display_diff,
-        direction="up" if display_diff > 0 else "down" if display_diff < 0 else "flat",
+        direction=_direction(display_diff),
+        diff_note=None if display_diff is not None else DIFF_WAITS_FOR_TODAY,
         breakdown=breakdown,
         inputs=inputs,
         pending=bool(pending_fields),
@@ -425,6 +463,12 @@ def build_view(
         computed_by=_computed_by(payload),
     )
     return view.model_dump(mode="json")
+
+
+def _direction(display_diff: int | None) -> Literal["up", "down", "flat", "unknown"]:
+    if display_diff is None:
+        return "unknown"
+    return "up" if display_diff > 0 else "down" if display_diff < 0 else "flat"
 
 
 def _computed_by(payload: Mapping[str, Any]) -> ViewComputedBy:
@@ -451,8 +495,9 @@ class TicketFactView(_View):
 
 class TicketComparisonView(_View):
     alternative_title: str
-    display_diff: int
+    display_diff: int | None  # None: today unknown (diff_note)
     pending: bool
+    diff_note: str | None = None
 
 
 class TicketFieldView(_View):
@@ -496,7 +541,15 @@ class TicketQuestionView(_View):
     options: list[TicketOptionView] = []  # choice and yes_no
     # An occupation question: every title in the occupations table, for the picker's search
     # box (the options are the closest ones). The answer is always one of these, or "other".
+    # A current_car question: every catalog car, the same way.
     search_options: list[TicketOptionView] = []
+    search_label: str | None = None  # the search box's label
+    search_empty: str | None = None  # what the search says when nothing matches
+    # The option that needs a note ("other"), and the note's label then.
+    note_required_for: str | None = None
+    note_required_label: str | None = None
+    # A tile with the chosen option's detail (an occupation's group, a car's drive and group).
+    detail_label: str | None = None
     facts: list[TicketFactView] = []
     car_id: str | None = None
     car_name: str | None = None
@@ -602,6 +655,7 @@ def _ticket_comparison(view: Mapping[str, Any] | None) -> TicketComparisonView |
         alternative_title=view["alternative_title"],
         display_diff=view["display_diff"],
         pending=view["pending"],
+        diff_note=view.get("diff_note"),
     )
 
 
@@ -649,6 +703,49 @@ def _occupation_field(question: Mapping[str, Any]) -> TicketFieldView:
         options=[TicketOptionView(**o) for o in question["answer"]["options"]],
         facts=facts,
     )
+
+
+def _which_car_field(services: Services, question: Mapping[str, Any]) -> TicketFieldView:
+    """A bound current_car question: the employee's words, and the catalog cars they may mean."""
+    query = question.get("car_query")
+    facts = [] if not query else [TicketFactView(label="איך העובד/ת תיאר/ה", value=query)]
+    options = [TicketOptionView(**o) for o in question["answer"]["options"]]
+    return TicketFieldView(
+        field=CURRENT_CAR,
+        title=CURRENT_CAR_QUESTION_TITLE
+        if not query
+        else f"{CURRENT_CAR_QUESTION_TITLE} · {query}",
+        label="הרכב מהקטלוג שיש לעובד/ת היום",
+        unit="text",
+        car_id=None,
+        car_name=None,
+        catalog_default=None,
+        options=[_with_car_detail(services, o) for o in options],
+        facts=facts,
+    )
+
+
+def _with_car_detail(services: Services, option: TicketOptionView) -> TicketOptionView:
+    """A current_car option with the drive and group of that car (none for "not in catalog")."""
+    detail = car_detail(services, option.value)
+    return option if detail is None else option.model_copy(update={"detail": detail})
+
+
+# What a choice with a search box and a noted "other" says, per bound field.
+_PICKERS: dict[str, dict[str, str]] = {
+    OCCUPATION: {
+        "search_label": "לא ברשימה? חיפוש ברשימת העיסוקים המלאה",
+        "search_empty": "אין עיסוק כזה ברשימה.",
+        "note_required_label": "הערה (חובה: מה העיסוק)",
+        "detail_label": "הקבוצה לפי הבחירה",
+    },
+    CURRENT_CAR: {
+        "search_label": "לא ברשימה? חיפוש בקטלוג המלא",
+        "search_empty": "אין רכב כזה בקטלוג.",
+        "note_required_label": "הערה (חובה: איזה רכב, ושנת הרישום אם ידועה)",
+        "detail_label": "הקבוצה וההנעה לפי הבחירה",
+    },
+}
 
 
 def _with_group(services: Services, option: TicketOptionView) -> TicketOptionView:
@@ -730,11 +827,20 @@ def build_ticket_view(services: Services, ticket: Ticket) -> dict[str, Any]:
                 _with_group(services, TicketOptionView(value=t, label=t))
                 for t in services.ctx.occupations
             ]
-        field = (
-            _occupation_field(question)
-            if name == OCCUPATION and "occupation_query" in question
-            else _ticket_field(services, ticket, name)
-        )
+        if name == CURRENT_CAR:
+            options = [_with_car_detail(services, o) for o in options]
+            search = [
+                _with_car_detail(
+                    services, TicketOptionView(value=c, label=car_option_label(services, c))
+                )
+                for c in services.ctx.catalog
+            ]
+        if name == OCCUPATION and "occupation_query" in question:
+            field = _occupation_field(question)
+        elif name == CURRENT_CAR:
+            field = _which_car_field(services, question)
+        else:
+            field = _ticket_field(services, ticket, name)
         car_view = (
             latest_for(field.car_id) if field.car_id and name != CURRENT_PARTICIPATION else latest
         )
@@ -755,6 +861,11 @@ def build_ticket_view(services: Services, ticket: Ticket) -> dict[str, Any]:
                 label=_participation_label(field) if participation else field.label,
                 options=options or field.options,
                 search_options=search,
+                **(
+                    {**_PICKERS[name], "note_required_for": OTHER}
+                    if name in NOTE_FOR_OTHER and search
+                    else {}
+                ),
                 facts=field.facts,
                 car_id=field.car_id,
                 car_name=field.car_name,

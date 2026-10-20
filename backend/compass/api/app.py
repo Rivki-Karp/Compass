@@ -34,6 +34,7 @@ from starlette.concurrency import run_in_threadpool
 
 from compass.api.agent import AgentRunner
 from compass.api.broker import TICKETS, Broker
+from compass.api.payslip import add_payslip_routes
 from compass.api.ratelimit import RateLimiter, client_ip
 from compass.api.redact import public_message, public_payload
 from compass.api.settings import Settings, token_warnings
@@ -43,6 +44,8 @@ from compass.config import CATALOG_JSON, OCCUPATIONS_JSON
 from compass.engine.context import ContextError
 from compass.engine.serialize import plain_json
 from compass.labels import error_message
+from compass.payslip.service import build_service
+from compass.payslip.upload import MAGIC as PAYSLIP_TYPES
 from compass.rules import RulesError
 from compass.state import NotFound, Store
 from compass.tools import ToolRunner
@@ -223,6 +226,8 @@ def create_app(
     app.state.services = services
     app.state.runner = runner
     app.state.agent = agent
+    # the payslip upload's extraction; None when the flag is off (or live mode has no key)
+    app.state.payslip = build_service(settings, store)
     api = APIRouter(prefix="/api")
     messages_limiter = RateLimiter(settings.message_rate_per_minute)
     rep_only = Depends(
@@ -354,6 +359,9 @@ def create_app(
             raise HTTPException(404, "Not Found")
         require_session(session_id)
         return runner.run(session_id, name, payload or {})
+
+    # POST /api/sessions/{id}/payslip (COMPASS_PAYSLIP=1, otherwise 404)
+    add_payslip_routes(api, settings, services, agent, require_session)
 
     # --- representative -------------------------------------------------------------------
 
@@ -523,6 +531,19 @@ def create_app(
             # "scripted": demo mode (the UI shows its badge and the scripts' messages).
             "llm": llm_mode,
             "demo_scripts": scripts,
+            # only with COMPASS_PAYSLIP=1 (off: the response is as it was): the UI shows the
+            # attach button, and pre-checks type and size (the server's checks are the real ones)
+            **(
+                {
+                    "payslip": {
+                        "max_bytes": settings.payslip_max_bytes,
+                        "max_pages": settings.payslip_max_pages,
+                        "types": sorted(PAYSLIP_TYPES),
+                    }
+                }
+                if settings.payslip
+                else {}
+            ),
         }
 
     app.include_router(api)

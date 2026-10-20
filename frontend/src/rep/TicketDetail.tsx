@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } fro
 import { api, type QuestionAnswer } from "../api/client";
 import type { Ticket, TicketOptionView, TicketQuestionView, TicketWithView } from "../api/types";
 import { Amount } from "../ui/Amount";
+import { Diff } from "../ui/Diff";
 import { Button } from "../ui/Button";
 import { answerErrors, NO_ERRORS, type FormErrors } from "./answerErrors";
 import { BidiText } from "../ui/BidiText";
@@ -10,7 +11,6 @@ const FILL_ONE = "צריך לענות על שאלה אחת לפחות, או לס
 // today's car outside the catalog: no default participation to fall back on
 const NO_DEFAULT = "אין ברירת מחדל בקטלוג";
 const NEEDS_CHECKING = "לא ידוע לי / צריך לבדוק";
-const OTHER_OCCUPATION = "other"; // compass/tools/questions.py OTHER_OCCUPATION
 const MAX_SEARCH_RESULTS = 8;
 
 /** The context line: "מנהל/ת מוצר · קבוצה ג׳ · היום: COROLLA CROSS". */
@@ -34,7 +34,6 @@ function contextLine(context: Record<string, unknown>): string {
 const isParticipation = (q: TicketQuestionView) => q.bound_field?.includes("participation") ?? false;
 const isCar = (q: TicketQuestionView) =>
   q.bound_field?.startsWith("alternative_participation:") ?? false;
-const isOccupation = (q: TicketQuestionView) => q.bound_field === "occupation";
 
 /** A section's heading: the car and its id for a car's participation, else the server's title. */
 function QuestionHeading({ question, id }: { question: TicketQuestionView; id: string }) {
@@ -153,7 +152,7 @@ function DiffTile({ question }: { question: TicketQuestionView }) {
       }
       note={comparison?.pending ? "זמני, לפי ברירת המחדל" : undefined}
     >
-      {comparison ? <Amount value={comparison.display_diff} signed currency /> : "עדיין אין חישוב"}
+      {comparison ? <Diff view={comparison} currency /> : "עדיין אין חישוב"}
     </Tile>
   );
 }
@@ -173,7 +172,8 @@ function FactTiles({ question }: { question: TicketQuestionView }) {
 /**
  * What the question's answer depends on, and nothing else:
  * - a participation: the car, the catalog default, the employee's (provisional) difference;
- * - an occupation: what the employee wrote, and the group the chosen title would give;
+ * - an occupation or today's car: what the employee wrote, and what the choice would give (the
+ *   group; the car's drive and group), under the server's `detail_label`;
  * - a group: today's car and its group (with the occupation's group);
  * - a free question: no tiles (the agent's context paragraph is above).
  */
@@ -203,11 +203,11 @@ function QuestionTiles({
       </div>
     );
   }
-  if (isOccupation(question)) {
+  if (question.detail_label) {
     return (
       <div className="flex flex-wrap gap-3">
         <FactTiles question={question} />
-        <Tile label="הקבוצה לפי הבחירה">
+        <Tile label={question.detail_label}>
           {chosen?.detail ? <BidiText text={chosen.detail} /> : "—"}
         </Tile>
       </div>
@@ -306,15 +306,20 @@ function AmountInput({ question, id, value, set, disabled, invalid }: InputProps
   );
 }
 
+/** Whether a search box entry matches: its label or its detail, ignoring case. */
+const matches = (option: TicketOptionView, query: string) =>
+  [option.label, option.detail ?? ""].some((t) => t.toLowerCase().includes(query.toLowerCase()));
+
 /** choice and yes_no: one radio per option (the server's options, never the model's for a
- * bound question). An occupation adds a search over the whole occupations table. */
+ * bound question). An occupation or today's car adds a search over the whole table (the
+ * occupations, the catalog), labelled by the server; the option that needs a note comes last. */
 function ChoiceInput({ question, id, value, set, disabled, invalid }: InputProps) {
   const [search, setSearch] = useState("");
   const query = search.trim();
   const listed = new Set(question.options.map((o) => o.value));
   const found = query
     ? question.search_options
-        .filter((o) => !listed.has(o.value) && o.label.includes(query))
+        .filter((o) => !listed.has(o.value) && matches(o, query))
         .slice(0, MAX_SEARCH_RESULTS)
     : [];
   // the choice stays on screen when the search changes
@@ -322,8 +327,10 @@ function ChoiceInput({ question, id, value, set, disabled, invalid }: InputProps
     (o) => o.value === value && !listed.has(o.value) && !found.includes(o),
   );
   const shown = [...(kept ? [kept] : []), ...found];
-  const other = question.options.filter((o) => o.value === OTHER_OCCUPATION);
-  const options = question.options.filter((o) => o.value !== OTHER_OCCUPATION);
+  const noted = question.note_required_for;
+  const other = question.options.filter((o) => o.value === noted);
+  const options = question.options.filter((o) => o.value !== noted);
+  const label = (o: TicketOptionView) => (o.detail ? `${o.label} · ${o.detail}` : o.label);
   const radio = (option: TicketOptionView) => (
     <label key={option.value} className="flex items-center gap-2 text-ink">
       <input
@@ -351,7 +358,7 @@ function ChoiceInput({ question, id, value, set, disabled, invalid }: InputProps
       {question.search_options.length ? (
         <div className="mt-1 flex flex-col gap-2">
           <label htmlFor={`${id}-search`} className="text-[13px] text-muted">
-            לא ברשימה? חיפוש ברשימת העיסוקים המלאה
+            {question.search_label}
           </label>
           <input
             id={`${id}-search`}
@@ -363,9 +370,9 @@ function ChoiceInput({ question, id, value, set, disabled, invalid }: InputProps
             className="h-11 max-w-[360px] rounded-tile border border-line bg-surface px-3 text-[15px] text-ink"
           />
           {query && !found.length ? (
-            <p className="text-[13px] text-muted">אין עיסוק כזה ברשימה.</p>
+            <p className="text-[13px] text-muted">{question.search_empty}</p>
           ) : null}
-          {shown.map((o) => radio({ ...o, label: o.detail ? `${o.label} · ${o.detail}` : o.label }))}
+          {shown.map((o) => radio({ ...o, label: label(o) }))}
         </div>
       ) : null}
       {other.map(radio)}
@@ -471,7 +478,8 @@ function AnswerForm({
         );
         const done = question.status === "answered" || question.status === "unknown";
         const Input = INPUTS[question.type];
-        const noteRequired = isOccupation(question) && value === OTHER_OCCUPATION && !checking;
+        const noteRequired =
+          question.note_required_for !== null && value === question.note_required_for && !checking;
         return (
           <section
             key={question.id}
@@ -514,7 +522,7 @@ function AnswerForm({
                   </label>
                   <label htmlFor={`${id}-note`} className="text-[13px] font-medium text-ink">
                     {noteRequired ? (
-                      "הערה (חובה: מה העיסוק)"
+                      question.note_required_label
                     ) : (
                       <>
                         הערה <span className="font-normal text-muted">(לא חובה)</span>

@@ -1,15 +1,15 @@
 [
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 1,
   "type": "session_created",
   "payload": {
    "status": "active"
   },
-  "created_at": "2026-10-19T15:04:41.185+00:00"
+  "created_at": "2026-10-19T17:17:52.708+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 2,
   "type": "user_message",
   "payload": {
@@ -18,19 +18,19 @@
     "text": "אני מפתחת תוכנה, שכר בסיס 18,500"
    }
   },
-  "created_at": "2026-10-19T15:04:41.206+00:00"
+  "created_at": "2026-10-19T17:17:52.722+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 3,
   "type": "agent_started",
   "payload": {
    "trigger": "employee_turn"
   },
-  "created_at": "2026-10-19T15:04:41.258+00:00"
+  "created_at": "2026-10-19T17:17:52.731+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 4,
   "type": "tool_call",
   "payload": {
@@ -41,10 +41,10 @@
     "base_salary": 18500
    }
   },
-  "created_at": "2026-10-19T15:04:41.281+00:00"
+  "created_at": "2026-10-19T17:17:52.749+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 5,
   "type": "profile_updated",
   "payload": {
@@ -66,10 +66,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:41.296+00:00"
+  "created_at": "2026-10-19T17:17:52.758+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 6,
   "type": "tool_result",
   "payload": {
@@ -111,10 +111,10 @@
     "group_budget": "3700"
    }
   },
-  "created_at": "2026-10-19T15:04:41.311+00:00"
+  "created_at": "2026-10-19T17:17:52.766+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 7,
   "type": "guard_check",
   "payload": {
@@ -128,10 +128,10 @@
    },
    "action": "accept"
   },
-  "created_at": "2026-10-19T15:04:41.330+00:00"
+  "created_at": "2026-10-19T17:17:52.781+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 8,
   "type": "assistant_message",
   "payload": {
@@ -140,17 +140,17 @@
    "kind": "reply",
    "comparison_ref": null
   },
-  "created_at": "2026-10-19T15:04:41.344+00:00"
+  "created_at": "2026-10-19T17:17:52.793+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 9,
   "type": "agent_finished",
   "payload": {
    "outcome": "reply",
    "error": null,
    "rounds": 1,
-   "latency_ms": 125,
+   "latency_ms": 78,
    "model": "scripted",
    "usage": {
     "input_tokens": 0,
@@ -161,10 +161,10 @@
    "cost_usd": null,
    "limit": null
   },
-  "created_at": "2026-10-19T15:04:41.352+00:00"
+  "created_at": "2026-10-19T17:17:52.793+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 10,
   "type": "user_message",
   "payload": {
@@ -173,19 +173,19 @@
     "text": "אין לי עמלות או בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%, 3 נקודות זיכוי. היום יש לי קורולה קרוס 2025 ואני משתתפת ב-300 ₪. מה יקרה לנטו אם אוותר על הרכב?"
    }
   },
-  "created_at": "2026-10-19T15:04:41.378+00:00"
+  "created_at": "2026-10-19T17:17:52.814+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 11,
   "type": "agent_started",
   "payload": {
    "trigger": "employee_turn"
   },
-  "created_at": "2026-10-19T15:04:41.427+00:00"
+  "created_at": "2026-10-19T17:17:52.876+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 12,
   "type": "tool_call",
   "payload": {
@@ -199,10 +199,10 @@
     "credit_points": 3
    }
   },
-  "created_at": "2026-10-19T15:04:41.479+00:00"
+  "created_at": "2026-10-19T17:17:52.893+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 13,
   "type": "profile_updated",
   "payload": {
@@ -234,10 +234,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:41.498+00:00"
+  "created_at": "2026-10-19T17:17:52.903+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 14,
   "type": "tool_result",
   "payload": {
@@ -271,10 +271,10 @@
     "group_budget": "3700"
    }
   },
-  "created_at": "2026-10-19T15:04:41.529+00:00"
+  "created_at": "2026-10-19T17:17:52.908+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 15,
   "type": "tool_call",
   "payload": {
@@ -285,10 +285,10 @@
     "registration_year": 2025
    }
   },
-  "created_at": "2026-10-19T15:04:41.554+00:00"
+  "created_at": "2026-10-19T17:17:52.917+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 16,
   "type": "tool_result",
   "payload": {
@@ -333,10 +333,10 @@
     ]
    }
   },
-  "created_at": "2026-10-19T15:04:41.570+00:00"
+  "created_at": "2026-10-19T17:17:52.928+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 17,
   "type": "tool_call",
   "payload": {
@@ -351,10 +351,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:41.632+00:00"
+  "created_at": "2026-10-19T17:17:52.955+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 18,
   "type": "current_situation_set",
   "payload": {
@@ -371,13 +371,14 @@
      "kind": "company_car",
      "car_id": "CAR-09"
     },
-    "label": "COROLLA CROSS"
+    "label": "COROLLA CROSS",
+    "source": "employee"
    }
   },
-  "created_at": "2026-10-19T15:04:41.648+00:00"
+  "created_at": "2026-10-19T17:17:52.963+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 19,
   "type": "tool_result",
   "payload": {
@@ -400,7 +401,8 @@
       "kind": "company_car",
       "car_id": "CAR-09"
      },
-     "label": "COROLLA CROSS"
+     "label": "COROLLA CROSS",
+     "source": "employee"
     },
     "warnings": [
      {
@@ -414,10 +416,10 @@
     ]
    }
   },
-  "created_at": "2026-10-19T15:04:41.681+00:00"
+  "created_at": "2026-10-19T17:17:52.973+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 20,
   "type": "tool_call",
   "payload": {
@@ -429,10 +431,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:41.699+00:00"
+  "created_at": "2026-10-19T17:17:52.979+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 21,
   "type": "comparison_ready",
   "payload": {
@@ -664,7 +666,8 @@
      }
     ],
     "missing": [],
-    "partial": false
+    "partial": false,
+    "today_unknown": false
    },
    "eligibility": {
     "status": "eligible",
@@ -701,6 +704,7 @@
     "alternative_net": 13914,
     "display_diff": 2914,
     "direction": "up",
+    "diff_note": null,
     "breakdown": [
      {
       "key": "maintenance",
@@ -903,10 +907,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:41.721+00:00"
+  "created_at": "2026-10-19T17:17:52.992+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 22,
   "type": "tool_result",
   "payload": {
@@ -1144,7 +1148,8 @@
       }
      ],
      "missing": [],
-     "partial": false
+     "partial": false,
+     "today_unknown": false
     },
     "eligibility": {
      "status": "eligible",
@@ -1169,10 +1174,10 @@
     }
    }
   },
-  "created_at": "2026-10-19T15:04:41.737+00:00"
+  "created_at": "2026-10-19T17:17:52.992+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 23,
   "type": "guard_check",
   "payload": {
@@ -1190,10 +1195,10 @@
    },
    "action": "accept"
   },
-  "created_at": "2026-10-19T15:04:41.769+00:00"
+  "created_at": "2026-10-19T17:17:53.015+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 24,
   "type": "assistant_message",
   "payload": {
@@ -1202,17 +1207,17 @@
    "kind": "reply",
    "comparison_ref": 21
   },
-  "created_at": "2026-10-19T15:04:41.788+00:00"
+  "created_at": "2026-10-19T17:17:53.026+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 25,
   "type": "agent_finished",
   "payload": {
    "outcome": "reply",
    "error": null,
    "rounds": 2,
-   "latency_ms": 422,
+   "latency_ms": 172,
    "model": "scripted",
    "usage": {
     "input_tokens": 0,
@@ -1223,10 +1228,10 @@
    "cost_usd": null,
    "limit": null
   },
-  "created_at": "2026-10-19T15:04:41.801+00:00"
+  "created_at": "2026-10-19T17:17:53.033+00:00"
  },
  {
-  "session_id": "f47401b8f8134624a8651ab288df823a",
+  "session_id": "bbd736b1d5814f79b185d999f8aa96be",
   "seq": 26,
   "type": "comparison_set_ready",
   "payload": {
@@ -1253,6 +1258,7 @@
       "alternative_net": 13914,
       "display_diff": 2914,
       "direction": "up",
+      "diff_note": null,
       "breakdown": [
        {
         "key": "maintenance",
@@ -1476,6 +1482,7 @@
       "alternative_net": 12013,
       "display_diff": 1013,
       "direction": "up",
+      "diff_note": null,
       "breakdown": [
        {
         "key": "electric_gross",
@@ -1715,6 +1722,7 @@
       "alternative_net": 11994,
       "display_diff": 994,
       "direction": "up",
+      "diff_note": null,
       "breakdown": [
        {
         "key": "electric_gross",
@@ -1954,6 +1962,7 @@
       "alternative_net": 11784,
       "display_diff": 784,
       "direction": "up",
+      "diff_note": null,
       "breakdown": [
        {
         "key": "electric_gross",
@@ -2193,6 +2202,7 @@
       "alternative_net": 11751,
       "display_diff": 751,
       "direction": "up",
+      "diff_note": null,
       "breakdown": [
        {
         "key": "income_tax",
@@ -2413,6 +2423,7 @@
       "alternative_net": 11539,
       "display_diff": 539,
       "direction": "up",
+      "diff_note": null,
       "breakdown": [
        {
         "key": "income_tax",
@@ -2633,6 +2644,7 @@
       "alternative_net": 11416,
       "display_diff": 416,
       "direction": "up",
+      "diff_note": null,
       "breakdown": [
        {
         "key": "income_tax",
@@ -2853,6 +2865,7 @@
       "alternative_net": 11187,
       "display_diff": 187,
       "direction": "up",
+      "diff_note": null,
       "breakdown": [
        {
         "key": "income_tax",
@@ -3073,6 +3086,7 @@
       "alternative_net": 11026,
       "display_diff": 26,
       "direction": "up",
+      "diff_note": null,
       "breakdown": [
        {
         "key": "income_tax",
@@ -3272,8 +3286,10 @@
       }
      }
     }
-   ]
+   ],
+   "stated": {},
+   "today_unknown": false
   },
-  "created_at": "2026-10-19T15:04:41.933+00:00"
+  "created_at": "2026-10-19T17:17:53.123+00:00"
  }
 ]

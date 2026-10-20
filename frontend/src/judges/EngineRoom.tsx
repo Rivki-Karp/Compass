@@ -2,10 +2,15 @@ import type { ReactNode } from "react";
 import { SHEKEL } from "../lib/format";
 import type { Turn } from "../state/session";
 import { Amount } from "../ui/Amount";
+import { Diff } from "../ui/Diff";
 import { Icon } from "../ui/icons";
 import { engineCards, guardVerdict, sourceLabel, type EngineCard } from "./engine";
 
-const TRIGGER = { employee_turn: "הודעה מהעובד/ת", rep_answer: "תשובת הנציג" } as const;
+const TRIGGER = {
+  employee_turn: "הודעה מהעובד/ת",
+  rep_answer: "תשובת הנציג",
+  payslip_confirmed: "אישור נתוני התלוש",
+} as const;
 
 /**
  * The engine room (brief §4.5): one run at a time, its stats as pills and its events as cards.
@@ -143,7 +148,7 @@ function Card({ card }: { card: EngineCard }) {
           <p className="mt-1 text-white">
             {view.alternative_title}:{" "}
             <span className="font-semibold">
-              <Amount value={view.display_diff} signed currency />
+              <Diff view={view} currency />
             </span>
             {view.today_net !== null && view.alternative_net !== null ? (
               <span className="text-engine-muted">
@@ -173,6 +178,15 @@ function Card({ card }: { card: EngineCard }) {
           </pre>
         </article>
       );
+    case "payslip":
+      return <PayslipCard card={card} />;
+    case "payslip_failed":
+      return (
+        <article className="rounded-tile border border-down p-4">
+          <div className="text-[13px] text-down-bg">קריאת התלוש נכשלה</div>
+          <code className="mt-1 block font-mono text-[12px] text-engine-muted">{card.code}</code>
+        </article>
+      );
     case "error":
       return (
         <article className="rounded-tile border border-down p-4">
@@ -181,6 +195,63 @@ function Card({ card }: { card: EngineCard }) {
         </article>
       );
   }
+}
+
+const CONFIDENCE = { high: "גבוהה", medium: "בינונית", low: "נמוכה" } as const;
+
+/** The candidate as the extractor left it: field, value, confidence, flag. Never the file. */
+function PayslipCard({ card }: { card: Extract<EngineCard, { kind: "payslip" }> }) {
+  return (
+    <article className="rounded-tile border border-engine-tool-border p-4">
+      <div className="flex flex-wrap items-center gap-2 text-[13px]">
+        <span className="text-engine-tool">התלוש נקרא · ממתין לאישור העובד/ת</span>
+        {card.model ? (
+          <code className="font-mono text-engine-muted">
+            {card.model}
+            {card.fallback ? " (גיבוי)" : ""}
+            {card.costUsd == null ? "" : ` · $${card.costUsd}`}
+          </code>
+        ) : null}
+      </div>
+      <table className="mt-2 w-full text-[12px]">
+        <caption className="sr-only">שדות שנקראו מהתלוש</caption>
+        <thead>
+          <tr className="text-engine-muted">
+            <th scope="col" className="text-start font-normal">
+              שדה
+            </th>
+            <th scope="col" className="text-start font-normal">
+              ערך
+            </th>
+            <th scope="col" className="text-start font-normal">
+              ודאות
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {card.fields.map(([name, field]) => (
+            <tr key={name}>
+              <td>
+                <code className="font-mono text-engine-text">{name}</code>
+              </td>
+              <td className="text-white">
+                {field.value === null ? "—" : <bdi className="font-mono">{field.value}</bdi>}
+                {field.flag ? (
+                  <code className="ms-2 font-mono text-down-bg">{field.flag}</code>
+                ) : null}
+              </td>
+              <td className="text-engine-muted">{CONFIDENCE[field.confidence]}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {card.droppedKeys > 0 ? (
+        <p className="mt-2 text-[12px] text-engine-muted">
+          {card.droppedKeys} מפתחות לא מוכרים נזרקו
+        </p>
+      ) : null}
+    </article>
+  );
 }
 
 function GuardCard({ card }: { card: Extract<EngineCard, { kind: "guard" }> }) {

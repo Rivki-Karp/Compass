@@ -48,8 +48,10 @@ TOOLS: tuple[Tool, ...] = (
         "one). Returns what was saved, what is still missing, unknown fields, warnings, and "
         "group / group_source / group_budget (state the derived group and budget to the "
         "employee). Save only what the employee actually said: never guess or assume a value "
-        "(a 'no' to commissions or bonus is 0; 'I don't know' goes in unknown_fields). Never "
-        "ask for an ID number.",
+        "(a 'no' to commissions or bonus is 0; 'I don't know' goes in unknown_fields). If it is "
+        "unclear which field a number belongs to (e.g. 'no bonuses 30000': salary? "
+        "commissions?), ask the employee before saving it: never save a guess as the "
+        "employee's input; save only the fields that are clear. Never ask for an ID number.",
         h.SaveProfileInput,
         h.save_profile,
     ),
@@ -69,6 +71,20 @@ TOOLS: tuple[Tool, ...] = (
         "If not confident, ask the employee to choose; never guess.",
         h.LookupVehicleInput,
         h.lookup_vehicle,
+    ),
+    Tool(
+        "search_catalog",
+        "List the company catalog cars the employee may mean by today's car: part of a name, a "
+        "manufacturer ('קיה') or the name in Hebrew letters, every registration year. Use it "
+        "when lookup_vehicle does not identify today's car, instead of asking to rephrase. "
+        "Returns numbered cars (choice, car_id, name, registration_year, group, drive, "
+        "details_he) and other_choices: not_in_list ('הרכב שלי לא ברשימה': then lookup_vehicle "
+        "with the registration year for a car outside the catalog) and no_car ('אין לי רכב "
+        "היום': set_current_situation kind none). Offer them all as one short numbered list, "
+        "in this order, and let the employee pick; never pick for them. A car whose year "
+        "differs from the employee's is a different vehicle.",
+        h.SearchCatalogInput,
+        h.search_catalog,
     ),
     Tool(
         "set_current_situation",
@@ -94,7 +110,9 @@ TOOLS: tuple[Tool, ...] = (
         "compute, round or estimate. An ineligible alternative is still calculated and marked "
         "hypothetical (say it is conditional on approval). pending_rep: true means the "
         "participation is the catalog default until the representative confirms it. With "
-        "unknown pension/study-fund rates the diff may still be known (partial: nets null).",
+        "unknown pension/study-fund rates the diff may still be known (partial: nets null). "
+        "Today's car unknown: the alternative's own net, no diff (today_unknown: true, "
+        "display_diff null); say the diff needs today's car.",
         h.CompareInput,
         h.compare,
     ),
@@ -102,7 +120,10 @@ TOOLS: tuple[Tool, ...] = (
         "list_options",
         "Every alternative (all catalog cars and the waiver if allowed) with its eligibility, "
         "net diff vs today and the car's name, group and drive, best eligible first. Use it to "
-        "offer eligible alternatives of the same drive type. Quote only its display values.",
+        "offer eligible alternatives of the same drive type. Quote only its display values. Works "
+        "before today's car is known: each option's net, no diff (today_unknown: true); do not "
+        "wait for today's car to show the options. Once it is set, the server recomputes the "
+        "options on screen with their diffs.",
         h.ListOptionsInput,
         h.list_options,
     ),
@@ -124,7 +145,11 @@ TOOLS: tuple[Tool, ...] = (
         "its answer options, so give no type, options or quick_answers: current_participation "
         "(today's car), alternative_participation:<catalog car id> (only cars the employee is "
         "actually considering: named, or compared in this conversation), group_exception, "
-        "occupation (with occupation_query: the employee's words). Example: the employee says "
+        "occupation (with occupation_query: the employee's words), current_car (with car_query: "
+        "today's car in the employee's words; only while today is not recorded, when the "
+        "employee cannot identify their company car even from search_catalog's list or asks "
+        "to check: the representative picks it from the catalog, and the server records it "
+        "and recomputes). Example: the employee says "
         "'AI developer', lookup_occupation finds nothing and the employee cannot place it in "
         "the list (or asks to check) -> {bound_field: occupation, "
         "occupation_query: 'מפתח AI', prompt_he: 'האם מפתח AI נחשב מפתח/ת תוכנה?'}; the "

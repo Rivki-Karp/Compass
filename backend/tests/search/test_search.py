@@ -2,8 +2,8 @@ import pytest
 
 from compass.data.catalog import load_catalog
 from compass.engine.context import EngineContext, build_context
-from compass.search import Searcher, load_aliases, normalize
-from compass.search.search import CONFIDENT_LEAD, CONFIDENT_SCORE
+from compass.search import Searcher, load_aliases, load_manufacturer_aliases, normalize
+from compass.search.search import CONFIDENT_LEAD, CONFIDENT_SCORE, latin_skeleton
 
 
 @pytest.fixture(scope="module")
@@ -13,7 +13,13 @@ def ctx() -> EngineContext:
 
 @pytest.fixture(scope="module")
 def searcher(ctx: EngineContext) -> Searcher:
-    return Searcher(ctx.catalog, ctx.occupations, load_aliases(), ctx.rules.value_of_use.tax_year)
+    return Searcher(
+        ctx.catalog,
+        ctx.occupations,
+        load_aliases(),
+        ctx.rules.value_of_use.tax_year,
+        manufacturer_aliases=load_manufacturer_aliases(),
+    )
 
 
 # --- normalize --------------------------------------------------------------------------------
@@ -73,6 +79,15 @@ def test_no_alias_names_two_cars() -> None:
 def test_unknown_alias_target_is_rejected(ctx: EngineContext) -> None:
     with pytest.raises(ValueError, match="unknown catalog commercial_name"):
         Searcher(ctx.catalog, ctx.occupations, {"GOLF": ("גולף",)}, 2026)
+
+
+def test_every_manufacturer_spelling_names_a_catalog_manufacturer(ctx: EngineContext) -> None:
+    makers = load_manufacturer_aliases()
+    assert {"קיה", "יונדאי", "טויוטה", "מזדה", "סקודה", "טסלה"} <= set(makers)
+    with pytest.raises(ValueError, match="unknown catalog manufacturer"):
+        Searcher(
+            ctx.catalog, ctx.occupations, {}, 2026, manufacturer_aliases={"פולקסווגן": ("vw",)}
+        )
 
 
 # --- the UX walkthrough table -----------------------------------------------------------------
@@ -153,3 +168,60 @@ def test_tax_authority_only_when_catalog_has_no_match(searcher: Searcher) -> Non
 def test_nothing_matches(searcher: Searcher) -> None:
     result = searcher.search_vehicles("zzzzqqqq")
     assert result.candidates == () and not result.confident
+
+
+# --- search_catalog (a list to pick from) -----------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("query", "car_ids"),
+    [
+        ("קיה", ["CAR-01", "CAR-05", "CAR-11", "CAR-16", "CAR-19"]),  # the manufacturer
+        ("יונדאי", ["CAR-08", "CAR-12", "CAR-20"]),
+        ("קורולה", ["CAR-07", "CAR-09"]),  # the exact name first, then the longer one
+        ("קרוס", ["CAR-02", "CAR-09"]),  # part of a name
+        ("אקטביה", ["CAR-15"]),  # a Hebrew spelling no alias has
+        ("פיקאנטו", ["CAR-01"]),
+        # The manufacturer in English or another spelling (aliases.yaml, `manufacturers`)
+        ("kia", ["CAR-05", "CAR-11", "CAR-19", "CAR-01", "CAR-16"]),
+        ("KIA", ["CAR-05", "CAR-11", "CAR-19", "CAR-01", "CAR-16"]),
+        ("hyundai", ["CAR-12", "CAR-08", "CAR-20"]),
+        ("toyota", ["CAR-07", "CAR-09", "CAR-02", "CAR-18"]),
+        ("skoda", ["CAR-15"]),
+        ("byd", ["CAR-03", "CAR-17", "CAR-10"]),
+        ("mg", ["CAR-06"]),
+        ("שקודה", ["CAR-15"]),  # a Hebrew spelling the catalog doesn't use
+    ],
+)
+def test_search_catalog_lists_every_car_the_words_may_mean(
+    searcher: Searcher, query: str, car_ids: list[str]
+) -> None:
+    assert [c.id for c in searcher.search_catalog(query)] == car_ids
+
+
+def test_kia_lists_picanto_and_sportage(searcher: Searcher) -> None:
+    ids = {c.id for c in searcher.search_catalog("kia")}
+    assert {"CAR-01", "CAR-16"} <= ids  # PICANTO, SPORTAGE HEV: no car alias says "kia"
+
+
+def test_a_manufacturer_spelling_never_picks_a_car(searcher: Searcher) -> None:
+    assert searcher.search_vehicles("kia").best is None
+
+
+def test_search_catalog_ignores_the_registration_year(searcher: Searcher) -> None:
+    assert [c.label for c in searcher.search_catalog("מאזדה 3 2024")] == ["MAZDA 3 2025"]
+
+
+@pytest.mark.parametrize("query", ["מציון", "golf", "zzzz", "  "])
+def test_search_catalog_lists_nothing_for_a_car_not_in_the_catalog(
+    searcher: Searcher, query: str
+) -> None:
+    assert searcher.search_catalog(query) == []
+
+
+@pytest.mark.parametrize(
+    ("hebrew", "latin"),
+    [("קודיאק", "kodiaq"), ("אוקטביה", "octavia"), ("פיקנטו", "picanto"), ("קרניבל", "carnival")],
+)
+def test_a_transliteration_and_the_latin_name_share_a_skeleton(hebrew: str, latin: str) -> None:
+    assert latin_skeleton(normalize(hebrew)) == latin_skeleton(normalize(latin))

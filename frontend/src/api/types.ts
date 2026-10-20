@@ -128,7 +128,7 @@ export interface PayloadByType {
       note: string | null;
     }[];
   };
-  agent_started: { trigger: "employee_turn" | "rep_answer" };
+  agent_started: { trigger: "employee_turn" | "rep_answer" | "payslip_confirmed" };
   agent_finished: {
     outcome: "reply" | "template" | "error" | "limit";
     // admin only
@@ -154,6 +154,33 @@ export interface PayloadByType {
   };
   guard_check: GuardCheckPayload;
   agent_error: { kind: string; message?: string };
+  // The payslip upload (COMPASS_PAYSLIP=1): a pending candidate the employee confirms, numbers
+  // and flags only (never the file), or why reading it failed.
+  payslip_extracted: {
+    fields: Record<string, PayslipCandidateField>;
+    dropped_keys: number;
+    // admin only
+    model?: string | null;
+    fallback?: boolean;
+    latency_ms?: number;
+    cost_usd?: number | null;
+  };
+  payslip_failed: { code: string };
+  payslip_confirmed: PayslipConfirmed & { candidate_seq: number };
+}
+
+/** POST /payslip/confirm's answer, and the payslip_confirmed event: what became a profile value. */
+export interface PayslipConfirmed {
+  applied: Record<string, { value: string; source: "payslip" | "employee" }>;
+  kept_representative: string[]; // a representative's value wins
+  waiting_for_rep: string[];
+  car_hint: { car_id: string; commercial_name: string } | null;
+}
+
+export interface PayslipCandidateField {
+  value: string | null; // a Decimal as text (or YYYY-MM); null when unknown or flagged
+  confidence: "high" | "medium" | "low";
+  flag: "wrong_type" | "out_of_range" | "too_many_decimals" | "not_a_step" | "invalid" | null;
 }
 
 /** One event as the session stream sends it (`data` of an SSE message). */
@@ -180,6 +207,8 @@ export interface Health {
   dev_tools: boolean;
   /** Whether each token is set on the server (never its value). */
   auth?: { rep: boolean; admin: boolean };
+  /** Present only with COMPASS_PAYSLIP=1: the upload's limits (absent: no attach button). */
+  payslip?: { max_bytes: number; max_pages: number; types: string[] };
 }
 
 /** GET /api/admin/stats: judges mode's tiles, from committed files. Money is display-ready

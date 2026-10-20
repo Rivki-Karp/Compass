@@ -20,14 +20,14 @@ def build_claude_runner(
 ) -> ClaudeAgentRunner:
     if llm is None:
         assert settings.anthropic_api_key, "ANTHROPIC_API_KEY is not set"
-        llm = AnthropicClient(settings.anthropic_api_key, settings.model)
+        llm = AnthropicClient(settings.anthropic_api_key, settings.model, effort=settings.effort)
     from compass.agent.guard import make_guard
     from compass.agent.templates import make_template
 
     return ClaudeAgentRunner(
         services,
         llm,
-        load_system_prompt(),
+        load_system_prompt(payslip=settings.payslip),
         tool_runner=tool_runner,
         max_tool_rounds=settings.max_tool_rounds,
         max_session_turns=settings.max_session_turns,

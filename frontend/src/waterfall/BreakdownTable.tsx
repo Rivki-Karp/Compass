@@ -1,5 +1,6 @@
 import type { ComparisonView } from "../api/types";
 import { Amount } from "../ui/Amount";
+import { Diff } from "../ui/Diff";
 
 /** The waterfall's lines as a plain table: the chart's text view (under "הצגה כרשימה"). */
 export function BreakdownTable({ view }: { view: ComparisonView }) {
@@ -27,7 +28,7 @@ export function BreakdownTable({ view }: { view: ComparisonView }) {
             סה״כ ההפרש
           </th>
           <td className="py-2 text-end">
-            <Amount value={view.display_diff} signed currency />
+            <Diff view={view} currency />
           </td>
         </tr>
       </tbody>

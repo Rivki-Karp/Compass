@@ -51,14 +51,27 @@ class RepAnswer(_Model):
     effective_from: date | None = None
 
 
+class PayslipTurn(_Model):
+    """The employee uploads a payslip and confirms some of what it says (flag on; the scripted
+    extractor "reads" `read`, as the model's JSON object: a field is a number or {value,
+    confidence}; extra keys play a model that goes beyond the schema). `confirm`: the fields
+    the employee accepts, as POST /payslip/confirm takes them ({} accepts nothing)."""
+
+    read: dict[str, Any]
+    confirm: dict[str, Any] = Field(default_factory=dict)
+
+
 class Turn(_Model):
     employee: str | None = None
     rep: RepAnswer | None = None
+    payslip: PayslipTurn | None = None
 
     @model_validator(mode="after")
     def _one_kind(self) -> "Turn":
-        if (self.employee is None) == (self.rep is None):
-            raise ValueError("a turn is either `employee: <text>` or `rep: {...}`")
+        if sum(x is not None for x in (self.employee, self.rep, self.payslip)) != 1:
+            raise ValueError(
+                "a turn is either `employee: <text>`, `rep: {...}` or `payslip: {read, confirm}`"
+            )
         return self
 
 
@@ -69,6 +82,10 @@ class Scenario(_Model):
     until_compare: bool = False
     max_extra_turns: int = Field(2, ge=0, le=5)
     checks: list[dict[str, Any]] = Field(min_length=1)
+
+    @property
+    def needs_payslip(self) -> bool:
+        return any(turn.payslip is not None for turn in self.turns)
 
     @model_validator(mode="after")
     def _valid_checks(self) -> "Scenario":

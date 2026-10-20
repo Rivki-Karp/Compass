@@ -54,10 +54,15 @@ def render(result: dict[str, Any]) -> str:
     """The Hebrew summary of one comparison result (the payload of comparison_ready)."""
     comparison = result["comparison"]
     diff = comparison["display_diff"]
-    today = comparison["today"]["display"]["net"]
+    today = None if comparison["today"] is None else comparison["today"]["display"]["net"]
     alternative = comparison["alternative"]["display"]["net"]
     lines = []
-    if today is None or alternative is None:  # partial: unknown contribution rates
+    if diff is None:  # today unknown: the alternative's own net
+        lines.append(
+            f"לפי החישוב, הנטו המשוער בחלופה הוא {_money(alternative)} בחודש. "
+            "ההפרש יוצג כשהרכב של היום יהיה ידוע."
+        )
+    elif today is None or alternative is None:  # partial: unknown contribution rates
         lines.append(
             f"לפי החישוב, ההפרש בנטו המשוער הוא {_signed(diff)} בחודש. "
             "הנטו המלא יוצג כשיהיו ידועים כל הנתונים."

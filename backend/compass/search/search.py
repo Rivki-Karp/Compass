@@ -36,6 +36,41 @@ MIN_SCORE = 70.0  # below this a candidate is not shown at all
 MAX_CANDIDATES = 5
 _EXTRA_TOKEN_MATCH = 80.0  # the query "mentions" an extension token at this ratio
 
+# search_catalog (a list to pick from, never a pick): how a partial name, the manufacturer and
+# a transliteration score next to a full-name match.
+CATALOG_CHOICES = 6
+PARTIAL_MIN_LENGTH = 3
+PARTIAL_MIN_SCORE = 90.0  # below this a partial match is noise ("קיה" inside "אוקטביה")
+PARTIAL_WEIGHT = 0.9  # "קורולה" inside "קורולה קרוס": listed, below the exact match
+MAKER_SCORE = 80.0  # the manufacturer named: every car of it, below a name match
+SKELETON_WEIGHT = 0.85
+
+_HEBREW = re.compile(r"[א-ת]")
+# Hebrew letters -> Latin consonants, and Latin spelling -> the same consonants, so "קודיאק" and
+# "kodiaq" both read "kdk". Vowel letters (א ה ו י ע) drop on both sides, as vowels do.
+_HEBREW_SOUNDS = str.maketrans(
+    {
+        "ב": "b", "ג": "g", "ד": "d", "ז": "z", "ח": "k", "ט": "t", "כ": "k", "ל": "l",
+        "מ": "m", "נ": "n", "ס": "s", "פ": "p", "צ": "z", "ק": "k", "ר": "r", "ש": "s",
+        "ת": "t", "א": "", "ה": "", "ו": "", "י": "", "ע": "",
+    }
+)  # fmt: skip
+_LATIN_SOUNDS = (
+    ("ph", "p"), ("ch", "k"), ("ck", "k"), ("sh", "s"), ("ts", "z"), ("tz", "z"),
+    ("c", "k"), ("q", "k"), ("x", "ks"), ("f", "p"), ("v", "b"), ("w", "b"), ("j", "g"),
+)  # fmt: skip
+
+
+def latin_skeleton(text: str) -> str:
+    """The consonants of normalized text, in one Latin spelling for Hebrew and English alike;
+    digits kept, doubled letters and spaces dropped."""
+    for spelling, sound in _LATIN_SOUNDS:  # Latin spelling first: the Hebrew is already sounds
+        text = text.replace(spelling, sound)
+    text = text.translate(_HEBREW_SOUNDS)
+    text = re.sub(r"[aeiouyh\s]", "", text)
+    return re.sub(r"(.)\1+", r"\1", text)
+
+
 Source = Literal["catalog", "occupations", "tax_authority"]
 
 
@@ -69,9 +104,26 @@ def score(query: str, candidate: str) -> float:
     return (fuzz.WRatio(query, candidate) + fuzz.ratio(query, candidate)) / 2
 
 
+MANUFACTURERS_KEY = "manufacturers"  # aliases.yaml's section of brand spellings
+
+
 def load_aliases(path: Path = ALIASES_YAML) -> dict[str, tuple[str, ...]]:
+    """The car aliases: catalog commercial_name -> aliases."""
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    return {str(name): tuple(str(alias) for alias in aliases) for name, aliases in data.items()}
+    return {
+        str(name): tuple(str(alias) for alias in aliases)
+        for name, aliases in data.items()
+        if name != MANUFACTURERS_KEY
+    }
+
+
+def load_manufacturer_aliases(path: Path = ALIASES_YAML) -> dict[str, tuple[str, ...]]:
+    """The manufacturer spellings: the start of a catalog manufacturer_name -> spellings."""
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return {
+        str(maker): tuple(str(alias) for alias in aliases)
+        for maker, aliases in (data.get(MANUFACTURERS_KEY) or {}).items()
+    }
 
 
 def tax_authority_key(record: VehicleRecord) -> str:
@@ -140,11 +192,20 @@ class Searcher:
         aliases: Mapping[str, tuple[str, ...]],
         value_of_use_tax_year: int,
         vehicles_db: Path = VEHICLES_DB,
+        manufacturer_aliases: Mapping[str, tuple[str, ...]] | None = None,
     ) -> None:
         by_name = {car.commercial_name: car for car in catalog.values()}
         unknown = sorted(set(aliases) - set(by_name))
         if unknown:
             raise ValueError(f"aliases.yaml: unknown catalog commercial_name(s) {unknown}")
+        makers = {f"{normalize(car.manufacturer_name)} " for car in catalog.values()}
+        maker_aliases = {
+            normalize(maker): tuple(normalize(a) for a in spellings)
+            for maker, spellings in (manufacturer_aliases or {}).items()
+        }
+        unknown = sorted(k for k in maker_aliases if not any(m.startswith(f"{k} ") for m in makers))
+        if unknown:
+            raise ValueError(f"aliases.yaml: unknown catalog manufacturer(s) {unknown}")
         self._cars = [
             _Entry(
                 id=car.id,
@@ -158,6 +219,26 @@ class Searcher:
             for name, car in by_name.items()
         ]
         self._car_years = {car.id: car.registration_year for car in catalog.values()}
+        # search_catalog's extra keys per car: the manufacturer's words ("קיה", "טויוטה"; the
+        # country is a word too, but no one types it alone), and the consonant skeleton of the
+        # commercial name, for a Hebrew transliteration no alias covers.
+        self._makers = {
+            car.id: tuple(w for w in normalize(car.manufacturer_name).split() if len(w) >= 2)
+            for car in catalog.values()
+        }
+        # ...and the manufacturer's other spellings from aliases.yaml ("kia", "שקודה").
+        self._maker_spellings = {
+            car.id: tuple(
+                spelling
+                for key, spellings in maker_aliases.items()
+                if f"{normalize(car.manufacturer_name)} ".startswith(f"{key} ")
+                for spelling in spellings
+            )
+            for car in catalog.values()
+        }
+        self._skeletons = {
+            car.id: latin_skeleton(normalize(car.commercial_name)) for car in catalog.values()
+        }
         self._occupations = [
             _Entry(id=title, label=title, names=(normalize(title),)) for title in occupations
         ]
@@ -243,6 +324,54 @@ class Searcher:
                 truncated=len(ranked) > MAX_CANDIDATES,
             )
         return self._search_tax_authority(query, normalized, registration_year)
+
+    def search_catalog(self, query: str, limit: int = CATALOG_CHOICES) -> list[Candidate]:
+        """The catalog cars an employee might mean by `query`, best first, for a list to pick
+        from (never a pick): every registration year, and besides search_vehicles' score on the
+        names and aliases, a partial name ("קורולה" also lists COROLLA CROSS), the manufacturer
+        ("קיה", or a spelling from aliases.yaml such as "kia": every Kia) and a Hebrew
+        transliteration of the commercial name ("קודיאק" would find KODIAQ). Empty when nothing
+        scores MIN_SCORE."""
+        normalized = normalize(query)
+        if not normalized:
+            return []
+        words = normalized.split()
+        skeleton = latin_skeleton(normalized) if _HEBREW.search(normalized) else ""
+        scored: list[tuple[float, str, _Entry]] = []
+        for entry in self._cars:
+            best, matched = max((score(normalized, name), name) for name in entry.names)
+            if len(normalized) >= PARTIAL_MIN_LENGTH:
+                partial, name = max((fuzz.partial_ratio(normalized, n), n) for n in entry.names)
+                if partial >= PARTIAL_MIN_SCORE and partial * PARTIAL_WEIGHT > best:
+                    best, matched = partial * PARTIAL_WEIGHT, name
+            maker = self._makers[entry.id]
+            named = any(fuzz.ratio(w, m) >= CONFIDENT_SCORE for w in words for m in maker) or any(
+                f" {s} " in f" {normalized} "
+                if " " in s
+                else any(fuzz.ratio(w, s) >= CONFIDENT_SCORE for w in words)
+                for s in self._maker_spellings[entry.id]
+            )
+            if named and best < MAKER_SCORE:
+                best, matched = MAKER_SCORE, " ".join(maker)
+            target = self._skeletons[entry.id]
+            if len(skeleton) >= PARTIAL_MIN_LENGTH and target:
+                sounds = fuzz.ratio(skeleton, target) * SKELETON_WEIGHT
+                if sounds > best:
+                    best, matched = sounds, target
+            if best >= MIN_SCORE:
+                scored.append((best, matched, entry))
+        scored.sort(key=lambda item: -item[0])  # stable: ties keep catalog order
+        return [
+            Candidate(
+                id=entry.id,
+                label=entry.label,
+                score=round(value, 1),
+                source="catalog",
+                in_catalog=True,
+                matched=matched,
+            )
+            for value, matched, entry in scored[:limit]
+        ]
 
     def _names(self, registration_year: int | None) -> dict[str, list[str]]:
         """normalized commercial name -> raw names (private vehicles), cached per year."""

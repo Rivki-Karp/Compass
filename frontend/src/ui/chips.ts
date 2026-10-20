@@ -1,7 +1,7 @@
 import type { ChipSource } from "../api/types";
 
 /** Where an input value came from (brief §3.2). Pending is visually distinct: dashed amber
- * border, clock icon. Labels are the design's fixed vocabulary for the five sources. */
+ * border, clock icon. Labels are the design's fixed vocabulary for the sources. */
 export const CHIP: Record<ChipSource, { label: string; className: string }> = {
   employee_input: {
     label: "לפי דבריך",
@@ -18,6 +18,10 @@ export const CHIP: Record<ChipSource, { label: string; className: string }> = {
   catalog_default: {
     label: "ברירת מחדל מהקטלוג",
     className: "text-chip-catalog bg-chip-catalog-bg border-chip-catalog-border",
+  },
+  payslip: {
+    label: "לפי התלוש",
+    className: "text-chip-payslip bg-chip-payslip-bg border-transparent",
   },
   pending_rep: {
     label: "ממתינה לנציג",

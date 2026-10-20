@@ -158,10 +158,15 @@ function car(
     options: [],
     search_options: [],
     facts: [],
+    search_label: null,
+    search_empty: null,
+    note_required_for: null,
+    note_required_label: null,
+    detail_label: null,
     status: "pending",
     answer: null,
     note: null,
-    comparison: { alternative_title: name, display_diff: diff, pending: true },
+    comparison: { alternative_title: name, display_diff: diff, pending: true, diff_note: null },
     ...extra,
   };
 }
@@ -176,7 +181,7 @@ const threeCars: TicketWithView = {
       car("CAR-10", "ATTO 3", 611, {
         status: "answered",
         answer: 350,
-        comparison: { alternative_title: "ATTO 3", display_diff: 611, pending: false },
+        comparison: { alternative_title: "ATTO 3", display_diff: 611, pending: false, diff_note: null },
       }),
       car("CAR-06", "MG4", 1020, { catalog_default: 250 }),
       car("CAR-11", "EV3", 455),
@@ -246,7 +251,7 @@ describe("TicketDetail: today's participation and a group approval", () => {
     id: "current_participation",
     bound_field: "current_participation",
     title: "השתתפות עצמית ברכב של היום",
-    comparison: { alternative_title: "ATTO 3", display_diff: 661, pending: true },
+    comparison: { alternative_title: "ATTO 3", display_diff: 661, pending: true, diff_note: null },
   };
   const group: TicketQuestionView = {
     id: "group_exception",
@@ -259,6 +264,11 @@ describe("TicketDetail: today's participation and a group approval", () => {
     car_id: null,
     car_name: null,
     catalog_default: null,
+    search_label: null,
+    search_empty: null,
+    note_required_for: null,
+    note_required_label: null,
+    detail_label: null,
     options: [
       { value: "ג", label: "מאושר לקבוצה ג׳", detail: null },
       { value: "not_approved", label: "לא מאושר", detail: null },
@@ -271,7 +281,7 @@ describe("TicketDetail: today's participation and a group approval", () => {
     status: "pending",
     answer: null,
     note: null,
-    comparison: { alternative_title: "ATTO 3", display_diff: 661, pending: true },
+    comparison: { alternative_title: "ATTO 3", display_diff: 661, pending: true, diff_note: null },
   };
   const withFields = (questions: TicketQuestionView[]): TicketWithView => ({
     ...ticket,

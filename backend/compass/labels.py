@@ -65,6 +65,7 @@ FIELD_LABELS: dict[str, str] = {
     "alternative_maintenance": "אחזקה בוויתור",
     "current_participation": "השתתפות היום",  # ticket field names
     "group_exception": "אישור חריג לקבוצה",
+    "current_car": "הרכב של היום",
 }
 
 
@@ -95,6 +96,8 @@ GROUP_NOT_APPROVED_LABEL = "לא מאושר"
 
 # Ticket questions (compass/tools/questions.py): the rep's choices and the section headings.
 OTHER_OCCUPATION_LABEL = "עיסוק אחר (לפרט בהערה)"
+NOT_IN_CATALOG_LABEL = "הרכב לא בקטלוג (לפרט בהערה)"
+CURRENT_CAR_QUESTION_TITLE = "הרכב של היום"
 NEEDS_CHECKING_LABEL = "לא ידוע לי / צריך לבדוק"
 OCCUPATION_QUESTION_TITLE = "סיווג עיסוק"
 FREE_ANSWER_LABELS = {"yes_no": "התשובה", "choice": "התשובה", "text": "התשובה"}
@@ -118,6 +121,11 @@ RULE_LABELS: dict[str, str] = {
     "waiver_maintenance": "אחזקה בוויתור לפי העיסוק",
     "family_track": "מסלול משפחתי",
 }
+
+
+# In place of the difference while today's car is unknown (each alternative's own net is
+# known; the difference needs today's).
+DIFF_WAITS_FOR_TODAY = "חסר הרכב של היום"
 
 
 # Who computed a comparison (the provenance strip's "computed by" line). "tool": the model called
@@ -239,6 +247,25 @@ ERROR_MESSAGES: dict[str, Callable[[Params], str]] = {
         "קבוצה לא מוכרת. אפשר: " + ", ".join(group_label(g) for g in p["groups"]) + "."
     ),
     "credit_points_step": lambda p: f"בין 0 ל-{p['max']} נקודות, בקפיצות של 0.25.",
+    # payslip upload: never a number from the file (limits come from the settings)
+    "payslip_in_progress": lambda p: "התלוש הקודם עדיין בעיבוד. רגע אחד.",
+    "payslip_per_session": lambda p: f"אפשר להעלות עד {p['max']} תלושים בשיחה אחת.",
+    "payslip_rate_limited": lambda p: "יותר מדי העלאות בזמן קצר. נסו שוב בעוד רגע.",
+    "payslip_daily_cap": lambda p: "קריאת תלושים לא זמינה כרגע. אפשר להזין את הנתונים בצ'אט.",
+    "payslip_unsupported_type": lambda p: "אפשר להעלות רק PDF, JPG או PNG.",
+    "payslip_empty": lambda p: "לא התקבל קובץ.",
+    "payslip_too_large": lambda p: f"הקובץ גדול מדי. אפשר עד {p['max_mb']}MB.",
+    "payslip_type_mismatch": lambda p: "תוכן הקובץ לא תואם את סוג הקובץ. נסו קובץ אחר.",
+    "payslip_encrypted": lambda p: "הקובץ מוגן בסיסמה. העלו עותק בלי סיסמה.",
+    "payslip_too_many_pages": lambda p: f"אפשר להעלות תלוש של עד {p['max']} עמודים.",
+    "payslip_unreadable": lambda p: "לא הצלחנו לפתוח את הקובץ. נסו קובץ אחר.",
+    "payslip_unavailable": lambda p: "קריאת תלושים לא זמינה כרגע. אפשר להזין את הנתונים בצ'אט.",
+    "payslip_nothing_pending": lambda p: "אין נתונים מהתלוש שממתינים לאישור.",
+    "payslip_field_not_allowed": lambda p: "מהתלוש אפשר לאשר רק נתוני שכר.",
+    "payslip_invalid_value": lambda p: "אחד הערכים לא תקין. בדקו אותו ונסו שוב.",
+    "payslip_extraction_failed": lambda p: (
+        "לא הצלחנו לקרוא את נתוני השכר מהתלוש. אפשר לנסות שוב או להזין אותם בצ'אט."
+    ),
 }
 
 

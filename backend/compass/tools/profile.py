@@ -61,6 +61,11 @@ ALTERNATIVE_PARTICIPATION = "alternative_participation:"  # + catalog car id
 GROUP_EXCEPTION = "group_exception"
 NOT_APPROVED = "not_approved"
 
+# A representative's answer to "which car does the employee have today" (a ticket blocking
+# field, its own slot): a catalog car id. The answer also becomes today's situation (source
+# representative); a car outside the catalog is answered "other" with a note (the slot unknown).
+CURRENT_CAR = "current_car"
+
 
 def alternative_participation(car_id: str) -> str:
     return f"{ALTERNATIVE_PARTICIPATION}{car_id}"
@@ -72,7 +77,7 @@ def is_participation(field: str) -> bool:
 
 def is_fillable(field: str, ctx: EngineContext) -> bool:
     """A field a ticket may block on and a representative may fill."""
-    if field in SLOT_OF or field in (CURRENT_PARTICIPATION, GROUP_EXCEPTION):
+    if field in SLOT_OF or field in (CURRENT_PARTICIPATION, GROUP_EXCEPTION, CURRENT_CAR):
         return True
     return (
         field.startswith(ALTERNATIVE_PARTICIPATION)
@@ -154,6 +159,10 @@ def to_slot_value(
             "effective_from applies to participation fields only",
             "effective_from_not_participation",
         )
+    if field == CURRENT_CAR:
+        if not isinstance(raw, str) or raw not in ctx.catalog:
+            raise FieldError(field, f"a catalog car id (got {raw!r})", "unknown_car")
+        return raw
     if field == GROUP_EXCEPTION:
         if raw != NOT_APPROVED and raw not in ctx.rules.group_order:
             raise FieldError(

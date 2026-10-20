@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { ChatMessage, ToolActivity, Turn } from "../state/session";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/icons";
@@ -17,6 +17,8 @@ export function ChatPanel({
   onSend,
   limitReached = false,
   onNewSession,
+  attach = null,
+  tray = null,
 }: {
   messages: ChatMessage[];
   turns: Turn[];
@@ -27,6 +29,10 @@ export function ChatPanel({
   /** The session safety limit was reached: a "new chat" button replaces the input. */
   limitReached?: boolean;
   onNewSession?: () => void;
+  /** The payslip upload (COMPASS_PAYSLIP=1): a button in the composer, and its notice, states
+   * and confirmation card above it. Null: nothing changes. */
+  attach?: ReactNode;
+  tray?: ReactNode;
 }) {
   const [draft, setDraft] = useState("");
   const list = useRef<HTMLOListElement>(null);
@@ -110,6 +116,8 @@ export function ChatPanel({
         </div>
       ) : (
         <>
+      {/* the payslip card is tall: it scrolls on its own, so its button is always reachable */}
+      {tray ? <div className="max-h-[55dvh] shrink-0 overflow-y-auto">{tray}</div> : null}
       {suggestions.length ? (
         <div className="flex flex-wrap gap-2 px-5 pb-3" aria-label="הצעות">
           {suggestions.map((text) => (
@@ -129,6 +137,7 @@ export function ChatPanel({
       ) : null}
 
       <form onSubmit={submit} className="flex gap-2 border-t border-line-soft px-5 py-4">
+        {attach}
         <label htmlFor="chat-input" className="sr-only">
           הודעה
         </label>

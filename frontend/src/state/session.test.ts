@@ -122,6 +122,16 @@ describe("reduce: every event kind", () => {
         comparison_ref: null,
       }),
       ev("agent_finished", { outcome: "error" }),
+      // the payslip upload: kept for judges mode, nothing on screen yet
+      ev("payslip_extracted", { fields: {}, dropped_keys: 0 }),
+      ev("payslip_failed", { code: "payslip_unavailable" }),
+      ev("payslip_confirmed", {
+        candidate_seq: 1,
+        applied: {},
+        kept_representative: [],
+        waiting_for_rep: [],
+        car_hint: null,
+      }),
       ev("session_status", { status: "closed" }),
     ];
     const kinds = new Set(events.map((e) => e.type));
@@ -142,6 +152,7 @@ describe("reduce: every event kind", () => {
     expect(state.thinking).toBe(false);
     expect(state.status).toBe("closed");
     expect(state.lastSeq).toBe(seq);
+    expect(state.between.map((e) => e.type)).toContain("payslip_extracted");
   });
 });
 

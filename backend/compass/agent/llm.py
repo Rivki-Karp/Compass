@@ -10,19 +10,31 @@ conversation that produced them, so history is append-only and blocks go back as
 """
 
 import itertools
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
 Block = dict[str, Any]
 Message = dict[str, Any]
 
+Rates = tuple[float, float, float, float]
+
 # USD per million tokens: input, output, cache read, 5-minute cache write.
-PRICES: dict[str, tuple[float, float, float, float]] = {
+PRICES: dict[str, Rates] = {
     "claude-sonnet-5-5": (2.00, 10.00, 0.20, 2.50),
+    "claude-haiku-5-5": (0.10, 0.50, 0.01, 0.125),
+}
+# A request whose prompt (input + cache read + cache write) is over LONG_PROMPT_TOKENS pays
+# these instead, for all of its tokens (Haiku 5.5; the pricing page, checked 2026-10-20).
+LONG_PROMPT_TOKENS = 100_000
+LONG_PROMPT_PRICES: dict[str, Rates] = {
+    "claude-haiku-5-5": (0.50, 2.50, 0.05, 0.625),
 }
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
+# The models that accept `fallbacks: "default"`. Haiku 5.5 has no server-side fallback (a
+# declined request stays declined), so it gets neither the beta nor the parameter.
+SERVER_FALLBACK_MODELS = frozenset({"claude-sonnet-5-5", "claude-opus-5-5", "claude-opus-5"})
 
 
 @dataclass(frozen=True)
@@ -40,11 +52,18 @@ class Usage:
             self.cache_creation_input_tokens + other.cache_creation_input_tokens,
         )
 
+    @property
+    def prompt_tokens(self) -> int:
+        return self.input_tokens + self.cache_read_input_tokens + self.cache_creation_input_tokens
+
     def cost_usd(self, model: str) -> float | None:
-        """Estimated cost; None for a model without a price entry."""
+        """Estimated cost of ONE request's usage (the rate can depend on the request's prompt
+        length: use requests_cost_usd for several); None for a model without a price entry."""
         prices = PRICES.get(model)
         if prices is None:
             return None
+        if self.prompt_tokens > LONG_PROMPT_TOKENS:
+            prices = LONG_PROMPT_PRICES.get(model, prices)
         input_price, output_price, read_price, write_price = prices
         return (
             self.input_tokens * input_price
@@ -52,6 +71,13 @@ class Usage:
             + self.cache_read_input_tokens * read_price
             + self.cache_creation_input_tokens * write_price
         ) / 1_000_000
+
+
+def requests_cost_usd(requests: Iterable[Usage], model: str) -> float | None:
+    """Estimated cost of several requests, each priced on its own; None without a price entry."""
+    if model not in PRICES:
+        return None
+    return sum(usage.cost_usd(model) or 0.0 for usage in requests)
 
 
 @dataclass(frozen=True)
@@ -107,7 +133,8 @@ class AnthropicClient:
     - Caching: a breakpoint on the system prompt caches the tools with it (render order is
       tools -> system -> messages), and top-level automatic caching covers the conversation.
     - Adaptive thinking (the default) at `effort`; thinking blocks are returned untouched.
-    - Server-side refusal fallback (`fallbacks: "default"`): a declined request is re-run on
+    - Server-side refusal fallback (`fallbacks: "default"`, SERVER_FALLBACK_MODELS only): a
+      declined request is re-run on
       Anthropic's recommended fallback model inside the same call.
     - The SDK retries connection errors, 408/409/429 and 5xx `max_retries` times with backoff.
     """
@@ -150,9 +177,10 @@ class AnthropicClient:
             "messages": list(messages),
             "cache_control": {"type": "ephemeral"},
             "output_config": {"effort": self.effort},
-            "betas": [FALLBACK_BETA],
-            "fallbacks": "default",
         }
+        if self.model in SERVER_FALLBACK_MODELS:
+            params["betas"] = [FALLBACK_BETA]
+            params["fallbacks"] = "default"
         if tool_choice is not None:
             params["tool_choice"] = tool_choice
         return params

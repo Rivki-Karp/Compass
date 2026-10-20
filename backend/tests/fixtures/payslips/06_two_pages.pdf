@@ -1,0 +1,55 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 577 >>
+stream
+BT 72 760 Td 20 TL /F1 11 Tf 0 g (Strauss Group Ltd - Payslip for 2026-09 \(synthetic, for testing\)) '
+/F1 11 Tf 0 g (Employee: Dana Bdaya   ID 000000018   Employee no. 4417) '
+/F1 11 Tf 0 g (Bank account 12-345-678901) '
+/F1 11 Tf 0 g () '
+/F1 11 Tf 0 g (Base salary            18,500.00) '
+/F1 11 Tf 0 g (Commissions            1,200.00) '
+/F1 11 Tf 0 g (Bonus                  0.00) '
+/F1 11 Tf 0 g (Pension, employee      6%) '
+/F1 11 Tf 0 g (Study fund, employee   2.5%) '
+/F1 11 Tf 0 g (Tax credit points      2.25) '
+/F1 11 Tf 0 g (Car value of use       3,480.00) '
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 74 >>
+stream
+BT 72 760 Td 20 TL /F1 11 Tf 0 g (Page 2: year to date \(synthetic\)) '
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000121 00000 n 
+0000000247 00000 n 
+0000000875 00000 n 
+0000001001 00000 n 
+0000001125 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+1193
+%%EOF

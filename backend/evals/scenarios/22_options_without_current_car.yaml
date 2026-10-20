@@ -1,0 +1,23 @@
+name: options_without_current_car
+description: 'E-001 does not know today''s car yet and asks for her options: list_options runs
+  anyway (each option''s net, no diff), the reply leads with the top three and says the diff
+  needs today''s car; nothing blocks on it'
+turns:
+- employee: אני מנהלת מוצר, שכר בסיס 18,500, אין לי עמלות או בונוסים. פנסיה 6%, קרן השתלמות 2.5%, 2.75
+    נקודות זיכוי, 2 ילדים מתחת לגיל 23. עוד לא בדקתי איזה רכב צמוד יש לי היום. מה כל האפשרויות שלי?
+checks:
+- tool_called:
+    name: list_options
+    ok: true
+    turn: 0
+- options_reply:
+    top: 3
+    turn: 0
+# says what is missing: today's car, for the difference
+- reply:
+    turn: 0
+    matches:
+    - הרכב (של |ה)?היום
+    not_matches:
+    - \|
+    - (?m)^#

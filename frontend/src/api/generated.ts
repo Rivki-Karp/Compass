@@ -10,6 +10,9 @@ export const EVENT_TYPES = [
   "comparison_set_ready",
   "current_situation_set",
   "guard_check",
+  "payslip_confirmed",
+  "payslip_extracted",
+  "payslip_failed",
   "profile_updated",
   "session_created",
   "session_status",
@@ -33,8 +36,9 @@ export interface ComparisonView {
   group_budget: number | null;
   today_net: number | null;
   alternative_net: number | null;
-  display_diff: number;
-  direction: "up" | "down" | "flat";
+  display_diff: number | null;
+  direction: "up" | "down" | "flat" | "unknown";
+  diff_note: string | null;
   breakdown: ViewLine[];
   inputs: ViewInput[];
   pending: boolean;
@@ -49,8 +53,9 @@ export interface ComparisonView {
 
 export interface TicketComparisonView {
   alternative_title: string;
-  display_diff: number;
+  display_diff: number | null;
   pending: boolean;
+  diff_note: string | null;
 }
 
 export interface TicketFactView {
@@ -89,6 +94,11 @@ export interface TicketQuestionView {
   label: string;
   options: TicketOptionView[];
   search_options: TicketOptionView[];
+  search_label: string | null;
+  search_empty: string | null;
+  note_required_for: string | null;
+  note_required_label: string | null;
+  detail_label: string | null;
   facts: TicketFactView[];
   car_id: string | null;
   car_name: string | null;
@@ -123,7 +133,7 @@ export interface ViewInput {
   label: string;
   value: number | string | null;
   unit: "ils" | "percent" | "points" | "count" | "text";
-  source: "employee_input" | "occupation" | "representative" | "catalog_default" | "pending_rep";
+  source: "employee_input" | "occupation" | "representative" | "catalog_default" | "pending_rep" | "payslip";
   ticket_field: string | null;
 }
 

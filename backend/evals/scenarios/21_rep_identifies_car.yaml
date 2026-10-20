@@ -1,0 +1,46 @@
+name: rep_identifies_car
+description: 'The employee cannot name today''s car ("מציון") and asks to check with the
+  representative: one ticket with a current_car question; the rep picks COROLLA 2026, which
+  becomes today''s car (source representative), and the MG4 comparison gets its diff'
+turns:
+- employee: אני מפתחת תוכנה, שכר בסיס 18,500, אין לי עמלות או בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%,
+    3 נקודות זיכוי. את הרכב הצמוד קיבלתי מהחברה ואין לי מושג מה הדגם — כתוב עליו משהו כמו "מציון". אני
+    משתתפת ב-300 ₪. תבדוק מול הנציג איזה רכב יש לי. מה יקרה לנטו אם אעבור ל-MG4?
+- rep:
+    field: current_car
+    answers:
+      current_car:
+        value: CAR-07
+until_compare: true
+checks:
+- tool_called:
+    name: ask_representative
+    ok: true
+    turn: 0
+    input:
+      questions:
+      - bound_field: current_car
+- ticket:
+    bound_fields:
+    - current_car
+- tool_not_called:
+    name: set_current_situation
+    ok: true
+    turn: 0
+- slot:
+    field: current_car
+    value: CAR-07
+    source: representative
+- comparison:
+    alternative:
+      kind: car
+      car_id: CAR-06
+    turn: 1
+    has_diff: true
+    today_unknown: false
+    input_sources:
+      today_car: representative
+- reply:
+    turn: 1
+    matches:
+    - COROLLA|קורולה

@@ -151,7 +151,14 @@ def allowed_for_session(store: Store, session_id: str) -> Allowed:
             keys = ("answer_text", "values", "effective_from", *REP_QUESTION_KEYS)
             allowed.add_json({k: content.get(k) for k in keys}, "representative")
             allowed.add_json(content.get("profile_after"), "server")
+            allowed.add_json(content.get("today_after"), "server")
             # what the model was shown of the server's settled comparisons, and nothing more
+            allowed.add_json(content.get("server_comparisons"), "server")
+        elif is_server_event(row, "payslip_confirmed"):
+            # values the employee confirmed from their payslip; an unconfirmed candidate is an
+            # event, never a message, so it is never a source
+            allowed.add_json(content.get("values"), "payslip")
+            allowed.add_json(content.get("car_hint"), "payslip")
             allowed.add_json(content.get("server_comparisons"), "server")
     return allowed
 

@@ -28,14 +28,14 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from compass.agent.llm import LLMClient, LLMError, LLMResponse, Usage
+from compass.agent.llm import LLMClient, LLMError, LLMResponse, Usage, requests_cost_usd
 from compass.agent.transcript import (
     SERVER_ORIGIN,
     build_model_messages,
     model_view,
 )
 from compass.tools import ToolRunner, tool_definitions
-from compass.tools.handlers import profile_after, settled_compare_results
+from compass.tools.handlers import profile_after, settled_compare_results, today_after
 from compass.tools.services import Services
 
 log = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ class DailySpendCapReached(Exception):
     """Today's model spend reached the cap: no more model calls until tomorrow (UTC)."""
 
 
-Job = tuple[Literal["employee_turn", "rep_answer"], Any]
+Job = tuple[Literal["employee_turn", "rep_answer", "payslip_confirmed"], Any]
 
 
 @dataclass(frozen=True)
@@ -95,6 +95,7 @@ class RunOutcome:
     kind: Literal["reply", "template", "error", "limit"]
     rounds: int = 0
     usage: Usage = field(default_factory=Usage)
+    requests: list[Usage] = field(default_factory=list)  # each call's own usage, for its cost
     guard: list[GuardVerdict] = field(default_factory=list)
     error: str | None = None
     message_seq: int | None = None
@@ -142,6 +143,10 @@ class ClaudeAgentRunner:
 
     def on_ticket_answered(self, session_id: str, ticket_id: str) -> None:
         self._submit(session_id, ("rep_answer", ticket_id))
+
+    def on_payslip_confirmed(self, session_id: str, confirmed: dict[str, Any]) -> None:
+        """The employee confirmed payslip values: tell the agent, as data (like a rep answer)."""
+        self._submit(session_id, ("payslip_confirmed", confirmed))
 
     # --- scheduling ---------------------------------------------------------------------
 
@@ -235,7 +240,9 @@ class ClaudeAgentRunner:
                     "latency_ms": round(seconds * 1000),
                     "model": model,
                     "usage": vars(outcome.usage),
-                    "cost_usd": None if model is None else outcome.usage.cost_usd(model),
+                    "cost_usd": None
+                    if model is None
+                    else requests_cost_usd(outcome.requests, model),
                     "limit": outcome.limit,
                 },
             )
@@ -283,6 +290,20 @@ class ClaudeAgentRunner:
     def _append_trigger(self, session_id: str, kind: str, ref: Any) -> None:
         if kind == "employee_turn":
             content = {"kind": "employee_turn", "message_seq": ref, "origin": SERVER_ORIGIN}
+        elif kind == "payslip_confirmed":
+            # only what the employee confirmed, and the server's own recomputed comparisons as
+            # compare would have returned them (the guard allows those numbers as "server")
+            content = {
+                "kind": "payslip_confirmed",
+                "origin": SERVER_ORIGIN,
+                "values": ref["applied"],
+                "kept_representative": ref["kept_representative"],
+                "waiting_for_rep": ref["waiting_for_rep"],
+                "car_hint": ref["car_hint"],
+                "server_comparisons": [
+                    json.loads(model_view("compare", result)) for result in ref["comparisons"]
+                ],
+            }
         else:
             ticket = self.store.ticket(ref)
             # this answer: the latest part (a partial answer leaves the other fields pending)
@@ -320,6 +341,8 @@ class ClaudeAgentRunner:
                 content["unknown_fields"]
             ):
                 content["profile_after"] = profile_after(self.services, session_id)
+            if "current_car" in values or "current_car" in content["unknown_fields"]:
+                content["today_after"] = today_after(self.services, session_id)
             # The comparisons the server settled with this answer, as compare would have
             # returned them to the model: it may state them without calling compare, and the
             # guard allows their numbers (source "server").
@@ -368,6 +391,7 @@ class ClaudeAgentRunner:
         while True:
             response = self._call(session_id)
             outcome.usage += response.usage
+            outcome.requests.append(response.usage)
             if response.stop_reason == "refusal":
                 return self._fail(
                     session_id, "refusal", "the model declined", ERROR_MESSAGE_HE, outcome
@@ -445,6 +469,7 @@ class ClaudeAgentRunner:
         )
         retry = self._call(session_id, tool_choice={"type": "none"})
         outcome.usage += retry.usage
+        outcome.requests.append(retry.usage)
         second = self.guard(retry.text, session_id) if retry.text else GuardVerdict(False)
         outcome.guard.append(second)
         if retry.text and second.passed:
@@ -577,6 +602,8 @@ def _summary(name: str, result: dict[str, Any]) -> dict[str, Any]:
         }
     if name in ("lookup_vehicle", "lookup_occupation"):
         return {"confident": result["confident"], "candidates": len(result["candidates"])}
+    if name == "search_catalog":
+        return {"cars": len(result["cars"])}
     if name == "save_profile":
         return {"saved": sorted(result["saved"]), "missing": result["missing"]}
     if name == "list_options":

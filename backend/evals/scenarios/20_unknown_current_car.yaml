@@ -1,0 +1,38 @@
+name: unknown_current_car
+description: 'The employee knows only the manufacturer of today''s car: search_catalog lists the
+  catalog cars as a numbered list with "הרכב שלי לא ברשימה" and "אין לי רכב היום"; the employee
+  picks KONA EV from it, and the comparison runs with it'
+turns:
+- employee: אני מפתחת תוכנה, שכר בסיס 18,500, אין לי עמלות או בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%,
+    3 נקודות זיכוי. הרכב שלי היום הוא יונדאי, אני לא זוכרת איך קוראים לדגם. אני משתתפת ב-300 ₪. מה
+    יקרה לנטו אם אעבור ל-MG4?
+- employee: זה הקונה החשמלית
+until_compare: true
+checks:
+- tool_called:
+    name: search_catalog
+    ok: true
+    turn: 0
+# the list to pick from: numbered, with the two other choices, and nothing picked for her
+- reply:
+    turn: 0
+    matches:
+    - (?m)^\s*1[.)]
+    - הרכב שלי לא ברשימה
+    - אין לי רכב היום
+- tool_not_called:
+    name: set_current_situation
+    ok: true
+    turn: 0
+- tool_called:
+    name: set_current_situation
+    ok: true
+    input:
+      today:
+        car_id: CAR-08
+- comparison:
+    alternative:
+      kind: car
+      car_id: CAR-06
+    has_diff: true
+    today_unknown: false

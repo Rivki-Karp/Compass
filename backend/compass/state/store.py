@@ -54,6 +54,13 @@ EVENT_TYPES = frozenset(
         "tool_result",
         "guard_check",
         "agent_error",
+        # The payslip upload (COMPASS_PAYSLIP=1): a pending candidate (numbers, confidences and
+        # flags only; never the file), or why reading it failed (a code). One per upload that
+        # reached the extractor: the per-session count.
+        "payslip_extracted",
+        "payslip_failed",
+        # the employee confirmed (part of) the candidate: what was applied, with its source
+        "payslip_confirmed",
     }
 )
 
@@ -473,6 +480,7 @@ class Store:
         part: Any = None,
         questions: Sequence[Any] = (),
         sources: Mapping[str, SlotSource] | None = None,
+        today: Any = None,
     ) -> Ticket:
         """Fill the given slots (source representative), mark `unknown` slots unknown (the
         representative answered without a value), and, unless fields are still `pending` (a
@@ -481,7 +489,8 @@ class Store:
         `answer` is stored as the ticket's answer so far (the caller merges earlier parts); the
         event carries this `part` of it (default: the whole answer) and its slot values, and
         `questions`, this part's answer to each question (display-ready), when given. `sources`
-        overrides a filled slot's source (a group derived from the approved occupation)."""
+        overrides a filled slot's source (a group derived from the approved occupation). `today`,
+        when given, becomes today's situation in the same write (a current_car answer)."""
         with self._write() as (conn, events):
             ticket = self._ticket(conn, ticket_id)
             if ticket.status != "open":
@@ -493,6 +502,11 @@ class Store:
             }
             filled |= {f: SlotUpdate(state="unknown", source="representative") for f in unknown}
             self._upsert_slots(conn, ticket.session_id, filled)
+            if today is not None:
+                self._put_scenario(conn, ticket.session_id, "today", today)
+                self._event(
+                    conn, events, ticket.session_id, "current_situation_set", {"scenario": today}
+                )
             if pending:
                 conn.execute(
                     "UPDATE tickets SET answer_json = ? WHERE id = ?", (_dump(answer), ticket_id)
@@ -588,6 +602,28 @@ class Store:
             )
             for r in rows
         ]
+
+    def count_events(self, session_id: str, types: tuple[str, ...]) -> int:
+        """How many of the session's events have one of `types`."""
+        marks = ", ".join("?" for _ in types)
+        with self._read() as conn:
+            self._require_session(conn, session_id)
+            row = conn.execute(
+                f"SELECT COUNT(*) FROM events WHERE session_id = ? AND type IN ({marks})",
+                (session_id, *types),
+            ).fetchone()
+        return int(row[0])
+
+    def last_event_payload(self, session_id: str, type_: str) -> Any:
+        """The payload of the session's latest event of `type_`, or None."""
+        with self._read() as conn:
+            self._require_session(conn, session_id)
+            row = conn.execute(
+                "SELECT payload_json FROM events WHERE session_id = ? AND type = ? "
+                "ORDER BY seq DESC LIMIT 1",
+                (session_id, type_),
+            ).fetchone()
+        return None if row is None else json.loads(row[0])
 
     def last_comparison(self, session_id: str) -> dict[str, Any] | None:
         """The payload of the session's latest comparison_ready, if any."""

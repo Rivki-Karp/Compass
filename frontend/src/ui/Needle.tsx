@@ -14,6 +14,8 @@ export function Needle({
   width?: number;
   height?: number;
 }) {
+  // unknown: no difference yet (today's car unknown), drawn as the empty outline
+  if (direction === "unknown") direction = "empty";
   const fill =
     direction === "up"
       ? "var(--color-up)"

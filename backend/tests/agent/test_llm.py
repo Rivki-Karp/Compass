@@ -15,6 +15,7 @@ from compass.agent.llm import (
     ScriptedClient,
     ScriptExhausted,
     Usage,
+    requests_cost_usd,
     text_response,
     tool_response,
 )
@@ -87,6 +88,18 @@ def test_request_shape() -> None:
     assert response.request_id == "req_1"
 
 
+def test_haiku_gets_no_server_side_fallback() -> None:
+    # Haiku 5.5 has no server-side fallback: neither the beta nor the parameter is sent.
+    sdk = FakeSDK(_api_response())
+    client = AnthropicClient("sk-ant-test", "claude-haiku-5-5", effort="medium", sdk_client=sdk)
+    client.create(messages=MESSAGES, tools=TOOLS, system="s")
+    (params,) = sdk.requests
+    assert params["model"] == "claude-haiku-5-5"
+    assert params["output_config"] == {"effort": "medium"}
+    assert params["cache_control"] == {"type": "ephemeral"}
+    assert "betas" not in params and "fallbacks" not in params
+
+
 def test_tool_choice_none_is_passed() -> None:
     client, sdk = _client(_api_response())
     client.create(messages=MESSAGES, tools=TOOLS, system="s", tool_choice={"type": "none"})
@@ -123,6 +136,21 @@ def test_usage_and_cost() -> None:
     # $2 input + $1 output + $0.40 cache read + $0.50 cache write
     assert usage.cost_usd("claude-sonnet-5-5") == pytest.approx(3.90)
     assert usage.cost_usd("unknown-model") is None
+
+
+def test_haiku_cost_depends_on_the_prompt_length() -> None:
+    # Up to 100K prompt tokens (input + cache read + cache write): $0.10 / $0.50 / $0.01 / $0.125
+    short = Usage(10_000, 1_000, 80_000, 10_000)
+    assert short.prompt_tokens == 100_000
+    assert short.cost_usd("claude-haiku-5-5") == pytest.approx(0.001 + 0.0005 + 0.0008 + 0.00125)
+    # Over 100K: every token of that request at $0.50 / $2.50 / $0.05 / $0.625
+    long = Usage(10_001, 1_000, 80_000, 10_000)
+    assert long.cost_usd("claude-haiku-5-5") == pytest.approx(0.0050005 + 0.0025 + 0.004 + 0.00625)
+    # Several requests are priced one by one, never as one long prompt.
+    assert requests_cost_usd([short, short], "claude-haiku-5-5") == pytest.approx(0.0071)
+    assert (short + short).cost_usd("claude-haiku-5-5") != pytest.approx(0.0071)
+    assert requests_cost_usd([short], "unknown-model") is None
+    assert requests_cost_usd([], "claude-sonnet-5-5") == 0
     assert (Usage(1, 2, 3, 4) + Usage(10, 20, 30, 40)) == Usage(11, 22, 33, 44)
 
 

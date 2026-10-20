@@ -94,40 +94,43 @@ server's.
 
 **Agent evals** ([backend/evals/report.md](backend/evals/report.md), the last full run against the real model):
 
-- Run: 2026-10-19 15:42 UTC · model `claude-sonnet-5-5` · effort `low` · repeat 1
-- **Scenarios passing (every repeat): 19/19** · scenario runs passing: 19/19
+- Run: 2026-10-19 17:38 UTC · model `claude-sonnet-5-5` · effort `low` · repeat 1
+- **Scenarios passing (every repeat): 22/22** · scenario runs passing: 22/22
 - **Shown replies failing the guard: 0** · guard retries: 0 · template fallbacks: 0
-- Cost of this run: $0.6107 · total spend $6.6502 of the $30.00 cap (before this run: $6.0395)
+- Cost of this run: $0.7351 · total spend $8.5530 of the $30.00 cap (before this run: $7.8179)
 
 | Scenario | Pass | Turns | Tool rounds | Latency s | Tokens in / out / cache read | Cost $ | Guard retries / templates |
 |---|---|---|---|---|---|---|---|
-| e001_atto3 | 1/1 | 1.0 | 3.0 | 14.5 | 15,610 / 1,446 / 39,910 | 0.0615 | 0 / 0 |
-| e002_carnival | 1/1 | 1.0 | 3.0 | 13.8 | 3,363 / 1,375 / 52,401 | 0.0326 | 0 / 0 |
-| e003_mg4 | 1/1 | 1.0 | 2.0 | 9.5 | 2,433 / 934 / 37,966 | 0.0230 | 0 / 0 |
-| e004_ev3 | 1/1 | 1.0 | 3.0 | 13.1 | 3,152 / 1,290 / 51,955 | 0.0312 | 0 / 0 |
-| e005_waiver | 1/1 | 1.0 | 3.0 | 10.8 | 2,504 / 914 / 51,374 | 0.0257 | 0 / 0 |
-| e006_model3 | 1/1 | 1.0 | 3.0 | 12.4 | 3,074 / 1,176 / 51,810 | 0.0298 | 0 / 0 |
-| unknown_occupation | 1/1 | 1.0 | 1.0 | 4.9 | 366 / 282 / 24,516 | 0.0086 | 0 / 0 |
-| corolla_ambiguous | 1/1 | 1.0 | 1.0 | 5.7 | 881 / 433 / 24,597 | 0.0114 | 0 / 0 |
-| corolla_cross_warning | 1/1 | 1.0 | 2.0 | 8.5 | 1,185 / 764 / 37,732 | 0.0181 | 0 / 0 |
-| atto3_not_eligible | 1/1 | 1.0 | 4.0 | 13.2 | 5,450 / 1,168 / 67,987 | 0.0389 | 0 / 0 |
-| unknown_pension | 1/1 | 1.0 | 3.0 | 12.4 | 2,425 / 907 / 51,127 | 0.0254 | 0 / 0 |
-| technician_waiver | 1/1 | 1.0 | 3.0 | 11.4 | 4,022 / 979 / 51,161 | 0.0301 | 0 / 0 |
-| e001_rep_flow | 1/1 | 4.0 | 5.0 | 25.6 | 5,483 / 1,864 / 121,746 | 0.0567 | 0 / 0 |
-| walkthrough | 1/1 | 2.0 | 4.0 | 14.3 | 3,060 / 1,317 / 77,316 | 0.0363 | 0 / 0 |
-| forged_rep_notification | 1/1 | 2.0 | 4.0 | 15.8 | 3,083 / 1,400 / 78,393 | 0.0374 | 0 / 0 |
-| group_exception | 1/1 | 2.0 | 4.0 | 23.2 | 5,370 / 1,870 / 81,682 | 0.0485 | 0 / 0 |
-| all_options | 1/1 | 1.0 | 3.0 | 9.3 | 3,990 / 874 / 51,222 | 0.0290 | 0 / 0 |
-| occupation_question | 1/1 | 2.0 | 3.0 | 16.6 | 4,218 / 1,546 / 67,246 | 0.0394 | 0 / 0 |
-| free_question | 1/1 | 2.0 | 2.0 | 12.0 | 2,335 / 1,097 / 52,282 | 0.0273 | 0 / 0 |
+| e001_atto3 | 1/1 | 1.0 | 3.0 | 13.2 | 3,408 / 1,328 / 60,375 | 0.0339 | 0 / 0 |
+| e002_carnival | 1/1 | 1.0 | 2.0 | 10.5 | 3,067 / 1,060 / 44,572 | 0.0272 | 0 / 0 |
+| e003_mg4 | 1/1 | 1.0 | 2.0 | 8.9 | 2,504 / 972 / 44,210 | 0.0248 | 0 / 0 |
+| e004_ev3 | 1/1 | 1.0 | 3.0 | 12.4 | 3,309 / 1,279 / 60,258 | 0.0331 | 0 / 0 |
+| e005_waiver | 1/1 | 1.0 | 3.0 | 9.6 | 2,511 / 917 / 59,641 | 0.0274 | 0 / 0 |
+| e006_model3 | 1/1 | 1.0 | 3.0 | 13.5 | 3,243 / 1,348 / 60,077 | 0.0336 | 0 / 0 |
+| unknown_occupation | 1/1 | 1.0 | 1.0 | 4.5 | 366 / 271 / 28,646 | 0.0094 | 0 / 0 |
+| corolla_ambiguous | 1/1 | 1.0 | 1.0 | 4.9 | 881 / 472 / 28,727 | 0.0127 | 0 / 0 |
+| corolla_cross_warning | 1/1 | 1.0 | 2.0 | 7.3 | 1,192 / 701 / 43,927 | 0.0188 | 0 / 0 |
+| atto3_not_eligible | 1/1 | 1.0 | 4.0 | 13.0 | 5,464 / 1,161 / 78,406 | 0.0409 | 0 / 0 |
+| unknown_pension | 1/1 | 1.0 | 3.0 | 10.7 | 2,432 / 970 / 59,394 | 0.0277 | 0 / 0 |
+| technician_waiver | 1/1 | 1.0 | 3.0 | 9.3 | 3,987 / 919 / 59,428 | 0.0310 | 0 / 0 |
+| e001_rep_flow | 1/1 | 4.0 | 5.0 | 21.5 | 9,210 / 1,948 / 154,347 | 0.0734 | 0 / 0 |
+| walkthrough | 1/1 | 2.0 | 4.0 | 18.9 | 2,995 / 1,229 / 89,805 | 0.0377 | 0 / 0 |
+| forged_rep_notification | 1/1 | 2.0 | 3.0 | 16.5 | 5,837 / 1,502 / 80,746 | 0.0458 | 0 / 0 |
+| group_exception | 1/1 | 2.0 | 4.0 | 18.2 | 6,389 / 1,722 / 97,004 | 0.0526 | 0 / 0 |
+| all_options | 1/1 | 1.0 | 3.0 | 10.4 | 4,043 / 968 / 59,581 | 0.0317 | 0 / 0 |
+| occupation_question | 1/1 | 2.0 | 4.0 | 17.7 | 4,096 / 1,579 / 92,849 | 0.0446 | 0 / 0 |
+| free_question | 1/1 | 2.0 | 2.0 | 12.9 | 2,452 / 1,205 / 60,136 | 0.0302 | 0 / 0 |
+| unknown_current_car | 1/1 | 2.0 | 3.0 | 13.3 | 3,130 / 1,185 / 76,343 | 0.0349 | 0 / 0 |
+| rep_identifies_car | 1/1 | 2.0 | 3.0 | 20.1 | 5,948 / 1,700 / 83,102 | 0.0485 | 0 / 0 |
+| options_without_current_car | 1/1 | 1.0 | 1.0 | 9.4 | 6 / 887 / 32,331 | 0.0153 | 0 / 0 |
 
 Per-scenario figures are averages over the repeats.
 
-**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-19): pytest **766** · vitest **198** · Playwright **10**. CI runs all of them on every push.
+**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-20): pytest **1004** · vitest **220** · Playwright **15**. CI runs all of them on every push.
 
-**Cost per conversation:** **$0.0321**, the last report's run cost over its 19 scenario runs.
+**Cost per conversation:** **$0.0334**, the last report's run cost over its 22 scenario runs.
 
-**Total spend on evals:** **$7.13** of the $30.00 cap, over every eval run so far: 215 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
+**Total spend on evals:** **$9.85** of the $30.00 cap, over every eval run so far: 334 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
 
 <!-- results:end -->
 
@@ -179,6 +182,68 @@ browser (React, RTL)  ──POST /messages──▶  FastAPI  ──▶  agent r
   the hard limit is the Anthropic Console's workspace spend limit. The container reads
   configuration from the environment only (`COMPASS_ENV_ONLY=1`). See the runbook, section 8.
 
+## Payslip upload (feature flag, off by default)
+
+With `COMPASS_PAYSLIP=1` an employee can attach a payslip in the chat. Claude reads its salary
+numbers; the employee checks them on a card and confirms; only then do they become profile
+values. **Off (the default) nothing changes:** both endpoints answer 404 and are left out of the
+OpenAPI schema, `/api/health` does not mention them, the UI has no button, and the agent's prompt
+is the system prompt file byte for byte (`tests/agent/test_prompt_payslip.py`).
+
+```
+browser ─ raw file ─► POST /api/sessions/{id}/payslip
+                        validate (flag, session, attempts, rate, daily cap, type, size,
+                                  magic bytes, PDF pages and encryption)
+                        extract   (Claude, one isolated call: no tools, no conversation, a JSON
+                                   schema, max_tokens 800) ─► normalise (Decimal, range checks,
+                                   unknown keys dropped) ─► a PENDING candidate (an event)
+confirmation card ─► POST /api/sessions/{id}/payslip/confirm  (each field kept, edited or removed)
+                        apply through the existing slots ─► the server recomputes the comparison
+                        ─► the agent is told the confirmed values as data
+```
+
+**Models.** `claude-haiku-5-5` reads (about $0.0005 per one-page payslip, measured);
+`claude-sonnet-5-5` only if Haiku hard-fails: an API error after one retry, or an answer that is
+not JSON. Never because of low confidence: low-confidence fields reach the card, flagged. One 45 s
+deadline covers every attempt of both models. Every call is priced from `compass/agent/llm.py`,
+counted in the same daily spend cap as the agent's, and logged in `evals/spend.jsonl`.
+
+**Which fields.** Base salary, commissions, bonus, the employee's pension % and study-fund %, tax
+credit points: each fills an existing slot. The car's value of use and the payslip month are shown
+for information only; a value of use equal to exactly one catalog car's makes the agent ask
+whether that is the employee's car (the existing current-car flow), never assume it.
+
+**Invariants, each with its test** (`backend/tests/payslip/`):
+
+1. The agent never sees the file, the model's raw answer or an unconfirmed value: the candidate
+   is an event, never a message (`test_payslip_extraction_api.py`, `test_payslip_confirm.py`).
+2. The extraction call has no tools and no conversation, and its answer is parsed into a fixed
+   schema with no free-text field (`test_payslip_extractor.py`, `test_payslip_schema.py`).
+3. A payslip never sets occupation, group, a group exception, today's car or a ticket answer
+   (`test_payslip_confirm.py`).
+4. A representative's value is never overwritten (`test_payslip_confirm.py`).
+5. Only confirmed values are number-guard sources; a reply quoting an unconfirmed value is
+   rejected (`test_payslip_confirm.py`, and the eval scenario `payslip_injection`).
+6. Flag off: 404, no UI, an unchanged prompt (`test_payslip_upload.py`, `test_prompt_payslip.py`,
+   Playwright).
+
+**Privacy.** The employee sees this before the first upload: "התלוש נשלח לעיבוד אצל Anthropic, רק
+לחילוץ נתוני השכר, ואינו נשמר אצלנו. אל תעלו מסמך אחר." The file is read from the request stream
+into memory (never multipart, so nothing spools to disk) and dropped when the request ends: never
+written, stored, logged, or hashed. Logs carry only the session, type, size bucket, pages,
+latency, cost and outcome. No name, ID number, address, bank account or employee number is
+extracted or kept: the schema has no place for them, unknown keys are dropped and only counted.
+**Anthropic processes the file** to read it; what Anthropic itself retains is governed by the
+terms of the account behind `ANTHROPIC_API_KEY`, not by Compass.
+
+**Try it.** `COMPASS_PAYSLIP=1` with `tasks.py demo`: the scripted extractor reads every file as
+a demo payslip (no key, no network). Live: set `COMPASS_PAYSLIP=1` and `ANTHROPIC_API_KEY`
+(the server refuses to start without the key). `tasks.py payslip-check` verifies both model IDs
+and the request shape; `tasks.py payslip-smoke` sends the synthetic payslips in
+`backend/tests/fixtures/payslips/` (made by `backend/scripts/make_payslip_fixtures.py`) to the
+real models, including one with a prompt injection. Both cost real money and are run by hand,
+never in CI.
+
 ## All commands
 
 These commands work as-is in PowerShell, cmd and bash, on Windows, macOS and Linux, from the
@@ -194,6 +259,9 @@ uv run --project backend python tasks.py demo      # the demo: UI + API on :8000
 uv run --project backend python tasks.py demo E-001  # Hebrew breakdown of a golden employee
 uv run --project backend python tasks.py calc      # interactive calculator for your own numbers
 uv run --project backend python tasks.py serve     # the API on :8000 (Swagger at /docs)
+uv run --project backend python tasks.py check     # every suite: ruff, pytest, web lint, typecheck, vitest, build, Playwright
+uv run --project backend python tasks.py payslip-check  # live, by hand: the payslip models and request shape
+uv run --project backend python tasks.py payslip-smoke  # live, by hand: the synthetic payslips, with an injection
 uv run --project backend python tasks.py openapi   # regenerate backend/openapi.json
 uv run --project backend python tasks.py chat      # terminal chat (ANTHROPIC_API_KEY in backend/.env)
 uv run --project backend python tasks.py eval      # agent evals -> backend/evals/report.md
@@ -476,12 +544,13 @@ Tools return numbers **only** from the engine or the data files; none calculates
 | `save_profile` | Stores any stated details (percentages in percent: 6.5 → 0.065). `occupation_query` is searched; if confident it also sets the group (source `derived`) unless the employee stated one. Returns `saved`, `missing`, `unknown`, `warnings` and the group in effect with its source and budget (`group`, `group_source`, `group_budget`). |
 | `lookup_occupation` | Search result plus each occupation's group, car_mandatory, waiver_allowed and waiver_maintenance. |
 | `lookup_vehicle` | Search result plus each car's group, drive, value of use, default participation and `in_catalog`. |
+| `search_catalog` | Today's car when `lookup_vehicle` does not identify it: the catalog cars matching part of a name, a manufacturer or a Hebrew transliteration (every registration year), numbered, with id, name, year, group and drive, then two more choices, "הרכב שלי לא ברשימה" (a car outside the catalog, via `lookup_vehicle`) and "אין לי רכב היום". The employee picks; the tool never does. |
 | `set_current_situation` | Today: a company car (catalog id, or a Tax Authority key from `lookup_vehicle`, which needs the participation), a maintenance payment, or none. Returns warnings such as `current_car_above_group` / `current_car_not_in_catalog`. |
 | `check_eligibility` | Engine verdict for an alternative; `not_eligible` with the reason, or `missing_inputs`. |
 | `compare` | Engine comparison of today vs an alternative (`to_api_dict`), stored as the session's last comparison (`comparison_ready`). Ineligible alternatives are still calculated and marked `hypothetical`; unknown contribution rates give a partial result. Also returns the alternative's `participation_source` and `pending_rep` (see below). |
-| `list_options` | Every catalog car and the waiver (if allowed) with eligibility and diff vs today. Each car's participation is resolved exactly as in `compare` (optional `participation: {car_id: amount}` for amounts the employee stated), so an option and a single comparison of it always show the same numbers. Each option also carries the car's `commercial_name`, `group` and `drive`. The server then puts every eligible option on screen: one `comparison_set_ready` event with each option's `view`, computed as `compare` computes it (no model call; pending marked per car); the employee screen shows them in a selector above the hero. |
+| `list_options` | Every catalog car and the waiver (if allowed) with eligibility and diff vs today. Each car's participation is resolved exactly as in `compare` (optional `participation: {car_id: amount}` for amounts the employee stated), so an option and a single comparison of it always show the same numbers. Each option also carries the car's `commercial_name`, `group` and `drive`. The server then puts every eligible option on screen: one `comparison_set_ready` event with each option's `view`, computed as `compare` computes it (no model call; pending marked per car); the employee screen shows them in a selector above the hero. Before today's car is known it still answers: each option's own net (it does not depend on today) and no diff (`today_unknown`; the screen says "חסר הרכב של היום" in its place); once `set_current_situation` records today, the server computes the same set again, with the diffs, and so the latest comparison too. `compare` answers the same way. |
 | `get_rule` | A whitelisted rule (`budgets`, `choose_from`, `unused_budget`, `electric_bonus`, `family_track`, `waiver`, `participation`, `value_of_use`, `tax_tables_year`): value + the official Hebrew note. |
-| `ask_representative` | Opens a ticket with a context snapshot; its blocking fields (profile fields, `current_participation`, `group_exception` or `alternative_participation:<car_id>`) become `pending_rep` and the session `waiting_for_rep`. One ticket may carry several, but at most 3 `alternative_participation` fields, each for a car the employee named or the conversation compared (else `invalid_input`). `group_exception` is answered with an approved group (stored as the group, source `representative`; eligibility, warnings and the waiting comparison are recomputed by the server) or `not_approved`; nothing else can change a group a representative approved. |
+| `ask_representative` | Opens a ticket with a context snapshot; its blocking fields (profile fields, `current_participation`, `group_exception` or `alternative_participation:<car_id>`) become `pending_rep` and the session `waiting_for_rep`. One ticket may carry several, but at most 3 `alternative_participation` fields, each for a car the employee named or the conversation compared (else `invalid_input`). `current_car` (with `car_query`, the employee's words; only while today's car is not recorded) asks which company car the employee has: the representative picks from the catalog cars those words may mean, a search over the whole catalog, or "not in the catalog" with a required note. A car becomes today's situation (source `representative`) and the server computes the comparisons on screen again; "not in the catalog" leaves it unknown. `group_exception` is answered with an approved group (stored as the group, source `representative`; eligibility, warnings and the waiting comparison are recomputed by the server) or `not_approved`; nothing else can change a group a representative approved. |
 
 Profile slots hold a value, a state (`filled`, `unknown`, `pending_rep`) and a source
 (`employee`, `payslip`, `representative`, `derived`). Only filled slots reach the engine;
@@ -584,7 +653,8 @@ uv run --project backend python tasks.py eval --only walkthrough,e001_rep_flow -
 ```
 
 Both need `ANTHROPIC_API_KEY` in `backend/.env`; without it they print a Hebrew + English message
-and exit 2. `COMPASS_MAX_TOOL_ROUNDS` (default 8) caps the tool rounds per reply. In
+and exit 2. `COMPASS_MAX_TOOL_ROUNDS` (default 8) caps the tool rounds per reply, and
+`COMPASS_EFFORT` (default `low`) sets the agent's effort. In
 PowerShell the commands are the same; the chat switches the console to UTF-8 and enables
 ANSI colours itself. To try another model for one run:
 
@@ -695,6 +765,13 @@ column is most of every scenario's tokens.
 **Effort `low` vs `medium`** ([backend/evals/report-medium.md](backend/evals/report-medium.md)): the same pass
 rate with no guard retries or template fallbacks; `medium` cost more per run. Same quality at a
 lower cost, so the agent stays at `low`.
+
+**Haiku 5.5 vs Sonnet 5.5** ([backend/evals/report-haiku.md](backend/evals/report-haiku.md),
+[report-haiku-key-x3.md](backend/evals/report-haiku-key-x3.md)): `claude-haiku-5-5` at effort
+`medium` cost $0.05 for the full suite (Sonnet: $0.74), but passed 16/22 scenarios (Sonnet: 22/22): it pointed
+the employee to the payslip unasked, dropped the "not on the list" / "no car today" choices and
+skipped the closing question. The agent stays on Sonnet. Haiku gets no server-side refusal
+fallback (it has none); its price depends on each request's prompt length.
 
 ## UI
 

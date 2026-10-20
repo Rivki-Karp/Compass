@@ -22,7 +22,14 @@ export function optionList(state: Pick<SessionState, "optionKeys" | "comparisons
   return keys
     .map((key) => ({ key, comparison: state.comparisons[key] }))
     .filter((o): o is OptionItem => o.comparison !== undefined)
-    .sort((a, b) => b.comparison.view.display_diff - a.comparison.view.display_diff);
+    .sort((a, b) => rank(b.comparison) - rank(a.comparison));
+}
+
+/** An option's place: its difference, or its own net while today's car is unknown (the same
+ * order, since today is common to all). */
+function rank(comparison: ComparisonState): number {
+  const { display_diff, alternative_net } = comparison.view;
+  return display_diff ?? alternative_net ?? 0;
 }
 
 /** The option shown by default: the one the agent compared last, else the best one. */

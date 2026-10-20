@@ -1,0 +1,3268 @@
+[
+ {
+  "session_id": "1d6c170f30c8424ca16a7222064b7af2",
+  "seq": 1,
+  "type": "session_created",
+  "payload": {
+   "status": "active"
+  },
+  "created_at": "2026-10-19T17:17:53.532+00:00"
+ },
+ {
+  "session_id": "1d6c170f30c8424ca16a7222064b7af2",
+  "seq": 2,
+  "type": "profile_updated",
+  "payload": {
+   "fields": {
+    "base_salary": {
+     "state": "filled",
+     "source": "employee",
+     "value": "18500"
+    },
+    "commissions": {
+     "state": "filled",
+     "source": "employee",
+     "value": "0"
+    },
+    "bonus": {
+     "state": "filled",
+     "source": "employee",
+     "value": "0"
+    },
+    "pension_pct": {
+     "state": "filled",
+     "source": "employee",
+     "value": "0.065"
+    },
+    "study_fund_pct": {
+     "state": "filled",
+     "source": "employee",
+     "value": "0.025"
+    },
+    "credit_points": {
+     "state": "filled",
+     "source": "employee",
+     "value": "3"
+    },
+    "occupation": {
+     "state": "filled",
+     "source": "employee",
+     "value": "מפתח/ת תוכנה"
+    },
+    "group": {
+     "state": "filled",
+     "source": "derived",
+     "value": "ב"
+    }
+   }
+  },
+  "created_at": "2026-10-19T17:17:53.547+00:00"
+ },
+ {
+  "session_id": "1d6c170f30c8424ca16a7222064b7af2",
+  "seq": 3,
+  "type": "comparison_set_ready",
+  "payload": {
+   "origin": "server",
+   "tool": "list_options",
+   "options": [
+    {
+     "alternative": {
+      "kind": "waiver",
+      "maintenance": null,
+      "maintenance_source": "occupation"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "",
+      "alternative_title": "ויתור על הרכב",
+      "alternative_kind": "waiver",
+      "alternative_car_id": null,
+      "alternative_details": null,
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": null,
+      "alternative_net": 13914,
+      "display_diff": null,
+      "direction": "unknown",
+      "diff_note": "חסר הרכב של היום",
+      "breakdown": [],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_maintenance",
+        "label": "אחזקה בוויתור",
+        "value": 1500,
+        "unit": "ils",
+        "source": "occupation",
+        "ticket_field": null
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": true,
+      "missing": [
+       {
+        "field": "current_situation",
+        "label": "המצב היום"
+       }
+      ],
+      "warnings": [],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-06"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "",
+      "alternative_title": "MG4",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-06",
+      "alternative_details": "חשמלי · קבוצה ב׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": null,
+      "alternative_net": 12013,
+      "display_diff": null,
+      "direction": "unknown",
+      "diff_note": "חסר הרכב של היום",
+      "breakdown": [],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "MG4",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 250,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-06"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": true,
+      "missing": [
+       {
+        "field": "current_situation",
+        "label": "המצב היום"
+       }
+      ],
+      "warnings": [],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-03"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "",
+      "alternative_title": "BYD DOLPHIN",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-03",
+      "alternative_details": "חשמלי · קבוצה א׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": null,
+      "alternative_net": 11994,
+      "display_diff": null,
+      "direction": "unknown",
+      "diff_note": "חסר הרכב של היום",
+      "breakdown": [],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "BYD DOLPHIN",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 200,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-03"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": true,
+      "missing": [
+       {
+        "field": "current_situation",
+        "label": "המצב היום"
+       }
+      ],
+      "warnings": [],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-08"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "",
+      "alternative_title": "KONA EV",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-08",
+      "alternative_details": "חשמלי · קבוצה ב׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": null,
+      "alternative_net": 11784,
+      "display_diff": null,
+      "direction": "unknown",
+      "diff_note": "חסר הרכב של היום",
+      "breakdown": [],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "KONA EV",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 250,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-08"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": true,
+      "missing": [
+       {
+        "field": "current_situation",
+        "label": "המצב היום"
+       }
+      ],
+      "warnings": [],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-01"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "",
+      "alternative_title": "PICANTO",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-01",
+      "alternative_details": "בנזין · קבוצה א׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": null,
+      "alternative_net": 11751,
+      "display_diff": null,
+      "direction": "unknown",
+      "diff_note": "חסר הרכב של היום",
+      "breakdown": [],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "PICANTO",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 150,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-01"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": true,
+      "missing": [
+       {
+        "field": "current_situation",
+        "label": "המצב היום"
+       }
+      ],
+      "warnings": [],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-05"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "",
+      "alternative_title": "NIRO",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-05",
+      "alternative_details": "היברידי · קבוצה ב׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": null,
+      "alternative_net": 11539,
+      "display_diff": null,
+      "direction": "unknown",
+      "diff_note": "חסר הרכב של היום",
+      "breakdown": [],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "NIRO",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 250,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-05"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": true,
+      "missing": [
+       {
+        "field": "current_situation",
+        "label": "המצב היום"
+       }
+      ],
+      "warnings": [],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-02"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "",
+      "alternative_title": "YARIS CROSS HSD",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-02",
+      "alternative_details": "היברידי · קבוצה א׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": null,
+      "alternative_net": 11416,
+      "display_diff": null,
+      "direction": "unknown",
+      "diff_note": "חסר הרכב של היום",
+      "breakdown": [],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "YARIS CROSS HSD",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 200,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-02"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": true,
+      "missing": [
+       {
+        "field": "current_situation",
+        "label": "המצב היום"
+       }
+      ],
+      "warnings": [],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-04"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "",
+      "alternative_title": "LEON",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-04",
+      "alternative_details": "בנזין · קבוצה א׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": null,
+      "alternative_net": 11187,
+      "display_diff": null,
+      "direction": "unknown",
+      "diff_note": "חסר הרכב של היום",
+      "breakdown": [],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "LEON",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 200,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-04"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": true,
+      "missing": [
+       {
+        "field": "current_situation",
+        "label": "המצב היום"
+       }
+      ],
+      "warnings": [],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-07"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "",
+      "alternative_title": "COROLLA",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-07",
+      "alternative_details": "בנזין · קבוצה ב׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": null,
+      "alternative_net": 11026,
+      "display_diff": null,
+      "direction": "unknown",
+      "diff_note": "חסר הרכב של היום",
+      "breakdown": [],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "COROLLA",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 250,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-07"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": true,
+      "missing": [
+       {
+        "field": "current_situation",
+        "label": "המצב היום"
+       }
+      ],
+      "warnings": [],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    }
+   ],
+   "stated": {},
+   "today_unknown": true
+  },
+  "created_at": "2026-10-19T17:17:53.617+00:00"
+ },
+ {
+  "session_id": "1d6c170f30c8424ca16a7222064b7af2",
+  "seq": 4,
+  "type": "current_situation_set",
+  "payload": {
+   "scenario": {
+    "input": {
+     "kind": "company_car",
+     "car_id": "CAR-09",
+     "registration_year": null,
+     "participation": "300"
+    },
+    "scenario": {
+     "participation": "300",
+     "participation_source": "employee_input",
+     "kind": "company_car",
+     "car_id": "CAR-09"
+    },
+    "label": "COROLLA CROSS",
+    "source": "employee"
+   }
+  },
+  "created_at": "2026-10-19T17:17:53.648+00:00"
+ },
+ {
+  "session_id": "1d6c170f30c8424ca16a7222064b7af2",
+  "seq": 5,
+  "type": "comparison_set_ready",
+  "payload": {
+   "origin": "server",
+   "tool": "list_options",
+   "options": [
+    {
+     "alternative": {
+      "kind": "waiver",
+      "maintenance": null,
+      "maintenance_source": "occupation"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "COROLLA CROSS",
+      "alternative_title": "ויתור על הרכב",
+      "alternative_kind": "waiver",
+      "alternative_car_id": null,
+      "alternative_details": null,
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": 11000,
+      "alternative_net": 13914,
+      "display_diff": 2914,
+      "direction": "up",
+      "diff_note": null,
+      "breakdown": [
+       {
+        "key": "maintenance",
+        "label": "אחזקת רכב",
+        "net_effect": 1500,
+        "inputs": [
+         "alternative_maintenance",
+         "occupation"
+        ],
+        "rules": [
+         {
+          "key": "waiver_maintenance",
+          "label": "אחזקה בוויתור לפי העיסוק"
+         }
+        ]
+       },
+       {
+        "key": "income_tax",
+        "label": "מס הכנסה",
+        "net_effect": 802,
+        "inputs": [
+         "credit_points",
+         "pension_percent",
+         "base_salary",
+         "today_car"
+        ],
+        "rules": [
+         {
+          "key": "income_tax_brackets",
+          "label": "מדרגות מס הכנסה"
+         },
+         {
+          "key": "credit_point_value",
+          "label": "שווי נקודת זיכוי"
+         },
+         {
+          "key": "pension_credit",
+          "label": "זיכוי על הפרשה לפנסיה"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "national_insurance",
+        "label": "ביטוח לאומי",
+        "net_effect": 180,
+        "inputs": [
+         "base_salary",
+         "today_car"
+        ],
+        "rules": [
+         {
+          "key": "national_insurance_brackets",
+          "label": "מדרגות ביטוח לאומי"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "health",
+        "label": "מס בריאות",
+        "net_effect": 132,
+        "inputs": [
+         "base_salary",
+         "today_car"
+        ],
+        "rules": [
+         {
+          "key": "health_brackets",
+          "label": "מדרגות מס בריאות"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "participation",
+        "label": "השתתפות ברכב",
+        "net_effect": 300,
+        "inputs": [
+         "today_participation"
+        ],
+        "rules": []
+       }
+      ],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_car",
+        "label": "הרכב היום",
+        "value": "COROLLA CROSS",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_participation",
+        "label": "השתתפות היום",
+        "value": 300,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": "current_participation"
+       },
+       {
+        "id": "alternative_maintenance",
+        "label": "אחזקה בוויתור",
+        "value": 1500,
+        "unit": "ils",
+        "source": "occupation",
+        "ticket_field": null
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": false,
+      "missing": [],
+      "warnings": [
+       {
+        "code": "current_car_above_group",
+        "message": "הרכב של היום (COROLLA CROSS) בקבוצה ג׳, מעל קבוצה ב׳. כדאי לבדוק את זה מול נציג."
+       }
+      ],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-06"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "COROLLA CROSS",
+      "alternative_title": "MG4",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-06",
+      "alternative_details": "חשמלי · קבוצה ב׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": 11000,
+      "alternative_net": 12013,
+      "display_diff": 1013,
+      "direction": "up",
+      "diff_note": null,
+      "breakdown": [
+       {
+        "key": "electric_gross",
+        "label": "החזר חשמל מגולם",
+        "net_effect": 440,
+        "inputs": [
+         "alternative_car",
+         "today_car"
+        ],
+        "rules": [
+         {
+          "key": "electric_reimbursement",
+          "label": "החזר חשמל לרכב חשמלי"
+         },
+         {
+          "key": "income_tax_brackets",
+          "label": "מדרגות מס הכנסה"
+         }
+        ]
+       },
+       {
+        "key": "income_tax",
+        "label": "מס הכנסה",
+        "net_effect": 377,
+        "inputs": [
+         "credit_points",
+         "pension_percent",
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "income_tax_brackets",
+          "label": "מדרגות מס הכנסה"
+         },
+         {
+          "key": "credit_point_value",
+          "label": "שווי נקודת זיכוי"
+         },
+         {
+          "key": "pension_credit",
+          "label": "זיכוי על הפרשה לפנסיה"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "national_insurance",
+        "label": "ביטוח לאומי",
+        "net_effect": 84,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "national_insurance_brackets",
+          "label": "מדרגות ביטוח לאומי"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "health",
+        "label": "מס בריאות",
+        "net_effect": 62,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "health_brackets",
+          "label": "מדרגות מס בריאות"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "participation",
+        "label": "השתתפות ברכב",
+        "net_effect": 50,
+        "inputs": [
+         "today_participation",
+         "alternative_participation"
+        ],
+        "rules": []
+       }
+      ],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_car",
+        "label": "הרכב היום",
+        "value": "COROLLA CROSS",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_participation",
+        "label": "השתתפות היום",
+        "value": 300,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": "current_participation"
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "MG4",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 250,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-06"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": false,
+      "missing": [],
+      "warnings": [
+       {
+        "code": "current_car_above_group",
+        "message": "הרכב של היום (COROLLA CROSS) בקבוצה ג׳, מעל קבוצה ב׳. כדאי לבדוק את זה מול נציג."
+       }
+      ],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-03"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "COROLLA CROSS",
+      "alternative_title": "BYD DOLPHIN",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-03",
+      "alternative_details": "חשמלי · קבוצה א׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": 11000,
+      "alternative_net": 11994,
+      "display_diff": 994,
+      "direction": "up",
+      "diff_note": null,
+      "breakdown": [
+       {
+        "key": "electric_gross",
+        "label": "החזר חשמל מגולם",
+        "net_effect": 440,
+        "inputs": [
+         "alternative_car",
+         "today_car"
+        ],
+        "rules": [
+         {
+          "key": "electric_reimbursement",
+          "label": "החזר חשמל לרכב חשמלי"
+         },
+         {
+          "key": "income_tax_brackets",
+          "label": "מדרגות מס הכנסה"
+         }
+        ]
+       },
+       {
+        "key": "income_tax",
+        "label": "מס הכנסה",
+        "net_effect": 327,
+        "inputs": [
+         "credit_points",
+         "pension_percent",
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "income_tax_brackets",
+          "label": "מדרגות מס הכנסה"
+         },
+         {
+          "key": "credit_point_value",
+          "label": "שווי נקודת זיכוי"
+         },
+         {
+          "key": "pension_credit",
+          "label": "זיכוי על הפרשה לפנסיה"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "national_insurance",
+        "label": "ביטוח לאומי",
+        "net_effect": 73,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "national_insurance_brackets",
+          "label": "מדרגות ביטוח לאומי"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "health",
+        "label": "מס בריאות",
+        "net_effect": 54,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "health_brackets",
+          "label": "מדרגות מס בריאות"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "participation",
+        "label": "השתתפות ברכב",
+        "net_effect": 100,
+        "inputs": [
+         "today_participation",
+         "alternative_participation"
+        ],
+        "rules": []
+       }
+      ],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_car",
+        "label": "הרכב היום",
+        "value": "COROLLA CROSS",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_participation",
+        "label": "השתתפות היום",
+        "value": 300,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": "current_participation"
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "BYD DOLPHIN",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 200,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-03"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": false,
+      "missing": [],
+      "warnings": [
+       {
+        "code": "current_car_above_group",
+        "message": "הרכב של היום (COROLLA CROSS) בקבוצה ג׳, מעל קבוצה ב׳. כדאי לבדוק את זה מול נציג."
+       }
+      ],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-08"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "COROLLA CROSS",
+      "alternative_title": "KONA EV",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-08",
+      "alternative_details": "חשמלי · קבוצה ב׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": 11000,
+      "alternative_net": 11784,
+      "display_diff": 784,
+      "direction": "up",
+      "diff_note": null,
+      "breakdown": [
+       {
+        "key": "electric_gross",
+        "label": "החזר חשמל מגולם",
+        "net_effect": 440,
+        "inputs": [
+         "alternative_car",
+         "today_car"
+        ],
+        "rules": [
+         {
+          "key": "electric_reimbursement",
+          "label": "החזר חשמל לרכב חשמלי"
+         },
+         {
+          "key": "income_tax_brackets",
+          "label": "מדרגות מס הכנסה"
+         }
+        ]
+       },
+       {
+        "key": "income_tax",
+        "label": "מס הכנסה",
+        "net_effect": 213,
+        "inputs": [
+         "credit_points",
+         "pension_percent",
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "income_tax_brackets",
+          "label": "מדרגות מס הכנסה"
+         },
+         {
+          "key": "credit_point_value",
+          "label": "שווי נקודת זיכוי"
+         },
+         {
+          "key": "pension_credit",
+          "label": "זיכוי על הפרשה לפנסיה"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "national_insurance",
+        "label": "ביטוח לאומי",
+        "net_effect": 47,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "national_insurance_brackets",
+          "label": "מדרגות ביטוח לאומי"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "health",
+        "label": "מס בריאות",
+        "net_effect": 34,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "health_brackets",
+          "label": "מדרגות מס בריאות"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "participation",
+        "label": "השתתפות ברכב",
+        "net_effect": 50,
+        "inputs": [
+         "today_participation",
+         "alternative_participation"
+        ],
+        "rules": []
+       }
+      ],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_car",
+        "label": "הרכב היום",
+        "value": "COROLLA CROSS",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_participation",
+        "label": "השתתפות היום",
+        "value": 300,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": "current_participation"
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "KONA EV",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 250,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-08"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": false,
+      "missing": [],
+      "warnings": [
+       {
+        "code": "current_car_above_group",
+        "message": "הרכב של היום (COROLLA CROSS) בקבוצה ג׳, מעל קבוצה ב׳. כדאי לבדוק את זה מול נציג."
+       }
+      ],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-01"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "COROLLA CROSS",
+      "alternative_title": "PICANTO",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-01",
+      "alternative_details": "בנזין · קבוצה א׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": 11000,
+      "alternative_net": 11751,
+      "display_diff": 751,
+      "direction": "up",
+      "diff_note": null,
+      "breakdown": [
+       {
+        "key": "income_tax",
+        "label": "מס הכנסה",
+        "net_effect": 433,
+        "inputs": [
+         "credit_points",
+         "pension_percent",
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "income_tax_brackets",
+          "label": "מדרגות מס הכנסה"
+         },
+         {
+          "key": "credit_point_value",
+          "label": "שווי נקודת זיכוי"
+         },
+         {
+          "key": "pension_credit",
+          "label": "זיכוי על הפרשה לפנסיה"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "national_insurance",
+        "label": "ביטוח לאומי",
+        "net_effect": 97,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "national_insurance_brackets",
+          "label": "מדרגות ביטוח לאומי"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "health",
+        "label": "מס בריאות",
+        "net_effect": 71,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "health_brackets",
+          "label": "מדרגות מס בריאות"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "participation",
+        "label": "השתתפות ברכב",
+        "net_effect": 150,
+        "inputs": [
+         "today_participation",
+         "alternative_participation"
+        ],
+        "rules": []
+       }
+      ],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_car",
+        "label": "הרכב היום",
+        "value": "COROLLA CROSS",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_participation",
+        "label": "השתתפות היום",
+        "value": 300,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": "current_participation"
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "PICANTO",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 150,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-01"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": false,
+      "missing": [],
+      "warnings": [
+       {
+        "code": "current_car_above_group",
+        "message": "הרכב של היום (COROLLA CROSS) בקבוצה ג׳, מעל קבוצה ב׳. כדאי לבדוק את זה מול נציג."
+       }
+      ],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-05"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "COROLLA CROSS",
+      "alternative_title": "NIRO",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-05",
+      "alternative_details": "היברידי · קבוצה ב׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": 11000,
+      "alternative_net": 11539,
+      "display_diff": 539,
+      "direction": "up",
+      "diff_note": null,
+      "breakdown": [
+       {
+        "key": "income_tax",
+        "label": "מס הכנסה",
+        "net_effect": 353,
+        "inputs": [
+         "credit_points",
+         "pension_percent",
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "income_tax_brackets",
+          "label": "מדרגות מס הכנסה"
+         },
+         {
+          "key": "credit_point_value",
+          "label": "שווי נקודת זיכוי"
+         },
+         {
+          "key": "pension_credit",
+          "label": "זיכוי על הפרשה לפנסיה"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "national_insurance",
+        "label": "ביטוח לאומי",
+        "net_effect": 78,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "national_insurance_brackets",
+          "label": "מדרגות ביטוח לאומי"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "health",
+        "label": "מס בריאות",
+        "net_effect": 58,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "health_brackets",
+          "label": "מדרגות מס בריאות"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "participation",
+        "label": "השתתפות ברכב",
+        "net_effect": 50,
+        "inputs": [
+         "today_participation",
+         "alternative_participation"
+        ],
+        "rules": []
+       }
+      ],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_car",
+        "label": "הרכב היום",
+        "value": "COROLLA CROSS",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_participation",
+        "label": "השתתפות היום",
+        "value": 300,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": "current_participation"
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "NIRO",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 250,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-05"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": false,
+      "missing": [],
+      "warnings": [
+       {
+        "code": "current_car_above_group",
+        "message": "הרכב של היום (COROLLA CROSS) בקבוצה ג׳, מעל קבוצה ב׳. כדאי לבדוק את זה מול נציג."
+       }
+      ],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-02"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "COROLLA CROSS",
+      "alternative_title": "YARIS CROSS HSD",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-02",
+      "alternative_details": "היברידי · קבוצה א׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": 11000,
+      "alternative_net": 11416,
+      "display_diff": 416,
+      "direction": "up",
+      "diff_note": null,
+      "breakdown": [
+       {
+        "key": "income_tax",
+        "label": "מס הכנסה",
+        "net_effect": 229,
+        "inputs": [
+         "credit_points",
+         "pension_percent",
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "income_tax_brackets",
+          "label": "מדרגות מס הכנסה"
+         },
+         {
+          "key": "credit_point_value",
+          "label": "שווי נקודת זיכוי"
+         },
+         {
+          "key": "pension_credit",
+          "label": "זיכוי על הפרשה לפנסיה"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "national_insurance",
+        "label": "ביטוח לאומי",
+        "net_effect": 50,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "national_insurance_brackets",
+          "label": "מדרגות ביטוח לאומי"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "health",
+        "label": "מס בריאות",
+        "net_effect": 37,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "health_brackets",
+          "label": "מדרגות מס בריאות"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "participation",
+        "label": "השתתפות ברכב",
+        "net_effect": 100,
+        "inputs": [
+         "today_participation",
+         "alternative_participation"
+        ],
+        "rules": []
+       }
+      ],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_car",
+        "label": "הרכב היום",
+        "value": "COROLLA CROSS",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_participation",
+        "label": "השתתפות היום",
+        "value": 300,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": "current_participation"
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "YARIS CROSS HSD",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 200,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-02"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": false,
+      "missing": [],
+      "warnings": [
+       {
+        "code": "current_car_above_group",
+        "message": "הרכב של היום (COROLLA CROSS) בקבוצה ג׳, מעל קבוצה ב׳. כדאי לבדוק את זה מול נציג."
+       }
+      ],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-04"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "COROLLA CROSS",
+      "alternative_title": "LEON",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-04",
+      "alternative_details": "בנזין · קבוצה א׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": 11000,
+      "alternative_net": 11187,
+      "display_diff": 187,
+      "direction": "up",
+      "diff_note": null,
+      "breakdown": [
+       {
+        "key": "income_tax",
+        "label": "מס הכנסה",
+        "net_effect": 64,
+        "inputs": [
+         "credit_points",
+         "pension_percent",
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "income_tax_brackets",
+          "label": "מדרגות מס הכנסה"
+         },
+         {
+          "key": "credit_point_value",
+          "label": "שווי נקודת זיכוי"
+         },
+         {
+          "key": "pension_credit",
+          "label": "זיכוי על הפרשה לפנסיה"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "national_insurance",
+        "label": "ביטוח לאומי",
+        "net_effect": 13,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "national_insurance_brackets",
+          "label": "מדרגות ביטוח לאומי"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "health",
+        "label": "מס בריאות",
+        "net_effect": 10,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "health_brackets",
+          "label": "מדרגות מס בריאות"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "participation",
+        "label": "השתתפות ברכב",
+        "net_effect": 100,
+        "inputs": [
+         "today_participation",
+         "alternative_participation"
+        ],
+        "rules": []
+       }
+      ],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_car",
+        "label": "הרכב היום",
+        "value": "COROLLA CROSS",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_participation",
+        "label": "השתתפות היום",
+        "value": 300,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": "current_participation"
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "LEON",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 200,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-04"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": false,
+      "missing": [],
+      "warnings": [
+       {
+        "code": "current_car_above_group",
+        "message": "הרכב של היום (COROLLA CROSS) בקבוצה ג׳, מעל קבוצה ב׳. כדאי לבדוק את זה מול נציג."
+       }
+      ],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    },
+    {
+     "alternative": {
+      "participation": null,
+      "participation_source": null,
+      "kind": "company_car",
+      "car_id": "CAR-07"
+     },
+     "view": {
+      "version": 1,
+      "today_title": "COROLLA CROSS",
+      "alternative_title": "COROLLA",
+      "alternative_kind": "company_car",
+      "alternative_car_id": "CAR-07",
+      "alternative_details": "בנזין · קבוצה ב׳",
+      "group": "ב",
+      "group_label": "קבוצה ב׳",
+      "group_budget": 3700,
+      "today_net": 11000,
+      "alternative_net": 11026,
+      "display_diff": 26,
+      "direction": "up",
+      "diff_note": null,
+      "breakdown": [
+       {
+        "key": "income_tax",
+        "label": "מס הכנסה",
+        "net_effect": -17,
+        "inputs": [
+         "credit_points",
+         "pension_percent",
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "income_tax_brackets",
+          "label": "מדרגות מס הכנסה"
+         },
+         {
+          "key": "credit_point_value",
+          "label": "שווי נקודת זיכוי"
+         },
+         {
+          "key": "pension_credit",
+          "label": "זיכוי על הפרשה לפנסיה"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "national_insurance",
+        "label": "ביטוח לאומי",
+        "net_effect": -4,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "national_insurance_brackets",
+          "label": "מדרגות ביטוח לאומי"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "health",
+        "label": "מס בריאות",
+        "net_effect": -3,
+        "inputs": [
+         "base_salary",
+         "today_car",
+         "alternative_car"
+        ],
+        "rules": [
+         {
+          "key": "health_brackets",
+          "label": "מדרגות מס בריאות"
+         },
+         {
+          "key": "value_of_use",
+          "label": "שווי שימוש (טבלת רשות המסים)"
+         }
+        ]
+       },
+       {
+        "key": "participation",
+        "label": "השתתפות ברכב",
+        "net_effect": 50,
+        "inputs": [
+         "today_participation",
+         "alternative_participation"
+        ],
+        "rules": []
+       }
+      ],
+      "inputs": [
+       {
+        "id": "occupation",
+        "label": "עיסוק",
+        "value": "מפתח/ת תוכנה",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "group",
+        "label": "קבוצת רכב",
+        "value": "ב׳",
+        "unit": "text",
+        "source": "occupation",
+        "ticket_field": null
+       },
+       {
+        "id": "base_salary",
+        "label": "שכר בסיס",
+        "value": 18500,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "commissions",
+        "label": "עמלות",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "bonus",
+        "label": "בונוס",
+        "value": 0,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "pension_percent",
+        "label": "הפרשת עובד לפנסיה",
+        "value": "6.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "study_fund_percent",
+        "label": "הפרשת עובד לקרן השתלמות",
+        "value": "2.5",
+        "unit": "percent",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "credit_points",
+        "label": "נקודות זיכוי",
+        "value": "3",
+        "unit": "points",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_car",
+        "label": "הרכב היום",
+        "value": "COROLLA CROSS",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "today_participation",
+        "label": "השתתפות היום",
+        "value": 300,
+        "unit": "ils",
+        "source": "employee_input",
+        "ticket_field": "current_participation"
+       },
+       {
+        "id": "alternative_car",
+        "label": "הרכב בחלופה",
+        "value": "COROLLA",
+        "unit": "text",
+        "source": "employee_input",
+        "ticket_field": null
+       },
+       {
+        "id": "alternative_participation",
+        "label": "השתתפות בחלופה",
+        "value": 250,
+        "unit": "ils",
+        "source": "catalog_default",
+        "ticket_field": "alternative_participation:CAR-07"
+       }
+      ],
+      "pending": false,
+      "pending_fields": [],
+      "partial": false,
+      "missing": [],
+      "warnings": [
+       {
+        "code": "current_car_above_group",
+        "message": "הרכב של היום (COROLLA CROSS) בקבוצה ג׳, מעל קבוצה ב׳. כדאי לבדוק את זה מול נציג."
+       }
+      ],
+      "hypothetical": false,
+      "rules_version": "mock-2026-10-12",
+      "computed_by": {
+       "origin": "server",
+       "label": "חושב מחדש בשרת · בלי מודל",
+       "tool": null
+      }
+     }
+    }
+   ],
+   "stated": {},
+   "today_unknown": false
+  },
+  "created_at": "2026-10-19T17:17:53.707+00:00"
+ }
+]

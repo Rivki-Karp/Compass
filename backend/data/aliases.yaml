@@ -6,6 +6,7 @@
 # geresh in ג'י, and glued digits (אטו3 / atto3) don't need their own entries.
 #
 # Don't add an alias that names only a brand (e.g. "קיה", "BYD"): it would match several cars.
+# Brands go under `manufacturers` at the end instead.
 
 PICANTO: [פיקנטו, קיה פיקנטו, picanto]
 YARIS CROSS HSD: [יאריס קרוס, יאריס קרוס היברידית, טויוטה יאריס קרוס, yaris cross]
@@ -27,3 +28,19 @@ SEAL: [סיל, בי ווי די סיל, byd seal]
 RAV4: [ראב 4, ראב4, טויוטה ראב 4, rav 4]
 CARNIVAL: [קרניבל, קיה קרניבל, kia carnival]
 SANTA FE: [סנטה פה, יונדאי סנטה פה, santa fe]
+
+# Manufacturers: other spellings of a catalog manufacturer, for search_catalog only (the list
+# to pick from: "kia" lists every Kia), never for lookup_vehicle's pick. Each key is the start of
+# a catalog manufacturer_name ("קיה" covers "קיה קוריאה" and "קיה סלובקיה"); the catalog's own
+# Hebrew name needs no entry. A one-word spelling also matches a near typo; a longer one only as
+# whole words.
+manufacturers:
+  קיה: [kia, קייה]
+  יונדאי: [hyundai, hyndai, יונדיי]
+  טויוטה: [toyota, טיוטה]
+  מזדה: [mazda, מאזדה]
+  סקודה: [skoda, שקודה]
+  טסלה: [tesla]
+  בי ווי די: [byd, ביוואידי, בי וואי די]
+  מ.ג: [mg, מג, אם ג'י]
+  סיאט: [seat]
