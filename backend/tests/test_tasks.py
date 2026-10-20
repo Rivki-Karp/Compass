@@ -135,3 +135,20 @@ def test_demo_has_no_token_warning_its_defaults_fill_them(
     monkeypatch.setattr(tasks, "BACKEND", tmp_path)  # an empty .env-less repo
     tasks.demo()
     assert "WARNING" not in capsys.readouterr().out
+
+
+def test_check_runs_every_suite_in_order(monkeypatch: pytest.MonkeyPatch, web: Path) -> None:
+    calls: list[Any] = []
+    (web / "node_modules").mkdir()
+    monkeypatch.setattr(tasks, "lint", lambda: calls.append("ruff"))
+    monkeypatch.setattr(tasks, "test", lambda: calls.append("pytest"))
+    monkeypatch.setattr(tasks, "run_in", lambda cwd, *args: calls.append(args[-1]))
+    tasks.check()
+    assert calls == ["ruff", "pytest", "lint", "typecheck", "test", "build", "e2e"]
+
+
+def test_payslip_check_is_a_task_and_runs_the_live_module(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[Any] = []
+    monkeypatch.setattr(tasks, "run", lambda *args: calls.append(args))
+    tasks.TASKS["payslip-check"]()
+    assert calls == [(tasks.sys.executable, "-m", "evals.payslip_live", "check")]

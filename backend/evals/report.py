@@ -49,6 +49,20 @@ class Ledger:
             "passed": run.passed,
             "cost_usd": round(run.cost_usd, 6),
         }
+        self._append(entry)
+
+    def record_call(self, scenario: str, model: str, cost_usd: float) -> None:
+        """One model call outside a scenario run (the payslip extraction's live check)."""
+        self._append(
+            {
+                "at": datetime.now(UTC).isoformat(timespec="seconds"),
+                "scenario": scenario,
+                "model": model,
+                "cost_usd": round(cost_usd, 6),
+            }
+        )
+
+    def _append(self, entry: dict[str, object]) -> None:
         with self.path.open("a", encoding="utf-8", newline="\n") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 

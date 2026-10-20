@@ -285,3 +285,11 @@
 {"at": "2026-10-20T10:01:46+00:00", "scenario": "unknown_current_car", "model": "claude-haiku-5-5", "effort": "medium", "passed": false, "cost_usd": 0.002859}
 {"at": "2026-10-20T10:02:11+00:00", "scenario": "rep_identifies_car", "model": "claude-haiku-5-5", "effort": "medium", "passed": true, "cost_usd": 0.003839}
 {"at": "2026-10-20T10:02:22+00:00", "scenario": "options_without_current_car", "model": "claude-haiku-5-5", "effort": "medium", "passed": false, "cost_usd": 0.001665}
+{"at": "2026-10-20T10:31:34+00:00", "scenario": "payslip-check (pdf)", "provider": "google", "model": "gemini-3-flash-preview", "cost_usd": 0.000267}
+{"at": "2026-10-20T10:31:36+00:00", "scenario": "payslip-check (image)", "provider": "google", "model": "gemini-3-flash-preview", "cost_usd": 0.000723}
+{"at": "2026-10-20T10:44:01+00:00", "scenario": "payslip-check (pdf)", "provider": "google", "model": "gemini-3-flash-preview", "cost_usd": 0.000267}
+{"at": "2026-10-20T10:44:02+00:00", "scenario": "payslip-check (image)", "provider": "google", "model": "gemini-3-flash-preview", "cost_usd": 0.000728}
+{"at": "2026-10-20T11:01:10+00:00", "scenario": "payslip-check (pdf)", "model": "claude-haiku-5-5", "cost_usd": 0.000183}
+{"at": "2026-10-20T11:01:12+00:00", "scenario": "payslip-check (image)", "model": "claude-haiku-5-5", "cost_usd": 2.5e-05}
+{"at": "2026-10-20T11:01:14+00:00", "scenario": "payslip-check (pdf)", "model": "claude-sonnet-5-5", "cost_usd": 0.003666}
+{"at": "2026-10-20T11:01:15+00:00", "scenario": "payslip-check (image)", "model": "claude-sonnet-5-5", "cost_usd": 0.00051}

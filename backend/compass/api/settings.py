@@ -46,6 +46,17 @@ DEFAULT_DAILY_SPEND_CAP_USD = 5.0
 # POST /api/sessions/{id}/messages per client IP per minute.
 DEFAULT_MESSAGE_RATE_PER_MINUTE = 20
 
+# Payslip upload (COMPASS_PAYSLIP=1, off by default): Claude reads the payslip's numbers in an
+# isolated call (no tools, no conversation, a JSON schema). The cheapest model first; the fallback
+# runs only on a hard failure (an API error after one retry, or JSON that does not parse). Both
+# must have a price in compass.agent.llm.PRICES, so their calls count toward the daily spend cap.
+DEFAULT_PAYSLIP_MODEL = "claude-haiku-5-5"
+DEFAULT_PAYSLIP_FALLBACK_MODEL = "claude-sonnet-5-5"
+DEFAULT_PAYSLIP_MAX_BYTES = 5 * 1024 * 1024
+DEFAULT_PAYSLIP_MAX_PAGES = 3
+DEFAULT_PAYSLIP_PER_SESSION = 3
+DEFAULT_PAYSLIP_TIMEOUT_S = 30.0
+
 
 class SettingsError(ValueError):
     """A setting in .env or the environment has an invalid value."""
@@ -171,6 +182,36 @@ def live_token_message(errors: list[str]) -> str:
     )
 
 
+def live_payslip_errors(settings: "Settings") -> list[str]:
+    """Why a live server must not start with the payslip upload on: no Claude key (the upload
+    would always fail), or a model with no price entry (its calls would escape the daily spend
+    cap). Off, or demo mode (the scripted extractor), has none. Never includes the key."""
+    from compass.agent.llm import PRICES
+
+    if not settings.payslip or settings.llm == "scripted":
+        return []
+    errors = []
+    if not settings.anthropic_api_key:
+        errors.append("ANTHROPIC_API_KEY is empty")
+    for name, model in (
+        ("COMPASS_PAYSLIP_MODEL", settings.payslip_model),
+        ("COMPASS_PAYSLIP_FALLBACK_MODEL", settings.payslip_fallback_model),
+    ):
+        if model not in PRICES:
+            errors.append(f"{name} ({model}) has no price entry in compass.agent.llm.PRICES")
+    return errors
+
+
+def live_payslip_message(errors: list[str]) -> str:
+    lines = "\n".join(f"  - {e}" for e in errors)
+    return (
+        "Compass will not start in live mode with COMPASS_PAYSLIP=1:\n"
+        f"{lines}\n"
+        "Set ANTHROPIC_API_KEY in backend/.env (never in git), check the model IDs with "
+        "`uv run --project backend python tasks.py payslip-check`, or set COMPASS_PAYSLIP=0."
+    )
+
+
 def token_warnings_from_env(env_file: Path | None = ENV_FILE) -> list[str]:
     env = _env(env_file)
     return token_warnings(env.get("COMPASS_REP_TOKEN"), env.get("COMPASS_ADMIN_TOKEN"))
@@ -213,6 +254,14 @@ class Settings:
     message_rate_per_minute: int = DEFAULT_MESSAGE_RATE_PER_MINUTE
     # Behind a platform's reverse proxy: rate-limit by X-Forwarded-For's rightmost entry.
     trust_proxy: bool = False
+    # Payslip upload: off by default; off = its endpoints answer 404 and nothing else changes.
+    payslip: bool = False
+    payslip_model: str = DEFAULT_PAYSLIP_MODEL
+    payslip_fallback_model: str = DEFAULT_PAYSLIP_FALLBACK_MODEL
+    payslip_max_bytes: int = DEFAULT_PAYSLIP_MAX_BYTES
+    payslip_max_pages: int = DEFAULT_PAYSLIP_MAX_PAGES
+    payslip_per_session: int = DEFAULT_PAYSLIP_PER_SESSION
+    payslip_timeout_s: float = DEFAULT_PAYSLIP_TIMEOUT_S
 
     def __post_init__(self) -> None:
         # Demo mode has its own database (data/demo.db, wiped by `tasks.py demo-reset`); it
@@ -268,4 +317,28 @@ class Settings:
             ),
             trust_proxy=env.get("COMPASS_TRUST_PROXY") == "1",
             cors_origins=_cors_origins(env.get("COMPASS_CORS_ORIGINS")),
+            payslip=env.get("COMPASS_PAYSLIP") == "1",
+            payslip_model=env.get("COMPASS_PAYSLIP_MODEL") or DEFAULT_PAYSLIP_MODEL,
+            payslip_fallback_model=env.get("COMPASS_PAYSLIP_FALLBACK_MODEL")
+            or DEFAULT_PAYSLIP_FALLBACK_MODEL,
+            payslip_max_bytes=_positive_int(
+                env.get("COMPASS_PAYSLIP_MAX_BYTES"),
+                "COMPASS_PAYSLIP_MAX_BYTES",
+                DEFAULT_PAYSLIP_MAX_BYTES,
+            ),
+            payslip_max_pages=_positive_int(
+                env.get("COMPASS_PAYSLIP_MAX_PAGES"),
+                "COMPASS_PAYSLIP_MAX_PAGES",
+                DEFAULT_PAYSLIP_MAX_PAGES,
+            ),
+            payslip_per_session=_positive_int(
+                env.get("COMPASS_PAYSLIP_PER_SESSION"),
+                "COMPASS_PAYSLIP_PER_SESSION",
+                DEFAULT_PAYSLIP_PER_SESSION,
+            ),
+            payslip_timeout_s=_positive_float(
+                env.get("COMPASS_PAYSLIP_TIMEOUT_S"),
+                "COMPASS_PAYSLIP_TIMEOUT_S",
+                DEFAULT_PAYSLIP_TIMEOUT_S,
+            ),
         )
