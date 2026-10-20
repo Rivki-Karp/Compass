@@ -205,7 +205,6 @@ def test_docs_list_every_endpoint(client: TestClient) -> None:
         "/api/sessions/{session_id}/messages",
         "/api/sessions/{session_id}/events",
         "/api/sessions/{session_id}/tools/{name}",
-        "/api/sessions/{session_id}/payslip",
         "/api/tickets",
         "/api/tickets/events",
         "/api/tickets/{ticket_id}/answer",
@@ -216,6 +215,18 @@ def test_docs_list_every_endpoint(client: TestClient) -> None:
         "/api/admin/stats",
         "/api/health",
     }
+
+
+PAYSLIP_PATHS = {"/api/sessions/{session_id}/payslip", "/api/sessions/{session_id}/payslip/confirm"}
+
+
+def test_the_payslip_routes_are_in_the_schema_only_with_the_flag(
+    make_settings: Callable[..., Settings],
+) -> None:
+    for on in (False, True):
+        with TestClient(create_app(make_settings(payslip=on))) as client:
+            paths = set(client.get("/openapi.json").json()["paths"])
+        assert (paths >= PAYSLIP_PATHS) is on and (PAYSLIP_PATHS & paths == set()) is not on
 
 
 def test_committed_openapi_is_up_to_date() -> None:

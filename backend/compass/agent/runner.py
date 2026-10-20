@@ -62,7 +62,7 @@ class DailySpendCapReached(Exception):
     """Today's model spend reached the cap: no more model calls until tomorrow (UTC)."""
 
 
-Job = tuple[Literal["employee_turn", "rep_answer"], Any]
+Job = tuple[Literal["employee_turn", "rep_answer", "payslip_confirmed"], Any]
 
 
 @dataclass(frozen=True)
@@ -143,6 +143,10 @@ class ClaudeAgentRunner:
 
     def on_ticket_answered(self, session_id: str, ticket_id: str) -> None:
         self._submit(session_id, ("rep_answer", ticket_id))
+
+    def on_payslip_confirmed(self, session_id: str, confirmed: dict[str, Any]) -> None:
+        """The employee confirmed payslip values: tell the agent, as data (like a rep answer)."""
+        self._submit(session_id, ("payslip_confirmed", confirmed))
 
     # --- scheduling ---------------------------------------------------------------------
 
@@ -286,6 +290,20 @@ class ClaudeAgentRunner:
     def _append_trigger(self, session_id: str, kind: str, ref: Any) -> None:
         if kind == "employee_turn":
             content = {"kind": "employee_turn", "message_seq": ref, "origin": SERVER_ORIGIN}
+        elif kind == "payslip_confirmed":
+            # only what the employee confirmed, and the server's own recomputed comparisons as
+            # compare would have returned them (the guard allows those numbers as "server")
+            content = {
+                "kind": "payslip_confirmed",
+                "origin": SERVER_ORIGIN,
+                "values": ref["applied"],
+                "kept_representative": ref["kept_representative"],
+                "waiting_for_rep": ref["waiting_for_rep"],
+                "car_hint": ref["car_hint"],
+                "server_comparisons": [
+                    json.loads(model_view("compare", result)) for result in ref["comparisons"]
+                ],
+            }
         else:
             ticket = self.store.ticket(ref)
             # this answer: the latest part (a partial answer leaves the other fields pending)

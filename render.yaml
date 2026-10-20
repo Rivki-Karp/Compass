@@ -60,7 +60,7 @@ services:
       - key: COMPASS_PAYSLIP_PER_SESSION
         value: "3"
       - key: COMPASS_PAYSLIP_TIMEOUT_S
-        value: "30"
+        value: "20"
 
   - type: web
     name: compass-web

@@ -9,13 +9,17 @@ says the document is data, no tools, no conversation, a JSON schema (structured 
 forced tool), max_tokens 800, thinking off. The answer is normalised (compass.payslip.schema)
 before anything keeps it.
 
-Fallback, only on a hard failure: an API error after the SDK's one retry, or an answer that is
-not a JSON object (a refusal and a cut-off answer included). Low confidence is never a failure:
-those fields reach the confirmation card, flagged. When both models fail: ExtractionFailed.
+Fallback, only on a hard failure: an API error after one retry (a transient one: a timeout, a
+connection error, 408/409/429/5xx), a non-transient API error at once, or an answer that is not a
+JSON object (a refusal and a cut-off answer included). Low confidence is never a failure: those
+fields reach the confirmation card, flagged. Every attempt of both models fits one deadline
+(DEADLINE_SECONDS); each attempt waits at most min(the setting, MAX_ATTEMPT_SECONDS, the time
+left). When both models fail, or the deadline passes: ExtractionFailed.
 """
 
 import base64
 import logging
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -31,6 +35,9 @@ from compass.payslip.schema import (
 from compass.payslip.upload import MediaType
 
 MAX_TOKENS = 800
+DEADLINE_SECONDS = 45.0  # every attempt of both models
+MAX_ATTEMPT_SECONDS = 20.0  # one call
+ATTEMPTS_PER_MODEL = 2  # the call, and one retry on a transient error
 
 SYSTEM_PROMPT = """\
 You read one Israeli payslip (תלוש שכר) and copy numbers from it into the JSON schema.
@@ -139,6 +146,17 @@ def _usage(response: Any) -> Usage:
     )
 
 
+def _transient(error: Exception) -> bool:
+    """Worth one retry on the same model: a timeout or connection error, 408/409/429/5xx."""
+    import anthropic
+
+    if isinstance(error, anthropic.APIConnectionError):  # APITimeoutError included
+        return True
+    if isinstance(error, anthropic.APIStatusError):
+        return error.status_code in (408, 409, 429) or error.status_code >= 500
+    return False
+
+
 class ClaudeExtractor:
     def __init__(
         self,
@@ -147,22 +165,32 @@ class ClaudeExtractor:
         fallback_model: str,
         *,
         timeout_seconds: float,
+        deadline_seconds: float = DEADLINE_SECONDS,
+        clock: Callable[[], float] = time.monotonic,
         sdk_client: Any = None,  # tests inject a fake
     ) -> None:
         if sdk_client is None:
             import anthropic
 
-            # one retry on a transient error (408/409/429/5xx, a connection error)
+            # no SDK retries: the one retry is ours, so the deadline covers it
             sdk_client = anthropic.Anthropic(
-                api_key=api_key, timeout=timeout_seconds, max_retries=1
+                api_key=api_key, timeout=timeout_seconds, max_retries=0
             )
         self._sdk = sdk_client
         self.models = (model, fallback_model)
+        self.attempt_seconds = min(timeout_seconds, MAX_ATTEMPT_SECONDS)
+        self.deadline_seconds = deadline_seconds
+        self.clock = clock
 
-    def call(self, model: str, data: bytes, media_type: str) -> tuple[PayslipCandidate, Usage]:
+    def call(
+        self, model: str, data: bytes, media_type: str, timeout: float | None = None
+    ) -> tuple[PayslipCandidate, Usage]:
         """One model, one call. Raises anthropic.APIError, or InvalidExtraction (with the
         call's usage attached, so its cost still counts)."""
-        response = self._sdk.messages.create(**request(model, data, media_type))
+        params = request(model, data, media_type)
+        if timeout is not None:
+            params["timeout"] = timeout  # the SDK's per-request timeout
+        response = self._sdk.messages.create(**params)
         usage = _usage(response)
         if response.stop_reason in ("refusal", "max_tokens"):
             error = InvalidExtraction(f"stop_reason {response.stop_reason}")
@@ -178,20 +206,30 @@ class ClaudeExtractor:
     def extract(self, data: bytes, media_type: MediaType) -> Extraction:
         import anthropic
 
+        deadline = self.clock() + self.deadline_seconds
         calls: list[tuple[str, Usage]] = []
         reasons: list[str] = []
-        for attempt, model in enumerate(self.models):
-            try:
-                candidate, usage = self.call(model, data, media_type)
-            except anthropic.APIError as error:
-                reasons.append(f"{model}: {type(error).__name__}")
-                continue
-            except InvalidExtraction as error:
-                calls.append((model, getattr(error, "usage", Usage())))
-                reasons.append(f"{model}: {error}")
-                continue
-            calls.append((model, usage))
-            return Extraction(candidate, model=model, fallback=attempt > 0, calls=calls)
+        for index, model in enumerate(self.models):
+            for attempt in range(ATTEMPTS_PER_MODEL):
+                left = deadline - self.clock()
+                if left <= 0:
+                    reasons.append(f"deadline of {self.deadline_seconds:g}s passed")
+                    raise ExtractionFailed("; ".join(reasons), calls)
+                try:
+                    candidate, usage = self.call(
+                        model, data, media_type, timeout=min(self.attempt_seconds, left)
+                    )
+                except anthropic.APIError as error:
+                    reasons.append(f"{model}: {type(error).__name__}")
+                    if attempt + 1 < ATTEMPTS_PER_MODEL and _transient(error):
+                        continue  # one retry on the same model
+                    break  # to the fallback model
+                except InvalidExtraction as error:
+                    calls.append((model, getattr(error, "usage", Usage())))
+                    reasons.append(f"{model}: {error}")
+                    break
+                calls.append((model, usage))
+                return Extraction(candidate, model=model, fallback=index > 0, calls=calls)
         raise ExtractionFailed("; ".join(reasons), calls)
 
 

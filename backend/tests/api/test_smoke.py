@@ -87,7 +87,7 @@ def test_render_blueprint() -> None:
         "COMPASS_PAYSLIP_MAX_BYTES": "5242880",
         "COMPASS_PAYSLIP_MAX_PAGES": "3",
         "COMPASS_PAYSLIP_PER_SESSION": "3",
-        "COMPASS_PAYSLIP_TIMEOUT_S": "30",
+        "COMPASS_PAYSLIP_TIMEOUT_S": "20",
     }
 
     # the UI: a static site whose CSP and API URL name the backend above

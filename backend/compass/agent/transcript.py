@@ -9,6 +9,9 @@ Stored rows (append-only, in `seq` order):
                                                  message typed mid-run must not split a tool
                                                  call from its result)
     system_event  {"kind": "rep_answer", ...}   a representative answered a ticket
+    system_event  {"kind": "payslip_confirmed", ...}
+                                                 the employee confirmed values read from their
+                                                 payslip (only confirmed ones, never the file)
     system_event  {"kind": "guard_correction", "violations"}
     assistant     {"blocks", "usage", "model", "fabricated"?}
     tool          {"results": [{"tool_use_id", "name", "ok", "model_view", "full"}]}
@@ -30,10 +33,12 @@ SERVER_ORIGIN = "server"
 EMPLOYEE_TAG = "employee_message"
 REP_TAG = "rep_notification"
 REP_LABEL_HE = "עדכון אוטומטי ממערכת הנציגים"
+PAYSLIP_TAG = "payslip_notification"
+PAYSLIP_LABEL_HE = "לפי התלוש"
 
 # Our structural tags, opening or closing, in any case or spacing: neutralised in untrusted text.
 _TAG_PATTERN = re.compile(
-    rf"<\s*/?\s*({EMPLOYEE_TAG}|{REP_TAG}|system[_ -]?notice)\b", re.IGNORECASE
+    rf"<\s*/?\s*({EMPLOYEE_TAG}|{REP_TAG}|{PAYSLIP_TAG}|system[_ -]?notice)\b", re.IGNORECASE
 )
 
 ModelMessage = dict[str, Any]
@@ -99,6 +104,23 @@ def rep_block(event: dict[str, Any]) -> str:
     return f'<{REP_TAG} label="{REP_LABEL_HE}">\n{body}\n</{REP_TAG}>'
 
 
+def payslip_block(event: dict[str, Any]) -> str:
+    """Values the employee confirmed from their payslip, as structured data (server-written).
+    The file and any value the employee did not confirm never reach the model."""
+    payload = {
+        "confirmed_values": event.get("values", {}),
+        "kept_representative": event.get("kept_representative", []),
+        "waiting_for_rep": event.get("waiting_for_rep", []),
+    }
+    if event.get("car_hint"):
+        # one catalog car has exactly the payslip's value of use: ask, never assume
+        payload["car_hint"] = _escaped(event["car_hint"])
+    if event.get("server_comparisons"):
+        payload["server_comparisons"] = event["server_comparisons"]
+    body = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    return f'<{PAYSLIP_TAG} label="{PAYSLIP_LABEL_HE}">\n{body}\n</{PAYSLIP_TAG}>'
+
+
 def guard_note(violations: Sequence[str]) -> str:
     listed = ", ".join(violations)
     return (
@@ -143,6 +165,9 @@ def build_model_messages(rows: Sequence[Message]) -> list[ModelMessage]:
                 out.append(
                     {"role": "user", "content": [{"type": "text", "text": rep_block(content)}]}
                 )
+            elif kind == "payslip_confirmed":
+                text = payslip_block(content)
+                out.append({"role": "user", "content": [{"type": "text", "text": text}]})
             elif kind == "guard_correction":
                 out.append({"role": "system", "content": guard_note(content["violations"])})
         elif row.role == "assistant":

@@ -57,7 +57,7 @@ def test_off_by_default(tmp_path: Path) -> None:
     assert {settings.payslip_model, settings.payslip_fallback_model} <= set(PRICES)
     assert settings.payslip_max_bytes == DEFAULT_PAYSLIP_MAX_BYTES == 5 * 1024 * 1024
     assert (settings.payslip_max_pages, settings.payslip_per_session) == (3, 3)
-    assert settings.payslip_timeout_s == 30.0
+    assert settings.payslip_timeout_s == 20.0
 
 
 def test_the_example_file_keeps_it_off() -> None:
@@ -91,6 +91,7 @@ def test_only_1_turns_it_on(tmp_path: Path, value: str) -> None:
         "COMPASS_PAYSLIP_MAX_PAGES=two",
         "COMPASS_PAYSLIP_PER_SESSION=-1",
         "COMPASS_PAYSLIP_TIMEOUT_S=0",
+        "COMPASS_PAYSLIP_TIMEOUT_S=21",
     ],
 )
 def test_invalid_limits_are_refused(tmp_path: Path, line: str) -> None:

@@ -542,9 +542,29 @@ def refresh_without_today(
     today, is computed again (the same stated participations), and so is the latest
     comparison, if it was; each one exactly as list_options and compare compute it. `extra`
     goes into the comparison's event (the ticket that caused it)."""
+    _refresh(services, session_id, extra, only_without_today=True)
+
+
+def refresh_after_profile_change(
+    services: Services, session_id: str, extra: Mapping[str, Any] | None = None
+) -> list[dict[str, Any]]:
+    """The profile changed outside a tool call (the employee confirmed payslip values): the
+    latest option set and the latest comparison, computed again with no model call, exactly as
+    list_options and compare compute them. Returns the refreshed comparison in compare's own
+    shape (the model may state it; the guard allows its numbers as "server"), if any."""
+    return _refresh(services, session_id, extra, only_without_today=False)
+
+
+def _refresh(
+    services: Services,
+    session_id: str,
+    extra: Mapping[str, Any] | None,
+    *,
+    only_without_today: bool,
+) -> list[dict[str, Any]]:
     events = services.store.events_after(session_id)
     sets = [e for e in events if e.type == "comparison_set_ready"]
-    if sets and sets[-1].payload.get("today_unknown"):
+    if sets and (not only_without_today or sets[-1].payload.get("today_unknown")):
         stated = {k: Decimal(v) for k, v in (sets[-1].payload.get("stated") or {}).items()}
         try:
             options = _engine_options(services, session_id, stated)
@@ -554,8 +574,10 @@ def refresh_without_today(
             _emit_option_set(services, session_id, options, stated)
     comparisons = [e for e in events if e.type == "comparison_ready"]
     latest = comparisons[-1] if comparisons else None
-    if latest is None or not latest.payload["comparison"].get("today_unknown"):
-        return
+    if latest is None or (
+        only_without_today and not latest.payload["comparison"].get("today_unknown")
+    ):
+        return []
     try:
         scenario, payload = _comparison(
             services,
@@ -565,9 +587,10 @@ def refresh_without_today(
         )
     except ToolError as error:
         log.info("comparison not refreshed in %s: %s", session_id, error)
-        return
+        return []
     refreshed = {**payload, "origin": "server", "recomputed_from": latest.seq, **(extra or {})}
     _record_comparison(services, session_id, scenario, refreshed)
+    return [{"ok": True, **payload}]
 
 
 # --- 5/6. alternatives: check_eligibility and compare -----------------------------------------

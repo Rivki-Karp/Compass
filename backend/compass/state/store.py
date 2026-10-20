@@ -59,6 +59,8 @@ EVENT_TYPES = frozenset(
         # reached the extractor: the per-session count.
         "payslip_extracted",
         "payslip_failed",
+        # the employee confirmed (part of) the candidate: what was applied, with its source
+        "payslip_confirmed",
     }
 )
 

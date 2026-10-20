@@ -39,6 +39,8 @@
   --color-chip-pending: #7a4b00;
   --color-chip-pending-bg: #fff1d6;
   --color-chip-pending-border: #c98a1b;
+  --color-chip-payslip: #1d6b4f; /* confirmed from the employee's payslip */
+  --color-chip-payslip-bg: #e6f4ee;
 
   /* surfaces used by a few components */
   --color-bubble-border: #e3eaf3;

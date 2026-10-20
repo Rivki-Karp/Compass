@@ -28,6 +28,9 @@ PayslipErrorCode = Literal[
     "payslip_unreadable",
     "payslip_unavailable",
     "payslip_extraction_failed",
+    "payslip_nothing_pending",
+    "payslip_field_not_allowed",
+    "payslip_invalid_value",
 ]
 
 # Content-Type -> the file's first bytes

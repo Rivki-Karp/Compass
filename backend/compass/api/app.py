@@ -360,7 +360,7 @@ def create_app(
         return runner.run(session_id, name, payload or {})
 
     # POST /api/sessions/{id}/payslip (COMPASS_PAYSLIP=1, otherwise 404)
-    add_payslip_routes(api, settings, store, require_session)
+    add_payslip_routes(api, settings, services, agent, require_session)
 
     # --- representative -------------------------------------------------------------------
 

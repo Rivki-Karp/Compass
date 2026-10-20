@@ -33,6 +33,7 @@ PUBLIC_KEYS: dict[str, frozenset[str] | None] = {
     # model read it, its cost and timing are judges mode's.
     "payslip_extracted": frozenset({"fields", "dropped_keys"}),
     "payslip_failed": frozenset({"code"}),
+    "payslip_confirmed": _ALL,  # the employee's own confirmed values
 }
 
 

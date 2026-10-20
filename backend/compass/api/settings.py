@@ -55,7 +55,9 @@ DEFAULT_PAYSLIP_FALLBACK_MODEL = "claude-sonnet-5-5"
 DEFAULT_PAYSLIP_MAX_BYTES = 5 * 1024 * 1024
 DEFAULT_PAYSLIP_MAX_PAGES = 3
 DEFAULT_PAYSLIP_PER_SESSION = 3
-DEFAULT_PAYSLIP_TIMEOUT_S = 30.0
+# One extraction call; every attempt of both models also fits a 45 s deadline (extractor).
+DEFAULT_PAYSLIP_TIMEOUT_S = 20.0
+MAX_PAYSLIP_TIMEOUT_S = 20.0
 
 
 class SettingsError(ValueError):
@@ -84,6 +86,16 @@ def _positive_float(value: str | None, name: str, default: float) -> float:
     if not number > 0:
         raise SettingsError(f"{name} must be above 0 (got {number})")
     return number
+
+
+def _payslip_timeout(value: str | None) -> float:
+    """COMPASS_PAYSLIP_TIMEOUT_S: one extraction call, above 0 and at most 20 seconds."""
+    seconds = _positive_float(value, "COMPASS_PAYSLIP_TIMEOUT_S", DEFAULT_PAYSLIP_TIMEOUT_S)
+    if seconds > MAX_PAYSLIP_TIMEOUT_S:
+        raise SettingsError(
+            f"COMPASS_PAYSLIP_TIMEOUT_S must be at most {MAX_PAYSLIP_TIMEOUT_S:g} (got {seconds:g})"
+        )
+    return seconds
 
 
 LLM_CHOICES = ("anthropic", "scripted")
@@ -336,9 +348,5 @@ class Settings:
                 "COMPASS_PAYSLIP_PER_SESSION",
                 DEFAULT_PAYSLIP_PER_SESSION,
             ),
-            payslip_timeout_s=_positive_float(
-                env.get("COMPASS_PAYSLIP_TIMEOUT_S"),
-                "COMPASS_PAYSLIP_TIMEOUT_S",
-                DEFAULT_PAYSLIP_TIMEOUT_S,
-            ),
+            payslip_timeout_s=_payslip_timeout(env.get("COMPASS_PAYSLIP_TIMEOUT_S")),
         )

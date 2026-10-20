@@ -16,7 +16,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from compass.agent.llm import LLMResponse, Message, ToolChoice, text_response, tool_response
-from compass.agent.transcript import EMPLOYEE_TAG, REP_TAG
+from compass.agent.transcript import EMPLOYEE_TAG, PAYSLIP_TAG, REP_TAG
+
+# After the employee confirms payslip values (COMPASS_PAYSLIP=1): no numbers, so the guard has
+# nothing to check; the cards already show the values and the recomputed difference.
+PAYSLIP_REPLY_HE = "קיבלתי את הנתונים שאישרת מהתלוש. ההשוואה על המסך עודכנה לפיהם."
 
 NO_SCRIPT_HE = (
     "במצב דמו אני עונה רק על התרחישים המוכנים. "
@@ -224,8 +228,8 @@ def _text_of(message: Message) -> str:
 
 
 def _trigger(messages: Sequence[Message]) -> tuple[int, str, Any]:
-    """(index, kind, data) of the last trigger: ("employee", text), ("rep", values) or
-    ("guard", None)."""
+    """(index, kind, data) of the last trigger: ("employee", text), ("rep", values),
+    ("payslip", None) or ("guard", None)."""
     for index in range(len(messages) - 1, -1, -1):
         message = messages[index]
         if message.get("role") == "system":
@@ -236,6 +240,8 @@ def _trigger(messages: Sequence[Message]) -> tuple[int, str, Any]:
         if text.startswith(f"<{EMPLOYEE_TAG}>"):
             body = text.removeprefix(f"<{EMPLOYEE_TAG}>").removesuffix(f"</{EMPLOYEE_TAG}>")
             return index, "employee", _normalize(body)
+        if text.startswith(f"<{PAYSLIP_TAG}"):
+            return index, "payslip", None
         if text.startswith(f"<{REP_TAG}"):
             body = text.split("\n", 1)[1].rsplit("\n", 1)[0]
             return index, "rep", json.loads(body).get("values") or {}
@@ -275,8 +281,10 @@ class DemoClient:
         if self.delay:
             time.sleep(self.delay)
         index, kind, data = _trigger(messages)
-        turn = self._turn(kind, data)
         done = sum(1 for m in messages[index + 1 :] if m.get("role") == "assistant")
+        if kind == "payslip":
+            return text_response(PAYSLIP_REPLY_HE if done == 0 else NO_SCRIPT_HE)
+        turn = self._turn(kind, data)
         if turn is None or done >= len(turn.steps):
             return text_response(NO_SCRIPT_HE)
         step_kind, step = turn.steps[done]

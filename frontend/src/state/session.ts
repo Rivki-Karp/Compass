@@ -299,6 +299,7 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
     case "session_created":
     case "payslip_extracted":
     case "payslip_failed":
+    case "payslip_confirmed":
     case "profile_updated":
     case "current_situation_set":
     case "guard_check":

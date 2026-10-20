@@ -6,7 +6,11 @@ import { Diff } from "../ui/Diff";
 import { Icon } from "../ui/icons";
 import { engineCards, guardVerdict, sourceLabel, type EngineCard } from "./engine";
 
-const TRIGGER = { employee_turn: "הודעה מהעובד/ת", rep_answer: "תשובת הנציג" } as const;
+const TRIGGER = {
+  employee_turn: "הודעה מהעובד/ת",
+  rep_answer: "תשובת הנציג",
+  payslip_confirmed: "אישור נתוני התלוש",
+} as const;
 
 /**
  * The engine room (brief §4.5): one run at a time, its stats as pills and its events as cards.

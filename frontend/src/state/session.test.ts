@@ -125,6 +125,13 @@ describe("reduce: every event kind", () => {
       // the payslip upload: kept for judges mode, nothing on screen yet
       ev("payslip_extracted", { fields: {}, dropped_keys: 0 }),
       ev("payslip_failed", { code: "payslip_unavailable" }),
+      ev("payslip_confirmed", {
+        candidate_seq: 1,
+        applied: {},
+        kept_representative: [],
+        waiting_for_rep: [],
+        car_hint: null,
+      }),
       ev("session_status", { status: "closed" }),
     ];
     const kinds = new Set(events.map((e) => e.type));

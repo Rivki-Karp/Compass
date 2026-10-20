@@ -11,6 +11,7 @@ const ALL: ChipSource[] = [
   "representative",
   "catalog_default",
   "pending_rep",
+  "payslip",
 ];
 
 describe("SourceChip", () => {
@@ -24,6 +25,7 @@ describe("SourceChip", () => {
     ["representative", "אושר על ידי נציג"],
     ["catalog_default", "ברירת מחדל מהקטלוג"],
     ["pending_rep", "ממתינה לנציג"],
+    ["payslip", "לפי התלוש"],
   ] as const)("%s reads %s", (source, label) => {
     render(<SourceChip source={source} />);
     expect(screen.getByText(label)).toBeInTheDocument();

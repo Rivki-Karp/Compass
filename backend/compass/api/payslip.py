@@ -1,4 +1,7 @@
-"""POST /api/sessions/{id}/payslip: the payslip upload (COMPASS_PAYSLIP=1; off -> 404).
+"""The payslip upload (COMPASS_PAYSLIP=1; off -> 404, and both routes left out of the schema).
+
+    POST /api/sessions/{id}/payslip          the file -> a pending candidate
+    POST /api/sessions/{id}/payslip/confirm  the fields the employee accepts -> profile values
 
 The body is the file itself (Content-Type application/pdf, image/jpeg or image/png), read from
 the request stream into memory with a hard cap; never multipart, never on disk. Checks, in this
@@ -7,7 +10,7 @@ attempts (and one upload at a time), the per-IP rate limit, the daily spend cap 
 the agent's), the declared type, the size, the magic bytes, and for a PDF its pages and
 encryption.
 
-A refusal is {"detail": code, "errors": [{"code", "field": null, "message"}]} with a Hebrew
+A refusal is {"detail": code, "errors": [{"code", "field", "message"}]} with a Hebrew
 message (compass.labels), the shape of a refused ticket answer. One log line per upload, metadata
 only: session, type, size bucket, pages, latency, cost and outcome; never the file, its base64
 or a hash of it.
@@ -22,11 +25,14 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 
+from compass.api.agent import AgentRunner
 from compass.api.ratelimit import RateLimiter, client_ip
 from compass.api.settings import Settings
 from compass.labels import error_message
+from compass.payslip.confirm import CONFIRMABLE, confirm
 from compass.payslip.service import PayslipService
 from compass.payslip.upload import (
     MAGIC,
@@ -37,6 +43,7 @@ from compass.payslip.upload import (
     size_bucket,
 )
 from compass.state import Store
+from compass.tools.services import Services
 
 # Every upload that reached the extractor leaves one of these events: the per-session count.
 ATTEMPT_EVENTS = ("payslip_extracted", "payslip_failed")
@@ -46,26 +53,39 @@ UPLOADS_PER_MINUTE = 5
 log = logging.getLogger("compass.payslip")
 
 
+class PayslipConfirmBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    fields: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "The fields the employee accepts -> their value (the candidate's, or the one the "
+            f"employee typed). A field left out is rejected. Allowed: {', '.join(CONFIRMABLE)}"
+        ),
+    )
+
+
 def rejected(error: PayslipRejected) -> JSONResponse:
+    message = error_message(error.code, error.params)
+    fields = error.params.get("fields") or [None]  # one error per field it names
     return JSONResponse(
         status_code=error.status,
         content={
             "detail": error.code,
-            "errors": [
-                {
-                    "code": error.code,
-                    "field": None,
-                    "message": error_message(error.code, error.params),
-                }
-            ],
+            "errors": [{"code": error.code, "field": f, "message": message} for f in fields],
         },
         headers=error.headers,
     )
 
 
 def add_payslip_routes(
-    api: APIRouter, settings: Settings, store: Store, require_session: Callable[[str], None]
+    api: APIRouter,
+    settings: Settings,
+    services: Services,
+    agent: AgentRunner,
+    require_session: Callable[[str], None],
 ) -> None:
+    store: Store = services.store
     limiter = RateLimiter(UPLOADS_PER_MINUTE)
     in_flight: set[str] = set()
     lock = threading.Lock()
@@ -75,6 +95,7 @@ def add_payslip_routes(
     @api.post(
         "/sessions/{session_id}/payslip",
         tags=["sessions"],
+        include_in_schema=settings.payslip,
         openapi_extra={
             "requestBody": {
                 "required": True,
@@ -160,3 +181,37 @@ def add_payslip_routes(
                 meta["cost"],
                 outcome,
             )
+
+    @api.post(
+        "/sessions/{session_id}/payslip/confirm",
+        tags=["sessions"],
+        include_in_schema=settings.payslip,
+        responses={
+            404: {"description": "The upload is off (COMPASS_PAYSLIP=0), or no such session"},
+            409: {"description": "No candidate waits for confirmation"},
+            422: {"description": "A field that is not a salary field, or an invalid value"},
+        },
+    )
+    def confirm_payslip(session_id: str, body: PayslipConfirmBody) -> JSONResponse:
+        """Apply the accepted fields: unchanged values get source payslip, edited ones source
+        employee; a representative's value is kept. The comparison on screen is recomputed
+        (no model call) and the agent is told the confirmed values, as data."""
+        if not settings.payslip:
+            raise HTTPException(404, "Not Found")
+        require_session(session_id)
+        try:
+            confirmed = confirm(services, session_id, body.fields)
+        except PayslipRejected as error:
+            return rejected(error)
+        log.info(
+            "payslip confirmed: session=%s applied=%d kept_representative=%d car_hint=%s",
+            session_id,
+            len(confirmed.applied),
+            len(confirmed.kept_representative),
+            confirmed.car_hint is not None,
+        )
+        if confirmed.applied or confirmed.car_hint:
+            agent.on_payslip_confirmed(
+                session_id, {**confirmed.to_dict(), "comparisons": confirmed.comparisons}
+            )
+        return JSONResponse(confirmed.to_dict())

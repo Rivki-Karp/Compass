@@ -128,7 +128,7 @@ export interface PayloadByType {
       note: string | null;
     }[];
   };
-  agent_started: { trigger: "employee_turn" | "rep_answer" };
+  agent_started: { trigger: "employee_turn" | "rep_answer" | "payslip_confirmed" };
   agent_finished: {
     outcome: "reply" | "template" | "error" | "limit";
     // admin only
@@ -166,6 +166,15 @@ export interface PayloadByType {
     cost_usd?: number | null;
   };
   payslip_failed: { code: string };
+  payslip_confirmed: PayslipConfirmed & { candidate_seq: number };
+}
+
+/** POST /payslip/confirm's answer, and the payslip_confirmed event: what became a profile value. */
+export interface PayslipConfirmed {
+  applied: Record<string, { value: string; source: "payslip" | "employee" }>;
+  kept_representative: string[]; // a representative's value wins
+  waiting_for_rep: string[];
+  car_hint: { car_id: string; commercial_name: string } | null;
 }
 
 export interface PayslipCandidateField {

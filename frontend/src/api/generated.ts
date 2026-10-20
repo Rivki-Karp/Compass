@@ -10,6 +10,7 @@ export const EVENT_TYPES = [
   "comparison_set_ready",
   "current_situation_set",
   "guard_check",
+  "payslip_confirmed",
   "payslip_extracted",
   "payslip_failed",
   "profile_updated",
@@ -132,7 +133,7 @@ export interface ViewInput {
   label: string;
   value: number | string | null;
   unit: "ils" | "percent" | "points" | "count" | "text";
-  source: "employee_input" | "occupation" | "representative" | "catalog_default" | "pending_rep";
+  source: "employee_input" | "occupation" | "representative" | "catalog_default" | "pending_rep" | "payslip";
   ticket_field: string | null;
 }
 

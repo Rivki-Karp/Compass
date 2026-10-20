@@ -63,7 +63,7 @@ from compass.tools.services import Services
 VIEW_VERSION = 1
 
 ChipSource = Literal[
-    "employee_input", "occupation", "representative", "catalog_default", "pending_rep"
+    "employee_input", "occupation", "representative", "catalog_default", "pending_rep", "payslip"
 ]
 Unit = Literal["ils", "percent", "points", "count", "text"]
 
@@ -178,7 +178,7 @@ class ViewInvariantError(AssertionError):
 
 _SLOT_SOURCE: dict[str, ChipSource] = {
     "employee": "employee_input",
-    "payslip": "employee_input",  # no payslip upload yet; the employee supplied it
+    "payslip": "payslip",  # confirmed by the employee from their payslip: "לפי התלוש"
     "derived": "occupation",  # the group, derived from the occupation
     "representative": "representative",
 }

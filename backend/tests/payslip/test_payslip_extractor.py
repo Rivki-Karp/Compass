@@ -88,6 +88,10 @@ def extractor(sdk: FakeSDK) -> ClaudeExtractor:
 def test_the_request_has_no_tools_no_conversation_and_the_schema(model: str) -> None:
     params = request(model, pdf(), "application/pdf")
     assert set(params) == {"model", "max_tokens", "system", "thinking", "output_config", "messages"}
+    sdk = FakeSDK(**{"haiku" if model == HAIKU else "sonnet": [response(GOOD)]})
+    extractor(sdk).call(model, pdf(), "application/pdf", timeout=7)
+    # what is sent: exactly the request, and the attempt's timeout (an SDK option)
+    assert set(sdk.requests[0]) == {*params, "timeout"} and sdk.requests[0]["timeout"] == 7
     assert params["max_tokens"] == MAX_TOKENS == 800
     assert params["output_config"]["format"] == {"type": "json_schema", "schema": EXTRACTION_SCHEMA}
     [turn] = params["messages"]  # one user turn: the file and a fixed instruction
@@ -113,14 +117,16 @@ def test_the_system_prompt_says_the_document_is_data() -> None:
         assert name in SYSTEM_PROMPT
 
 
-def test_the_live_client_retries_once_with_the_timeout(tmp_path: Any) -> None:
+def test_the_live_client_has_no_sdk_retries_and_the_capped_timeout(tmp_path: Any) -> None:
     settings = Settings(
         app_db=tmp_path / "a.db", payslip=True, anthropic_api_key="sk-ant-x", payslip_timeout_s=12
     )
     service = build_service(settings, Store(tmp_path / "a.db"))
     assert service is not None
-    sdk = service.extractor._sdk  # type: ignore[attr-defined]
-    assert sdk.max_retries == 1 and sdk.timeout == 12
+    live = service.extractor
+    # the one retry is the extractor's own, so the 45 s deadline covers it
+    assert live._sdk.max_retries == 0 and live._sdk.timeout == 12  # type: ignore[attr-defined]
+    assert live.attempt_seconds == 12 and live.deadline_seconds == 45  # type: ignore[attr-defined]
     assert service.count_spend is True
 
 
@@ -150,12 +156,51 @@ def test_the_happy_path_is_one_call_on_the_primary() -> None:
 
 
 @pytest.mark.parametrize("error", [timeout, server_error])
-def test_an_api_error_after_the_retry_falls_back(error: Any) -> None:
-    sdk = FakeSDK(haiku=[error()], sonnet=[response(GOOD)])
+def test_a_transient_error_is_retried_once_then_falls_back(error: Any) -> None:
+    sdk = FakeSDK(haiku=[error(), error()], sonnet=[response(GOOD)])
     result = extractor(sdk).extract(pdf(), "application/pdf")
     assert (result.model, result.fallback) == (SONNET, True)
-    assert [r["model"] for r in sdk.requests] == [HAIKU, SONNET]
-    assert [model for model, _ in result.calls] == [SONNET]  # the failed call had no usage
+    assert [r["model"] for r in sdk.requests] == [HAIKU, HAIKU, SONNET]
+    assert [model for model, _ in result.calls] == [SONNET]  # the failed calls had no usage
+
+
+def test_the_retry_can_succeed_on_the_primary() -> None:
+    sdk = FakeSDK(haiku=[timeout(), response(GOOD)])
+    result = extractor(sdk).extract(pdf(), "application/pdf")
+    assert (result.model, result.fallback) == (HAIKU, False)
+    assert len(sdk.requests) == 2
+
+
+def test_a_non_transient_error_falls_back_at_once() -> None:
+    request_ = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    bad = anthropic.BadRequestError(
+        "bad", response=httpx2.Response(400, request=request_), body=None
+    )
+    sdk = FakeSDK(haiku=[bad], sonnet=[response(GOOD)])
+    assert extractor(sdk).extract(pdf(), "application/pdf").fallback is True
+    assert [r["model"] for r in sdk.requests] == [HAIKU, SONNET]  # no retry on a 400
+
+
+def test_one_deadline_covers_every_attempt_of_both_models() -> None:
+    """Each attempt waits at most min(20 s, the time left); after 45 s: the clean error."""
+    now = [0.0]
+
+    class SlowSDK(FakeSDK):
+        def _create(self, **params: Any) -> Any:
+            self.requests.append(params)
+            now[0] += params["timeout"]  # it times out after the whole wait
+            raise timeout()
+
+    sdk = SlowSDK()
+    slow = ClaudeExtractor(
+        "sk-ant-x", HAIKU, SONNET, timeout_seconds=20, sdk_client=sdk, clock=lambda: now[0]
+    )
+    with pytest.raises(ExtractionFailed) as failed:
+        slow.extract(pdf(), "application/pdf")
+    waits = [(r["model"], r["timeout"]) for r in sdk.requests]
+    assert waits == [(HAIKU, 20), (HAIKU, 20), (SONNET, 5)]  # 45 s in all, never more
+    assert now[0] == 45
+    assert "deadline of 45s passed" in str(failed.value)
 
 
 @pytest.mark.parametrize(
@@ -182,7 +227,7 @@ def test_low_confidence_never_falls_back() -> None:
 
 
 def test_a_double_failure_is_a_clean_error_that_quotes_nothing() -> None:
-    sdk = FakeSDK(haiku=[response(f"I see {FAKE_NAME} {FAKE_ID}")], sonnet=[timeout()])
+    sdk = FakeSDK(haiku=[response(f"I see {FAKE_NAME} {FAKE_ID}")], sonnet=[timeout(), timeout()])
     with pytest.raises(ExtractionFailed) as failed:
         extractor(sdk).extract(pdf(), "application/pdf")
     message = str(failed.value)
