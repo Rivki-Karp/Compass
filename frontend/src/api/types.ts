@@ -207,6 +207,8 @@ export interface Health {
   dev_tools: boolean;
   /** Whether each token is set on the server (never its value). */
   auth?: { rep: boolean; admin: boolean };
+  /** Present only with COMPASS_PAYSLIP=1: the upload's limits (absent: no attach button). */
+  payslip?: { max_bytes: number; max_pages: number; types: string[] };
 }
 
 /** GET /api/admin/stats: judges mode's tiles, from committed files. Money is display-ready

@@ -13,6 +13,7 @@ import { PHONE_QUERY, phoneBarVisible } from "../employee/phoneBarRules";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { EngineRoom } from "../judges/EngineRoom";
 import { HowItWorks, StatsGrid } from "../judges/Summary";
+import { usePayslip } from "../payslip/usePayslip";
 import { useTurnSelection } from "../judges/useTurnSelection";
 import { demoSuggestions, GENERAL_SUGGESTIONS } from "../employee/suggestions";
 import { clearToken, getToken, setToken } from "../lib/tokens";
@@ -95,6 +96,13 @@ export function EmployeePage() {
     return tokenCheck(response.status, [401]);
   }
 
+  // the payslip upload: only when the server says the flag is on (health.payslip)
+  const payslip = usePayslip({
+    sessionId: session.sessionId,
+    limits: health?.payslip,
+    pending: state.payslip,
+  });
+
   // Every alternative on screen (list_options) and the one shown: the employee's pick, until
   // the agent compares something new; by default the one the agent compared last, else the best.
   const { options, comparison, selected, select } = useOptionSelection(state);
@@ -151,6 +159,8 @@ export function EmployeePage() {
               onSend={session.send}
               limitReached={limitReached(state)}
               onNewSession={session.newSession}
+              attach={payslip.attach}
+              tray={payslip.tray}
             />
             <div className="flex min-w-0 flex-[999_1_640px] flex-col gap-6">
               {selector}

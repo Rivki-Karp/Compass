@@ -20,6 +20,9 @@ const PATHS = {
   ],
   x: ["M18 6l-12 12", "M6 6l12 12"],
   refresh: ["M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4", "M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"],
+  paperclip: [
+    "M15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3l6.5 -6.5a3 3 0 0 0 -6 -6l-6.5 6.5a4.5 4.5 0 0 0 9 9l6.5 -6.5",
+  ],
 } as const;
 
 export type IconName = keyof typeof PATHS;

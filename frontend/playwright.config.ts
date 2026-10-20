@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
-import { TOKENS } from "./e2e/support";
+import { PAYSLIP_PORT, TOKENS } from "./e2e/support";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,6 +18,19 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 const PORT = 8765;
 const DEMO_DB = path.join(HERE, "test-results", `e2e-${Date.now()}.db`);
+// The payslip upload's own server (COMPASS_PAYSLIP=1, PAYSLIP_PORT): every other test runs
+// with it off.
+const PAYSLIP_DB = path.join(HERE, "test-results", `e2e-payslip-${Date.now()}.db`);
+const SERVER_ENV = {
+  COMPASS_LLM: "scripted",
+  // the e2e server only: lets a test run list_options the way the model would
+  COMPASS_DEV_TOOLS: "1",
+  // every test types from 127.0.0.1: not the per-IP limit under test here
+  COMPASS_MESSAGE_RATE_PER_MINUTE: "1000",
+  COMPASS_REP_TOKEN: TOKENS.rep,
+  COMPASS_ADMIN_TOKEN: TOKENS.admin,
+  COMPASS_WEB_DIST: path.join(HERE, "dist"),
+};
 const EXTERNAL = process.env.E2E_BASE_URL;
 
 export default defineConfig({
@@ -39,22 +52,23 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
   ],
-  webServer: EXTERNAL ? undefined : {
-    command: `npm run build && cd ../backend && uv run python -m uvicorn compass.api.main:app --workers 1 --port ${PORT}`,
-    cwd: HERE,
-    url: `http://127.0.0.1:${PORT}/api/health`,
-    reuseExistingServer: false,
-    timeout: 180_000,
-    env: {
-      COMPASS_LLM: "scripted",
-      // the e2e server only: lets a test run list_options the way the model would
-      COMPASS_DEV_TOOLS: "1",
-      // every test types from 127.0.0.1: not the per-IP limit under test here
-      COMPASS_MESSAGE_RATE_PER_MINUTE: "1000",
-      COMPASS_DEMO_DB: DEMO_DB,
-      COMPASS_REP_TOKEN: TOKENS.rep,
-      COMPASS_ADMIN_TOKEN: TOKENS.admin,
-      COMPASS_WEB_DIST: path.join(HERE, "dist"),
+  // In order: the first builds the UI, the second serves the same build with the flag on.
+  webServer: EXTERNAL ? undefined : [
+    {
+      command: `npm run build && cd ../backend && uv run python -m uvicorn compass.api.main:app --workers 1 --port ${PORT}`,
+      cwd: HERE,
+      url: `http://127.0.0.1:${PORT}/api/health`,
+      reuseExistingServer: false,
+      timeout: 180_000,
+      env: { ...SERVER_ENV, COMPASS_DEMO_DB: DEMO_DB, COMPASS_PAYSLIP: "0" },
     },
-  },
+    {
+      command: `cd ../backend && uv run python -m uvicorn compass.api.main:app --workers 1 --port ${PAYSLIP_PORT}`,
+      cwd: HERE,
+      url: `http://127.0.0.1:${PAYSLIP_PORT}/api/health`,
+      reuseExistingServer: false,
+      timeout: 180_000,
+      env: { ...SERVER_ENV, COMPASS_DEMO_DB: PAYSLIP_DB, COMPASS_PAYSLIP: "1" },
+    },
+  ],
 });

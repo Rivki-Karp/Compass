@@ -99,6 +99,13 @@ export interface SessionState {
   lastError: string | null; // agent_error kind of the latest failed run
   /** Events since the last run finished, outside any run; the next run takes them as `before`. */
   between: SessionEvent[];
+  /** A payslip read and waiting for the employee to confirm it (COMPASS_PAYSLIP=1), else null. */
+  payslip: PendingPayslip | null;
+}
+
+export interface PendingPayslip {
+  seq: number;
+  fields: PayloadByType["payslip_extracted"]["fields"];
 }
 
 export const initialSession: SessionState = {
@@ -113,6 +120,7 @@ export const initialSession: SessionState = {
   optionKeys: [],
   openTickets: [],
   lastError: null,
+  payslip: null,
   between: [],
 };
 
@@ -295,11 +303,14 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
     case "session_status":
       return { ...next, status: event.payload.status };
 
-    // payslip_*: the confirmation card arrives with the UI stage; until then nothing on screen
-    case "session_created":
     case "payslip_extracted":
-    case "payslip_failed":
+      return { ...next, payslip: { seq: event.seq, fields: event.payload.fields } };
+
     case "payslip_confirmed":
+      return { ...next, payslip: null };
+
+    case "session_created":
+    case "payslip_failed":
     case "profile_updated":
     case "current_situation_set":
     case "guard_check":

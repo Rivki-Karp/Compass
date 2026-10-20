@@ -252,3 +252,17 @@ def test_size_buckets() -> None:
     assert size_bucket(500 * 1024) == "100KB-1MB"
     assert size_bucket(3 * 2**20) == "1-5MB"
     assert size_bucket(6 * 2**20) == ">5MB"
+
+
+def test_health_reports_the_payslip_limits_only_with_the_flag(
+    make_client: Callable[..., TestClient],
+) -> None:
+    """The UI shows the attach button from this (never a frontend flag); off: as it was."""
+    with make_client(payslip=False) as off:
+        assert "payslip" not in off.get("/api/health").json()
+    with make_client(payslip_max_bytes=1234) as on:
+        assert on.get("/api/health").json()["payslip"] == {
+            "max_bytes": 1234,
+            "max_pages": 3,
+            "types": ["application/pdf", "image/jpeg", "image/png"],
+        }

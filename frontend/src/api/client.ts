@@ -6,7 +6,14 @@
  * Vite proxies /api in dev, FastAPI serves the build in the demo.
  */
 
-import type { AnswerError, Health, JudgesStats, TicketWithView } from "./types";
+import type {
+  AnswerError,
+  Health,
+  JudgesStats,
+  PayloadByType,
+  PayslipConfirmed,
+  TicketWithView,
+} from "./types";
 
 /** One question's answer in POST /tickets/{id}/answer (`answers`). */
 export type QuestionAnswer =
@@ -86,6 +93,46 @@ export const api = {
       token,
     ),
 };
+
+export type PayslipCandidate = Pick<PayloadByType["payslip_extracted"], "fields" | "dropped_keys">;
+
+/**
+ * POST the file itself as the body (never multipart). `onSent` fires once the bytes are out and
+ * the server is reading the payslip. Rejects with ApiError (its Hebrew `errors`) on a refusal.
+ */
+export function uploadPayslip(
+  sessionId: string,
+  file: Blob,
+  onSent: () => void,
+): Promise<PayslipCandidate> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", apiUrl(`/sessions/${sessionId}/payslip`));
+    xhr.setRequestHeader("Content-Type", file.type);
+    xhr.upload.onload = onSent;
+    xhr.onload = () => {
+      let body: { detail?: unknown; errors?: AnswerError[] } | PayslipCandidate | null = null;
+      try {
+        body = JSON.parse(xhr.responseText) as typeof body;
+      } catch {
+        body = null;
+      }
+      if (xhr.status === 201 && body) resolve(body as PayslipCandidate);
+      else {
+        const parsed = (body ?? {}) as { detail?: unknown; errors?: AnswerError[] };
+        reject(new ApiError(xhr.status, parsed.detail, parsed.errors ?? []));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError(0, "network"));
+    xhr.send(file);
+  });
+}
+
+export const confirmPayslip = (sessionId: string, fields: Record<string, string>) =>
+  request<PayslipConfirmed>(`/sessions/${sessionId}/payslip/confirm`, {
+    method: "POST",
+    body: JSON.stringify({ fields }),
+  });
 
 export const sessionEventsUrl = (sessionId: string) => apiUrl(`/sessions/${sessionId}/events`);
 export const ticketEventsUrl = apiUrl("/tickets/events");

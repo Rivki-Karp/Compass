@@ -45,6 +45,7 @@ from compass.engine.context import ContextError
 from compass.engine.serialize import plain_json
 from compass.labels import error_message
 from compass.payslip.service import build_service
+from compass.payslip.upload import MAGIC as PAYSLIP_TYPES
 from compass.rules import RulesError
 from compass.state import NotFound, Store
 from compass.tools import ToolRunner
@@ -530,6 +531,19 @@ def create_app(
             # "scripted": demo mode (the UI shows its badge and the scripts' messages).
             "llm": llm_mode,
             "demo_scripts": scripts,
+            # only with COMPASS_PAYSLIP=1 (off: the response is as it was): the UI shows the
+            # attach button, and pre-checks type and size (the server's checks are the real ones)
+            **(
+                {
+                    "payslip": {
+                        "max_bytes": settings.payslip_max_bytes,
+                        "max_pages": settings.payslip_max_pages,
+                        "types": sorted(PAYSLIP_TYPES),
+                    }
+                }
+                if settings.payslip
+                else {}
+            ),
         }
 
     app.include_router(api)

@@ -7,6 +7,8 @@ import { expect, type APIRequestContext, type Page } from "@playwright/test";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 export const TOKENS = { rep: "rep-e2e", admin: "admin-e2e" } as const;
+/** The e2e server with the payslip upload on (playwright.config.ts); the main one has it off. */
+export const PAYSLIP_PORT = 8766;
 
 /** README screenshots (brief Stage 8): committed from this run. */
 export const SCREENSHOTS = path.resolve(HERE, "..", "..", "docs", "screenshots");
