@@ -141,7 +141,14 @@ class SaveProfileInput(_Input):
     pension_percent: Decimal | None = Field(None, description="Employee pension rate, percent")
     study_fund_percent: Decimal | None = Field(None, description="Employee study fund, percent")
     credit_points: Decimal | None = Field(None, description="Tax credit points (0.25 steps)")
-    children_under_23: int | None = Field(None, description="Children under 23")
+    children_under_23: int | None = Field(
+        None,
+        description=(
+            "Number of the employee's children who count toward this benefit (the age limit is "
+            "defined in the rules). When asking the employee, either call get_rule first and "
+            "quote the limit from its result, or ask in words without stating an age."
+        ),
+    )
     unknown_fields: list[str] = Field(
         default_factory=list, description="Fields the employee said they don't know"
     )

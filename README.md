@@ -130,7 +130,7 @@ Per-scenario figures are averages over the repeats.
 
 **Cost per conversation:** **$0.0334**, the last report's run cost over its 22 scenario runs.
 
-**Total spend on evals:** **$10.24** of the $30.00 cap, over every eval run so far: 345 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
+**Total spend on evals:** **$11.12** of the $30.00 cap, over every eval run so far: 372 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
 
 <!-- results:end -->
 
