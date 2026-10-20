@@ -610,5 +610,5 @@ def _summary(name: str, result: dict[str, Any]) -> dict[str, Any]:
     if name == "save_profile":
         return {"saved": sorted(result["saved"]), "missing": result["missing"]}
     if name == "list_options":
-        return {"options": len(result["options"])}
+        return {"options": len(result["options"]), "partial": result.get("partial", False)}
     return {}

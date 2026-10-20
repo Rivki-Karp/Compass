@@ -82,7 +82,9 @@ def test_the_engine_gives_the_same_net_with_or_without_today() -> None:
     assert alone.missing == ("current_situation",) and alone.today_unknown and alone.partial
 
 
-def test_without_today_an_unknown_rate_leaves_nothing_to_show() -> None:
+def test_without_today_an_unknown_rate_is_a_partial_result_not_a_refusal() -> None:
+    """Item 4: compare and list_options compute what is known. Unknown contribution rates with
+    today unknown too: no diff and no net (the net needs the rates), listed as missing."""
     ctx = build_context()
     profile = EmployeeProfile(
         group="ב",
@@ -92,10 +94,55 @@ def test_without_today_an_unknown_rate_leaves_nothing_to_show() -> None:
         bonus=Decimal(0),
         study_fund_pct=Decimal("0.025"),
         credit_points=Decimal(3),
-    )  # the pension rate is unknown: the net is unknown, and there is no diff to fall back on
+    )  # the pension rate is unknown
+    alone = engine_compare(profile, None, CompanyCar(car_id="CAR-06"), ctx)
+    assert alone.today is None and alone.diff is None and alone.display_diff is None
+    assert alone.alternative.net is None and alone.alternative.employee_pension is None
+    assert alone.alternative.income_tax > 0  # what does not depend on the rate is computed
+    assert alone.missing == ("current_situation", "pension_pct") and alone.partial
+    options = engine_options(profile, None, ctx)
+    assert options and all(o.comparison.alternative.net is None for o in options)
+    assert all(o.comparison.missing == ("current_situation", "pension_pct") for o in options)
+
+
+def test_the_order_without_rates_is_the_order_with_them() -> None:
+    """The pension and study fund are cash income times a rate: the same for every option, so
+    ranking by the net at zero rates ranks exactly as the real nets do."""
+    ctx = build_context()
+    full = EmployeeProfile(
+        group="ב",
+        occupation="מפתח/ת תוכנה",
+        base_salary=Decimal(18500),
+        commissions=Decimal(0),
+        bonus=Decimal(0),
+        pension_pct=Decimal("0.065"),
+        study_fund_pct=Decimal("0.025"),
+        credit_points=Decimal(3),
+    )
+    partial = full.model_copy(update={"pension_pct": None})
+    known = [o.scenario for o in engine_options(full, None, ctx)]
+    unknown = [o.scenario for o in engine_options(partial, None, ctx)]
+    assert unknown == known
+
+
+@pytest.mark.parametrize("field", ["commissions", "bonus", "base_salary", "credit_points"])
+def test_without_today_another_unknown_input_still_has_no_net_to_compute(field: str) -> None:
+    ctx = build_context()
+    values = dict(
+        group="ב",
+        occupation="מפתח/ת תוכנה",
+        base_salary=Decimal(18500),
+        commissions=Decimal(0),
+        bonus=Decimal(0),
+        pension_pct=Decimal("0.065"),
+        study_fund_pct=Decimal("0.025"),
+        credit_points=Decimal(3),
+    )
+    values.pop(field)
+    profile = EmployeeProfile(**values)  # type: ignore[arg-type]
     with pytest.raises(MissingInputs) as raised:
         engine_compare(profile, None, CompanyCar(car_id="CAR-06"), ctx)
-    assert raised.value.fields == ("current_situation", "pension_pct")
+    assert raised.value.fields == ("current_situation", field)
     with pytest.raises(MissingInputs):
         engine_options(profile, None, ctx)
 

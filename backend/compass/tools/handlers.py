@@ -25,6 +25,7 @@ from compass.engine.models import (
     Scenario,
     Waiver,
 )
+from compass.engine.options import list_eligibility as engine_eligibility_list
 from compass.engine.options import list_options as engine_options
 from compass.engine.serialize import plain_json, to_api_dict
 from compass.labels import car_details
@@ -803,13 +804,24 @@ class ListOptionsInput(_Input):
 
 
 def list_options(services: Services, session_id: str, data: ListOptionsInput) -> dict[str, Any]:
-    """Each car's participation is resolved exactly as compare() resolves it."""
+    """Each car's participation is resolved exactly as compare() resolves it.
+
+    Never a refusal for a missing profile input: what is unknown is marked (`partial`,
+    `missing`). Unknown pension / study fund rates and an unknown today's car give a partial
+    comparison per option (as compare does); when an input every net needs is unknown
+    (salary, commissions, bonus, credit points) the options are listed with their eligibility
+    only."""
     ctx = services.ctx
     unknown = sorted(set(data.participation) - set(ctx.catalog))
     if unknown:
         raise ToolError("not_found", "unknown catalog car id in participation", car_ids=unknown)
     infos: dict[str, dict[str, Any]] = {}
-    options = _engine_options(services, session_id, data.participation, infos)
+    try:
+        options = _engine_options(services, session_id, data.participation, infos)
+    except ToolError as error:
+        if error.code != "missing_inputs":
+            raise
+        return _options_without_amounts(services, session_id, error)
     listed = to_api_dict(options, ctx.rules)
     for option, data_out in zip(options, listed, strict=True):
         info = infos.get(getattr(option.scenario, "car_id", ""), {})
@@ -824,7 +836,38 @@ def list_options(services: Services, session_id: str, data: ListOptionsInput) ->
         data_out["group"] = None if car is None else car.group
         data_out["drive"] = None if car is None else car.drive
     _emit_option_set(services, session_id, options, data.participation)
-    return {"options": listed}
+    missing = list(dict.fromkeys(f for o in options for f in tool_fields(o.comparison.missing)))
+    return {"options": listed, "partial": bool(missing), "missing": missing}
+
+
+def _options_without_amounts(
+    services: Services, session_id: str, error: ToolError
+) -> dict[str, Any]:
+    """The eligibility of every alternative and no money, for when an input every net needs
+    is unknown. Nothing goes on screen."""
+    ctx = services.ctx
+    slots = services.store.slots(session_id)
+    today, _ = _today_for_engine(services, session_id, slots)
+    verdicts = engine_eligibility_list(profile_from_slots(slots), today, ctx)
+    listed = []
+    for scenario, verdict in verdicts:
+        car = ctx.catalog.get(getattr(scenario, "car_id", ""))
+        listed.append(
+            {
+                "scenario": plain_json(scenario),
+                "eligibility": to_api_dict(verdict, ctx.rules),
+                "comparison": None,  # no amounts: an input every net needs is unknown
+                "commercial_name": None if car is None else car.commercial_name,
+                "group": None if car is None else car.group,
+                "drive": None if car is None else car.drive,
+            }
+        )
+    return {
+        "options": listed,
+        "partial": True,
+        "no_amounts": True,
+        "missing": error.details["fields"],
+    }
 
 
 def _engine_options(
@@ -884,7 +927,9 @@ def _emit_option_set(
         alternative = scenario.model_dump(mode="json")
         view = build_view(services, session_id, alternative, {**payload, "origin": "server"})
         entries.append({"alternative": alternative, "view": view})
-    entries.sort(key=lambda e: -_rank(e["view"]))
+    ranks = [_rank(e["view"]) for e in entries]
+    if None not in ranks:  # else (no nets at all): the engine's order, which ranks them too
+        entries = [e for _, e in sorted(zip(ranks, entries, strict=True), key=lambda r: -r[0])]
     services.store.append_event(
         session_id,
         "comparison_set_ready",
@@ -898,8 +943,9 @@ def _emit_option_set(
     )
 
 
-def _rank(view: Mapping[str, Any]) -> int:
-    """A view's place in the selector: its diff, or its own net while today is unknown."""
+def _rank(view: Mapping[str, Any]) -> int | None:
+    """A view's place in the selector: its diff, or its own net while today is unknown (None
+    when both are unknown: the engine ranked the options by the net at zero rates)."""
     diff = view["display_diff"]
     return view["alternative_net"] if diff is None else diff
 

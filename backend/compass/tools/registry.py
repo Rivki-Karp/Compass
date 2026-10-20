@@ -123,7 +123,10 @@ TOOLS: tuple[Tool, ...] = (
         "offer eligible alternatives of the same drive type. Quote only its display values. Works "
         "before today's car is known: each option's net, no diff (today_unknown: true); do not "
         "wait for today's car to show the options. Once it is set, the server recomputes the "
-        "options on screen with their diffs.",
+        "options on screen with their diffs. It never refuses for a missing input: "
+        "partial: true and `missing` list what is unknown (with the pension / study fund "
+        "rates unknown a net is null); no_amounts: true means only each option's eligibility "
+        "is known, no net and no diff: state no amounts, say what is missing.",
         h.ListOptionsInput,
         h.list_options,
     ),

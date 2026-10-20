@@ -264,7 +264,9 @@ class Comparison(_Frozen):
 
     - contribution rates unknown: the nets are None, the diff is still exact;
     - today unknown (CURRENT_SITUATION in `missing`): `today`, the diff, its lines and the
-      facts are absent, and the alternative's own net is known (it does not depend on today).
+      facts are absent, and the alternative's own net is known (it does not depend on today),
+      unless the contribution rates are unknown too: then `missing` lists them as well and the
+      net is None (nothing is shown as a number that cannot be computed).
     """
 
     today: NetBreakdown | None

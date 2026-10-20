@@ -247,17 +247,25 @@ def model_view(name: str, result: dict[str, Any]) -> str:
                     "status": option["eligibility"]["status"],
                     "reason": option["eligibility"]["reason"],
                 },
-                "display_diff": option["comparison"]["display_diff"],
-                "net": option["comparison"]["alternative"]["display"]["net"],
-                "partial": option["comparison"]["partial"],
+                # no amounts (comparison None): an input every net needs is unknown
+                "display_diff": None
+                if option["comparison"] is None
+                else option["comparison"]["display_diff"],
+                "net": None
+                if option["comparison"] is None
+                else option["comparison"]["alternative"]["display"]["net"],
+                "partial": True
+                if option["comparison"] is None
+                else option["comparison"]["partial"],
                 "participation_source": option.get("participation_source"),
                 "pending_rep": option.get("pending_rep"),
             }
             for option in result["options"]
         ]
-        today = result["options"][0]["comparison"]["today"] if result["options"] else None
+        first = result["options"][0]["comparison"] if result["options"] else None
+        today = None if first is None else first["today"]
         if today is not None:  # today's net is the same in every option
             view["today_net"] = today["display"]["net"]
-        elif result["options"]:  # each option's own net; the diffs wait for today's car
+        elif first is not None:  # each option's own net; the diffs wait for today's car
             view["today_unknown"] = True
     return json.dumps(view, ensure_ascii=False, separators=(",", ":"), sort_keys=True)

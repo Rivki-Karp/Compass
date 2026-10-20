@@ -363,7 +363,11 @@ def test_waiver_maintenance_without_an_occupation_is_the_representatives(
 
 
 def test_list_options(runner: ToolRunner, sid: str) -> None:
-    err(runner.run(sid, "list_options", {}), "missing_inputs")
+    # nothing is known: not a refusal; every alternative with its eligibility, no amounts
+    empty = ok(runner.run(sid, "list_options", {}))
+    assert empty["partial"] is True and empty["no_amounts"] is True
+    assert {"base_salary", "commissions", "bonus", "pension_percent"} <= set(empty["missing"])
+    assert all(o["comparison"] is None for o in empty["options"])
     _ready(runner, sid)
     options = ok(runner.run(sid, "list_options", {}))["options"]
     assert len(options) == 20  # 20 catalog cars minus today's + the waiver

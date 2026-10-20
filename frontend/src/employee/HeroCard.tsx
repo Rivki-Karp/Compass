@@ -166,6 +166,16 @@ export function HeroCard({
           ההפרש חלקי — חסרים: {view.missing.map((m) => m.label).join(", ")}
         </Notice>
       ) : null}
+      {view.partial && view.display_diff === null && view.alternative_net === null ? (
+        // today's car and the contribution rates are both unknown: no difference, and no net
+        <Notice>
+          הנטו חלקי — חסרים:{" "}
+          {view.missing
+            .filter((m) => m.field !== "current_situation")
+            .map((m) => m.label)
+            .join(", ")}
+        </Notice>
+      ) : null}
       {view.hypothetical ? (
         <Notice>חישוב היפותטי: לפי הכללים החלופה הזו לא זמינה לך כרגע.</Notice>
       ) : null}

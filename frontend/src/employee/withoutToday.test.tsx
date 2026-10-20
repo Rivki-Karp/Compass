@@ -94,3 +94,43 @@ describe("after today's car is set", () => {
     }
   });
 });
+
+describe("today's car and the pension rate both unknown (item 4)", () => {
+  // the server's view for it: no difference and no net, the pension rate listed as missing
+  const first = optionList(before)[0]?.comparison;
+  if (!first) throw new Error("no option");
+  const partial = {
+    ...first,
+    view: {
+      ...first.view,
+      alternative_net: null,
+      partial: true,
+      missing: [
+        { field: "current_situation", label: "הרכב של היום" },
+        { field: "pension_percent", label: "אחוז פנסיה" },
+      ],
+    },
+  };
+
+  it("the hero says the net is partial and what is missing, with a dash for the net", () => {
+    render(<HeroCard comparison={partial} />);
+    const hero = screen.getByRole("article", { name: "תוצאת ההשוואה" });
+    expect(hero).toHaveTextContent(NOTE);
+    expect(hero).toHaveTextContent("הנטו חלקי — חסרים: אחוז פנסיה");
+    expect(hero).not.toHaveTextContent("הרכב של היום,"); // today's car is the note's job
+  });
+
+  it("the selector lists the option without a net, partial", () => {
+    render(
+      <OptionsSelector
+        options={[{ key: "x", comparison: partial }]}
+        selected="x"
+        onSelect={() => undefined}
+      />,
+    );
+    const radio = screen.getByRole("radio");
+    expect(radio).toHaveTextContent(NOTE);
+    expect(radio).toHaveTextContent("חלקי");
+    expect(radio.textContent).not.toContain("נטו");
+  });
+});
