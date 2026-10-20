@@ -451,3 +451,34 @@ to see a real reply. Open https://compass-web-hcpz.onrender.com/rep and enter th
 - *`/rep` is a 404 on `compass-web`:* the rewrite rule is missing (9c, UI step 6).
 - *Replies stop with an error and the Anthropic Console shows the workspace at its limit:* that
   is the hard spend limit doing its job; raise it in the Console only if you mean to.
+
+## 10. The payslip upload (optional, behind a flag)
+
+Off by default (`COMPASS_PAYSLIP=0`, also in `render.yaml`): nothing on stage or on the deployed
+site changes. Turn it on only after you have tried it by hand.
+
+**Before you turn it on (live)**
+
+1. `ANTHROPIC_API_KEY` is set (the same key as the agent's); `COMPASS_PAYSLIP=1`. Without the
+   key the server refuses to start and names the variable.
+2. `uv run --project backend python tasks.py payslip-check`: both models exist, take a PDF and an
+   image, and read the synthetic payslip (8 of 8 fields). About $0.02.
+3. `uv run --project backend python tasks.py payslip-smoke`: payslips 1 to 4, including the
+   injection one (it must print "base_salary was not 99999" and no group field). About $0.002.
+4. Upload a real-looking payslip yourself, check the card against it, confirm, and look at the
+   cards: the changed inputs carry the green **לפי התלוש** chip.
+5. Remember the privacy notice names Anthropic: the payslip is sent there to be read. Use
+   synthetic payslips on stage, never a real person's.
+
+**On stage (demo mode)**: `$env:COMPASS_PAYSLIP="1"` then `tasks.py demo`. The paperclip appears
+next to the message box; any PDF, JPG or PNG under 5 MB reads as the demo payslip (no key, no
+network). After "אישור ושמירה" the salary and pension cards say **לפי התלוש** and the diff moves.
+Judges mode shows the read: each field, its confidence and flag (and, live, the model and cost),
+never the file. The scripted model answers a confirmation with one fixed line, no numbers.
+
+**If it misbehaves**: set `COMPASS_PAYSLIP=0` and restart (Render: **Environment** → save). The
+endpoints answer 404 and the button disappears. (On Render's free plan a restart also drops
+every session, a pending card included.)
+
+**Limits** (all settings, defaults): 5 MB, 3 pages, 3 uploads per session, 5 per IP per minute,
+20 s per attempt and 45 s in all; an upload over the daily spend cap is refused.
