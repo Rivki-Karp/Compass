@@ -13,7 +13,7 @@ from pathlib import Path
 from compass.config import ALIASES_YAML, RULES_YAML, VEHICLES_DB
 from compass.engine.context import EngineContext, build_context
 from compass.rules import Rules, load_rules
-from compass.search import Searcher, load_aliases
+from compass.search import Searcher, load_aliases, load_manufacturer_aliases
 from compass.state import Store
 
 
@@ -49,6 +49,7 @@ class Services:
             load_aliases(self.aliases_path),
             ctx.rules.value_of_use.tax_year,
             vehicles_db=self.vehicles_db,
+            manufacturer_aliases=load_manufacturer_aliases(self.aliases_path),
         )
         return _Data(ctx=ctx, searcher=searcher, rules_sha256=sha256)
 

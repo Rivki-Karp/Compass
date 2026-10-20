@@ -104,9 +104,26 @@ def score(query: str, candidate: str) -> float:
     return (fuzz.WRatio(query, candidate) + fuzz.ratio(query, candidate)) / 2
 
 
+MANUFACTURERS_KEY = "manufacturers"  # aliases.yaml's section of brand spellings
+
+
 def load_aliases(path: Path = ALIASES_YAML) -> dict[str, tuple[str, ...]]:
+    """The car aliases: catalog commercial_name -> aliases."""
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    return {str(name): tuple(str(alias) for alias in aliases) for name, aliases in data.items()}
+    return {
+        str(name): tuple(str(alias) for alias in aliases)
+        for name, aliases in data.items()
+        if name != MANUFACTURERS_KEY
+    }
+
+
+def load_manufacturer_aliases(path: Path = ALIASES_YAML) -> dict[str, tuple[str, ...]]:
+    """The manufacturer spellings: the start of a catalog manufacturer_name -> spellings."""
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return {
+        str(maker): tuple(str(alias) for alias in aliases)
+        for maker, aliases in (data.get(MANUFACTURERS_KEY) or {}).items()
+    }
 
 
 def tax_authority_key(record: VehicleRecord) -> str:
@@ -175,11 +192,20 @@ class Searcher:
         aliases: Mapping[str, tuple[str, ...]],
         value_of_use_tax_year: int,
         vehicles_db: Path = VEHICLES_DB,
+        manufacturer_aliases: Mapping[str, tuple[str, ...]] | None = None,
     ) -> None:
         by_name = {car.commercial_name: car for car in catalog.values()}
         unknown = sorted(set(aliases) - set(by_name))
         if unknown:
             raise ValueError(f"aliases.yaml: unknown catalog commercial_name(s) {unknown}")
+        makers = {f"{normalize(car.manufacturer_name)} " for car in catalog.values()}
+        maker_aliases = {
+            normalize(maker): tuple(normalize(a) for a in spellings)
+            for maker, spellings in (manufacturer_aliases or {}).items()
+        }
+        unknown = sorted(k for k in maker_aliases if not any(m.startswith(f"{k} ") for m in makers))
+        if unknown:
+            raise ValueError(f"aliases.yaml: unknown catalog manufacturer(s) {unknown}")
         self._cars = [
             _Entry(
                 id=car.id,
@@ -198,6 +224,16 @@ class Searcher:
         # commercial name, for a Hebrew transliteration no alias covers.
         self._makers = {
             car.id: tuple(w for w in normalize(car.manufacturer_name).split() if len(w) >= 2)
+            for car in catalog.values()
+        }
+        # ...and the manufacturer's other spellings from aliases.yaml ("kia", "שקודה").
+        self._maker_spellings = {
+            car.id: tuple(
+                spelling
+                for key, spellings in maker_aliases.items()
+                if f"{normalize(car.manufacturer_name)} ".startswith(f"{key} ")
+                for spelling in spellings
+            )
             for car in catalog.values()
         }
         self._skeletons = {
@@ -293,8 +329,9 @@ class Searcher:
         """The catalog cars an employee might mean by `query`, best first, for a list to pick
         from (never a pick): every registration year, and besides search_vehicles' score on the
         names and aliases, a partial name ("קורולה" also lists COROLLA CROSS), the manufacturer
-        ("קיה": every Kia) and a Hebrew transliteration of the commercial name ("קודיאק" would
-        find KODIAQ). Empty when nothing scores MIN_SCORE."""
+        ("קיה", or a spelling from aliases.yaml such as "kia": every Kia) and a Hebrew
+        transliteration of the commercial name ("קודיאק" would find KODIAQ). Empty when nothing
+        scores MIN_SCORE."""
         normalized = normalize(query)
         if not normalized:
             return []
@@ -308,7 +345,12 @@ class Searcher:
                 if partial >= PARTIAL_MIN_SCORE and partial * PARTIAL_WEIGHT > best:
                     best, matched = partial * PARTIAL_WEIGHT, name
             maker = self._makers[entry.id]
-            named = any(fuzz.ratio(w, m) >= CONFIDENT_SCORE for w in words for m in maker)
+            named = any(fuzz.ratio(w, m) >= CONFIDENT_SCORE for w in words for m in maker) or any(
+                f" {s} " in f" {normalized} "
+                if " " in s
+                else any(fuzz.ratio(w, s) >= CONFIDENT_SCORE for w in words)
+                for s in self._maker_spellings[entry.id]
+            )
             if named and best < MAKER_SCORE:
                 best, matched = MAKER_SCORE, " ".join(maker)
             target = self._skeletons[entry.id]

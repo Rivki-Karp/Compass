@@ -2,7 +2,7 @@ import pytest
 
 from compass.data.catalog import load_catalog
 from compass.engine.context import EngineContext, build_context
-from compass.search import Searcher, load_aliases, normalize
+from compass.search import Searcher, load_aliases, load_manufacturer_aliases, normalize
 from compass.search.search import CONFIDENT_LEAD, CONFIDENT_SCORE, latin_skeleton
 
 
@@ -13,7 +13,13 @@ def ctx() -> EngineContext:
 
 @pytest.fixture(scope="module")
 def searcher(ctx: EngineContext) -> Searcher:
-    return Searcher(ctx.catalog, ctx.occupations, load_aliases(), ctx.rules.value_of_use.tax_year)
+    return Searcher(
+        ctx.catalog,
+        ctx.occupations,
+        load_aliases(),
+        ctx.rules.value_of_use.tax_year,
+        manufacturer_aliases=load_manufacturer_aliases(),
+    )
 
 
 # --- normalize --------------------------------------------------------------------------------
@@ -73,6 +79,15 @@ def test_no_alias_names_two_cars() -> None:
 def test_unknown_alias_target_is_rejected(ctx: EngineContext) -> None:
     with pytest.raises(ValueError, match="unknown catalog commercial_name"):
         Searcher(ctx.catalog, ctx.occupations, {"GOLF": ("גולף",)}, 2026)
+
+
+def test_every_manufacturer_spelling_names_a_catalog_manufacturer(ctx: EngineContext) -> None:
+    makers = load_manufacturer_aliases()
+    assert {"קיה", "יונדאי", "טויוטה", "מזדה", "סקודה", "טסלה"} <= set(makers)
+    with pytest.raises(ValueError, match="unknown catalog manufacturer"):
+        Searcher(
+            ctx.catalog, ctx.occupations, {}, 2026, manufacturer_aliases={"פולקסווגן": ("vw",)}
+        )
 
 
 # --- the UX walkthrough table -----------------------------------------------------------------
@@ -167,12 +182,30 @@ def test_nothing_matches(searcher: Searcher) -> None:
         ("קרוס", ["CAR-02", "CAR-09"]),  # part of a name
         ("אקטביה", ["CAR-15"]),  # a Hebrew spelling no alias has
         ("פיקאנטו", ["CAR-01"]),
+        # The manufacturer in English or another spelling (aliases.yaml, `manufacturers`)
+        ("kia", ["CAR-05", "CAR-11", "CAR-19", "CAR-01", "CAR-16"]),
+        ("KIA", ["CAR-05", "CAR-11", "CAR-19", "CAR-01", "CAR-16"]),
+        ("hyundai", ["CAR-12", "CAR-08", "CAR-20"]),
+        ("toyota", ["CAR-07", "CAR-09", "CAR-02", "CAR-18"]),
+        ("skoda", ["CAR-15"]),
+        ("byd", ["CAR-03", "CAR-17", "CAR-10"]),
+        ("mg", ["CAR-06"]),
+        ("שקודה", ["CAR-15"]),  # a Hebrew spelling the catalog doesn't use
     ],
 )
 def test_search_catalog_lists_every_car_the_words_may_mean(
     searcher: Searcher, query: str, car_ids: list[str]
 ) -> None:
     assert [c.id for c in searcher.search_catalog(query)] == car_ids
+
+
+def test_kia_lists_picanto_and_sportage(searcher: Searcher) -> None:
+    ids = {c.id for c in searcher.search_catalog("kia")}
+    assert {"CAR-01", "CAR-16"} <= ids  # PICANTO, SPORTAGE HEV: no car alias says "kia"
+
+
+def test_a_manufacturer_spelling_never_picks_a_car(searcher: Searcher) -> None:
+    assert searcher.search_vehicles("kia").best is None
 
 
 def test_search_catalog_ignores_the_registration_year(searcher: Searcher) -> None:
