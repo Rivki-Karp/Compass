@@ -10,6 +10,8 @@ export const EVENT_TYPES = [
   "comparison_set_ready",
   "current_situation_set",
   "guard_check",
+  "payslip_extracted",
+  "payslip_failed",
   "profile_updated",
   "session_created",
   "session_status",

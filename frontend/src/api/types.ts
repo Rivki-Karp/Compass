@@ -154,6 +154,24 @@ export interface PayloadByType {
   };
   guard_check: GuardCheckPayload;
   agent_error: { kind: string; message?: string };
+  // The payslip upload (COMPASS_PAYSLIP=1): a pending candidate the employee confirms, numbers
+  // and flags only (never the file), or why reading it failed.
+  payslip_extracted: {
+    fields: Record<string, PayslipCandidateField>;
+    dropped_keys: number;
+    // admin only
+    model?: string | null;
+    fallback?: boolean;
+    latency_ms?: number;
+    cost_usd?: number | null;
+  };
+  payslip_failed: { code: string };
+}
+
+export interface PayslipCandidateField {
+  value: string | null; // a Decimal as text (or YYYY-MM); null when unknown or flagged
+  confidence: "high" | "medium" | "low";
+  flag: "wrong_type" | "out_of_range" | "too_many_decimals" | "not_a_step" | "invalid" | null;
 }
 
 /** One event as the session stream sends it (`data` of an SSE message). */

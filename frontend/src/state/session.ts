@@ -295,7 +295,10 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
     case "session_status":
       return { ...next, status: event.payload.status };
 
+    // payslip_*: the confirmation card arrives with the UI stage; until then nothing on screen
     case "session_created":
+    case "payslip_extracted":
+    case "payslip_failed":
     case "profile_updated":
     case "current_situation_set":
     case "guard_check":

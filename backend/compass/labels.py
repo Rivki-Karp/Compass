@@ -247,6 +247,19 @@ ERROR_MESSAGES: dict[str, Callable[[Params], str]] = {
         "קבוצה לא מוכרת. אפשר: " + ", ".join(group_label(g) for g in p["groups"]) + "."
     ),
     "credit_points_step": lambda p: f"בין 0 ל-{p['max']} נקודות, בקפיצות של 0.25.",
+    # payslip upload: never a number from the file (limits come from the settings)
+    "payslip_in_progress": lambda p: "התלוש הקודם עדיין בעיבוד. רגע אחד.",
+    "payslip_per_session": lambda p: f"אפשר להעלות עד {p['max']} תלושים בשיחה אחת.",
+    "payslip_rate_limited": lambda p: "יותר מדי העלאות בזמן קצר. נסו שוב בעוד רגע.",
+    "payslip_daily_cap": lambda p: "קריאת תלושים לא זמינה כרגע. אפשר להזין את הנתונים בצ'אט.",
+    "payslip_unsupported_type": lambda p: "אפשר להעלות רק PDF, JPG או PNG.",
+    "payslip_empty": lambda p: "לא התקבל קובץ.",
+    "payslip_too_large": lambda p: f"הקובץ גדול מדי. אפשר עד {p['max_mb']}MB.",
+    "payslip_type_mismatch": lambda p: "תוכן הקובץ לא תואם את סוג הקובץ. נסו קובץ אחר.",
+    "payslip_encrypted": lambda p: "הקובץ מוגן בסיסמה. העלו עותק בלי סיסמה.",
+    "payslip_too_many_pages": lambda p: f"אפשר להעלות תלוש של עד {p['max']} עמודים.",
+    "payslip_unreadable": lambda p: "לא הצלחנו לפתוח את הקובץ. נסו קובץ אחר.",
+    "payslip_unavailable": lambda p: "קריאת תלושים לא זמינה כרגע. אפשר להזין את הנתונים בצ'אט.",
 }
 
 

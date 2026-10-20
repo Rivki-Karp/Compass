@@ -54,6 +54,11 @@ EVENT_TYPES = frozenset(
         "tool_result",
         "guard_check",
         "agent_error",
+        # The payslip upload (COMPASS_PAYSLIP=1): a pending candidate (numbers, confidences and
+        # flags only; never the file), or why reading it failed (a code). One per upload that
+        # reached the extractor: the per-session count.
+        "payslip_extracted",
+        "payslip_failed",
     }
 )
 
@@ -595,6 +600,17 @@ class Store:
             )
             for r in rows
         ]
+
+    def count_events(self, session_id: str, types: tuple[str, ...]) -> int:
+        """How many of the session's events have one of `types`."""
+        marks = ", ".join("?" for _ in types)
+        with self._read() as conn:
+            self._require_session(conn, session_id)
+            row = conn.execute(
+                f"SELECT COUNT(*) FROM events WHERE session_id = ? AND type IN ({marks})",
+                (session_id, *types),
+            ).fetchone()
+        return int(row[0])
 
     def last_comparison(self, session_id: str) -> dict[str, Any] | None:
         """The payload of the session's latest comparison_ready, if any."""

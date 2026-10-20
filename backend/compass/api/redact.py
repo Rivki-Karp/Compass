@@ -29,6 +29,10 @@ PUBLIC_KEYS: dict[str, frozenset[str] | None] = {
     "guard_check": frozenset({"passed", "action"}),
     "agent_finished": frozenset({"outcome"}),
     "agent_error": frozenset({"kind"}),
+    # The payslip candidate is the employee's own numbers, for their confirmation card; which
+    # model read it, its cost and timing are judges mode's.
+    "payslip_extracted": frozenset({"fields", "dropped_keys"}),
+    "payslip_failed": frozenset({"code"}),
 }
 
 

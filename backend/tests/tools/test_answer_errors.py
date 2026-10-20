@@ -6,6 +6,7 @@ from typing import Any, get_args
 import pytest
 
 from compass.labels import ERROR_MESSAGES, error_message
+from compass.payslip.upload import PayslipErrorCode
 from compass.state import Store
 from compass.tools import Services, ToolRunner
 from compass.tools.profile import FieldErrorCode
@@ -16,8 +17,9 @@ ATTO = "alternative_participation:CAR-10"
 
 def test_every_error_code_has_a_hebrew_message() -> None:
     codes = set(get_args(TicketErrorCode)) | set(get_args(FieldErrorCode))
+    codes |= set(get_args(PayslipErrorCode))
     assert set(ERROR_MESSAGES) == codes
-    params = {"min": 0, "max": 20_000, "groups": ["א", "ב"]}
+    params = {"min": 0, "max": 20_000, "groups": ["א", "ב"], "max_mb": 5}
     for code in codes:
         message = error_message(code, params)
         assert message and any("֐" <= ch <= "׿" for ch in message), code
