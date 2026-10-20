@@ -71,3 +71,39 @@ CREATE TABLE IF NOT EXISTS daily_spend (
     day        TEXT PRIMARY KEY,  -- YYYY-MM-DD, UTC
     micro_usd  INTEGER NOT NULL
 );
+
+-- User accounts (COMPASS_AUTH=1; compass/state/accounts.py). Created always, read only with the
+-- flag on. No password, invite code or token is stored: only their hashes.
+CREATE TABLE IF NOT EXISTS users (
+    id             TEXT PRIMARY KEY,
+    email          TEXT NOT NULL UNIQUE,  -- trimmed, NFKC, lower-case (compass/auth/emails.py)
+    name           TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 60),
+    role           TEXT NOT NULL CHECK (role IN ('employee', 'rep', 'admin')),
+    password_hash  TEXT NOT NULL,  -- argon2id
+    status         TEXT NOT NULL CHECK (status IN ('active', 'disabled')),
+    created_at     TEXT NOT NULL,
+    last_login_at  TEXT
+);
+
+CREATE TABLE IF NOT EXISTS invites (
+    id          TEXT PRIMARY KEY,
+    email       TEXT NOT NULL,
+    role        TEXT NOT NULL CHECK (role IN ('employee', 'rep', 'admin')),
+    code_hash   TEXT NOT NULL UNIQUE,  -- SHA-256 of the code
+    created_by  TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    expires_at  TEXT NOT NULL,
+    used_at     TEXT
+);
+-- one active (unused) invite per email: a new invite replaces the old one
+CREATE UNIQUE INDEX IF NOT EXISTS invites_one_active ON invites (email) WHERE used_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    token_hash    TEXT PRIMARY KEY,  -- SHA-256 of the bearer token
+    user_id       TEXT NOT NULL REFERENCES users (id),
+    created_at    TEXT NOT NULL,
+    expires_at    TEXT NOT NULL,
+    last_seen_at  TEXT NOT NULL,
+    revoked_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS auth_sessions_by_user ON auth_sessions (user_id);

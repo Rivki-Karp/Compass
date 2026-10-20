@@ -482,3 +482,35 @@ every session, a pending card included.)
 
 **Limits** (all settings, defaults): 5 MB, 3 pages, 3 uploads per session, 5 per IP per minute,
 20 s per attempt and 45 s in all; an upload over the daily spend cap is refused.
+
+## 11. Accounts (optional, behind a flag)
+
+Off by default (`COMPASS_AUTH=0`): nothing below applies and the static rep and admin tokens work as
+before. With `COMPASS_AUTH=1` the tokens are refused and everyone logs in. Users and history live
+in the container's own database, so **every deploy wipes them**; the accounts in
+`COMPASS_SEED_USERS` are re-created at each start.
+
+**The three demo accounts (employee, rep, admin), without a password ever in a command line or a
+file.** `tasks.py hash-password` asks for the password twice with no echo and prints only its
+argon2id hash. In Windows PowerShell, from the repository root:
+
+```powershell
+$accounts = @(
+  @{ email = 'employee@example.com'; name = 'Dana Levi';  role = 'employee' },
+  @{ email = 'rep@example.com';      name = 'Avi Cohen';  role = 'rep' },
+  @{ email = 'admin@example.com';    name = 'Admin';      role = 'admin' }
+)
+foreach ($account in $accounts) {
+  Write-Host "Password for $($account.email) (10 to 128 characters, typed at the prompt):"
+  $account.password_hash = uv run --project backend python tasks.py hash-password | Select-Object -Last 1
+}
+$env:COMPASS_SEED_USERS = ConvertTo-Json -Compress -InputObject @($accounts)
+```
+
+The password is typed only at the
+prompt, so it is never in the shell history or in a file. The hash is not a secret you can log, but
+keep it out of the repository too: set `COMPASS_SEED_USERS` in the shell (local) or in the Render
+dashboard (`sync: false`, never in `render.yaml`).
+
+A live server with `COMPASS_AUTH=1` refuses to start when `COMPASS_SEED_USERS` holds no `admin`,
+or a hash that is not argon2id; it says which entry, never the value.

@@ -14,6 +14,7 @@ Usage:
     tasks.py demo E-001  # Hebrew net breakdown of a golden reference employee
     tasks.py calc      # interactive calculator: your own profile and scenarios
     tasks.py serve     # API on http://127.0.0.1:8000 (docs at /docs), auto-reload
+    tasks.py hash-password  # prompt twice (no echo), print the argon2id hash for COMPASS_SEED_USERS
     tasks.py demo-reset  # wipe demo mode's database (backend/data/demo.db), never app.db
     tasks.py build-web # build the UI (frontend/dist); `serve` then serves it at /
     tasks.py web       # dev: API :8000 + Vite http://localhost:5173 (Ctrl+C: both)
@@ -175,6 +176,8 @@ def _print_token_warnings() -> None:
 def serve() -> None:
     from compass.api.settings import (
         Settings,
+        live_auth_errors,
+        live_auth_message,
         live_payslip_errors,
         live_payslip_message,
         live_token_errors,
@@ -187,6 +190,8 @@ def serve() -> None:
         sys.exit(live_token_message(errors))
     if errors := live_payslip_errors(settings):
         sys.exit(live_payslip_message(errors))
+    if errors := live_auth_errors(settings):
+        sys.exit(live_auth_message(errors))
     _print_token_warnings()
     # One process: the agent's per-session workers and locks live in memory.
     run(
@@ -272,6 +277,25 @@ def run_in(cwd: Path, *args: str) -> None:
     result = subprocess.run(args, cwd=cwd)
     if result.returncode != 0:
         sys.exit(result.returncode)
+
+
+def hash_password() -> None:
+    """Prompt twice (getpass: no echo) and print only the argon2id hash, for COMPASS_SEED_USERS.
+    The password is never an argument, never printed and never written anywhere."""
+    from getpass import getpass
+
+    from compass.auth.passwords import MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH
+    from compass.auth.passwords import hash_password as hash_it
+
+    password = getpass("Password: ")
+    if not MIN_PASSWORD_LENGTH <= len(password) <= MAX_PASSWORD_LENGTH:
+        sys.exit(
+            f"hash-password: the password must be {MIN_PASSWORD_LENGTH} to "
+            f"{MAX_PASSWORD_LENGTH} characters"
+        )
+    if getpass("Again: ") != password:
+        sys.exit("hash-password: the two entries differ")
+    print(hash_it(password))
 
 
 def demo_reset() -> None:
@@ -509,6 +533,7 @@ TASKS: dict[str, Callable[..., None]] = {
     "calc": calc,
     "serve": serve,
     "demo-reset": demo_reset,
+    "hash-password": hash_password,
     "build-web": build_web,
     "web": web,
     "openapi": openapi,

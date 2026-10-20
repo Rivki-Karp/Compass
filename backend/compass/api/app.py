@@ -49,6 +49,7 @@ from compass.payslip.service import build_service
 from compass.payslip.upload import MAGIC as PAYSLIP_TYPES
 from compass.rules import RulesError
 from compass.state import NotFound, Store
+from compass.state.accounts import Accounts
 from compass.tools import ToolRunner
 from compass.tools.services import Services
 from compass.tools.tickets import QuestionAnswer, TicketAnswerError
@@ -186,6 +187,10 @@ def create_app(
     for warning in token_warnings(settings.rep_token, settings.admin_token):
         log.warning(warning)
     store = Store(settings.app_db)
+    accounts = Accounts(store)
+    if settings.auth:
+        # the demo accounts survive every deploy: re-created from the environment at each start
+        log.info("accounts: %d seed users upserted", accounts.seed(settings.seed_users))
     services = Services(
         store,
         rules_path=settings.rules_path,
@@ -224,6 +229,7 @@ def create_app(
         allow_headers=["Authorization", "Content-Type", "Last-Event-ID"],
     )
     app.state.settings = settings
+    app.state.accounts = accounts
     app.state.services = services
     app.state.runner = runner
     app.state.agent = agent

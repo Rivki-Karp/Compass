@@ -158,7 +158,11 @@ class Store:
 
     # Nullable columns added after a file was created: added in place (additive, so every row
     # stored before reads as it did). table -> (column, SQL type).
-    _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (("tickets", "questions_json", "TEXT"),)
+    _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
+        ("tickets", "questions_json", "TEXT"),
+        # the account that owns the conversation (COMPASS_AUTH=1); NULL: created with the flag off
+        ("sessions", "owner_user_id", "TEXT"),
+    )
 
     @classmethod
     def _add_columns(cls, conn: sqlite3.Connection) -> None:

@@ -10,6 +10,8 @@ from pathlib import Path
 
 from dotenv import dotenv_values
 
+from compass.auth.passwords import is_argon2id
+from compass.auth.seed import SeedError, SeedUser, parse_seed_users
 from compass.config import (
     ALIASES_YAML,
     APP_DB,
@@ -59,6 +61,13 @@ DEFAULT_PAYSLIP_PER_SESSION = 3
 DEFAULT_PAYSLIP_TIMEOUT_S = 20.0
 MAX_PAYSLIP_TIMEOUT_S = 20.0
 
+# Accounts (COMPASS_AUTH=1, off by default): invite codes, login sessions, the login limits.
+DEFAULT_INVITE_TTL_HOURS = 48
+DEFAULT_SESSION_TTL_HOURS = 8
+DEFAULT_LOGIN_PER_IP_PER_MINUTE = 10
+DEFAULT_LOGIN_MAX_FAILURES = 5  # failures for one email before it is locked
+DEFAULT_LOGIN_LOCK_MINUTES = 15
+
 
 class SettingsError(ValueError):
     """A setting in .env or the environment has an invalid value."""
@@ -96,6 +105,13 @@ def _payslip_timeout(value: str | None) -> float:
             f"COMPASS_PAYSLIP_TIMEOUT_S must be at most {MAX_PAYSLIP_TIMEOUT_S:g} (got {seconds:g})"
         )
     return seconds
+
+
+def _seed_users(value: str | None) -> tuple[SeedUser, ...]:
+    try:
+        return parse_seed_users(value)
+    except SeedError as error:
+        raise SettingsError(str(error)) from None
 
 
 LLM_CHOICES = ("anthropic", "scripted")
@@ -224,6 +240,33 @@ def live_payslip_message(errors: list[str]) -> str:
     )
 
 
+def live_auth_errors(settings: "Settings") -> list[str]:
+    """Why a live server must not start with COMPASS_AUTH=1: no admin among the seed users (nobody
+    could invite anyone), or a seed user whose hash is not argon2id. Off, or demo mode (scripted),
+    has none. Names the entry, never a hash."""
+    if not settings.auth or settings.llm == "scripted":
+        return []
+    errors = []
+    if not any(u.role == "admin" for u in settings.seed_users):
+        errors.append("COMPASS_SEED_USERS holds no admin")
+    errors += [
+        f"COMPASS_SEED_USERS entry {i}: password_hash is not an argon2id hash"
+        for i, user in enumerate(settings.seed_users, start=1)
+        if not is_argon2id(user.password_hash)
+    ]
+    return errors
+
+
+def live_auth_message(errors: list[str]) -> str:
+    lines = "\n".join(f"  - {e}" for e in errors)
+    return (
+        "Compass will not start in live mode with COMPASS_AUTH=1:\n"
+        f"{lines}\n"
+        "Build COMPASS_SEED_USERS from `tasks.py hash-password` "
+        "(docs/demo-runbook.md, section 11), or set COMPASS_AUTH=0."
+    )
+
+
 def token_warnings_from_env(env_file: Path | None = ENV_FILE) -> list[str]:
     env = _env(env_file)
     return token_warnings(env.get("COMPASS_REP_TOKEN"), env.get("COMPASS_ADMIN_TOKEN"))
@@ -274,6 +317,16 @@ class Settings:
     payslip_max_pages: int = DEFAULT_PAYSLIP_MAX_PAGES
     payslip_per_session: int = DEFAULT_PAYSLIP_PER_SESSION
     payslip_timeout_s: float = DEFAULT_PAYSLIP_TIMEOUT_S
+    # Accounts: off by default; off = /api/auth answers 404, the static rep/admin tokens work as
+    # before. On = they are refused, and every session belongs to the user who made it.
+    auth: bool = False
+    invite_ttl_hours: int = DEFAULT_INVITE_TTL_HOURS
+    session_ttl_hours: int = DEFAULT_SESSION_TTL_HOURS
+    login_per_ip_per_minute: int = DEFAULT_LOGIN_PER_IP_PER_MINUTE
+    login_max_failures: int = DEFAULT_LOGIN_MAX_FAILURES
+    login_lock_minutes: int = DEFAULT_LOGIN_LOCK_MINUTES
+    # The accounts re-created at every start (hashes only; never shown by repr)
+    seed_users: tuple[SeedUser, ...] = field(default=(), repr=False)
 
     def __post_init__(self) -> None:
         # Demo mode has its own database (data/demo.db, wiped by `tasks.py demo-reset`); it
@@ -349,4 +402,16 @@ class Settings:
                 DEFAULT_PAYSLIP_PER_SESSION,
             ),
             payslip_timeout_s=_payslip_timeout(env.get("COMPASS_PAYSLIP_TIMEOUT_S")),
+            auth=env.get("COMPASS_AUTH") == "1",
+            invite_ttl_hours=_positive_int(
+                env.get("COMPASS_INVITE_TTL_HOURS"),
+                "COMPASS_INVITE_TTL_HOURS",
+                DEFAULT_INVITE_TTL_HOURS,
+            ),
+            session_ttl_hours=_positive_int(
+                env.get("COMPASS_SESSION_TTL_HOURS"),
+                "COMPASS_SESSION_TTL_HOURS",
+                DEFAULT_SESSION_TTL_HOURS,
+            ),
+            seed_users=_seed_users(env.get("COMPASS_SEED_USERS")),
         )
