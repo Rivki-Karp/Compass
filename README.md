@@ -281,7 +281,8 @@ and fails on any `/api` route that does not carry the rule for its class.
 wiped on every deploy**. The accounts in `COMPASS_SEED_USERS` (a JSON list of
 `{email, name, role, password_hash}`) are re-created at every start, which is how the three demo
 accounts survive; build it with `tasks.py hash-password`, which prompts for the password with no
-echo and prints only the hash (docs/demo-runbook.md, section 11). A live server with
+echo and prints only the hash (docs/demo-runbook.md, section 11). To try accounts locally in two
+commands: `tasks.py setup-demo-accounts`, then `tasks.py serve --accounts`. A live server with
 `COMPASS_AUTH=1` refuses to start without an admin among them, or with a hash that is not
 argon2id. A password, an invite code or a token is never logged or stored in plain text, and logs
 name users by id, never by email.
@@ -301,6 +302,8 @@ uv run --project backend python tasks.py demo      # the demo: UI + API on :8000
 uv run --project backend python tasks.py demo E-001  # Hebrew breakdown of a golden employee
 uv run --project backend python tasks.py calc      # interactive calculator for your own numbers
 uv run --project backend python tasks.py serve     # the API on :8000 (Swagger at /docs)
+uv run --project backend python tasks.py setup-demo-accounts  # prompts for 3 passwords, saves the demo accounts to backend/.env (hashes only)
+uv run --project backend python tasks.py serve --accounts  # `serve` with accounts and the payslip upload on, in data/accounts-local.db
 uv run --project backend python tasks.py check     # every suite: ruff, pytest, web lint, typecheck, vitest, build, Playwright
 uv run --project backend python tasks.py payslip-check  # live, by hand: the payslip models and request shape
 uv run --project backend python tasks.py payslip-smoke  # live, by hand: the synthetic payslips, with an injection

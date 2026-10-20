@@ -515,6 +515,24 @@ dashboard (`sync: false`, never in `render.yaml`).
 A live server with `COMPASS_AUTH=1` refuses to start when `COMPASS_SEED_USERS` holds no `admin`,
 or a hash that is not argon2id; it says which entry, never the value.
 
+**Trying it locally (two commands).** From the repository root:
+
+```powershell
+uv run --project backend python tasks.py setup-demo-accounts
+uv run --project backend python tasks.py serve --accounts
+```
+
+`setup-demo-accounts` asks for three passwords (employee, rep, admin; each twice, no echo) and
+writes the one `COMPASS_SEED_USERS=...` line in `backend\.env` (git-ignored), hashes only. The
+accounts are `employee@demo.compass`, `rep@demo.compass` and `admin@demo.compass`. It prints only
+"3 demo accounts saved to backend\.env". `serve --accounts` turns `COMPASS_AUTH=1` and
+`COMPASS_PAYSLIP=1` on for that process only (the file keeps its values), uses
+`backend\data\accounts-local.db` (never `app.db`), rebuilds the UI if it is older than its
+source, then serves http://127.0.0.1:8000 and prints "accounts: ON". Without
+`COMPASS_SEED_USERS` it stops and says to run `setup-demo-accounts`. The live server still needs
+`ANTHROPIC_API_KEY` for the payslip upload and non-placeholder rep and admin tokens in
+`backend\.env`.
+
 **Turning it on (Render).** Build `COMPASS_SEED_USERS` as above (one employee, one rep, one
 admin), then in the `compass-api` service's **Environment**: paste it into `COMPASS_SEED_USERS`
 (declared `sync: false`, so it is never in the repo), set `COMPASS_AUTH` to `1` and save. The

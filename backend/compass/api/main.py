@@ -3,7 +3,7 @@
 A live server (COMPASS_LLM=anthropic) refuses to start with an empty, demo or placeholder rep or
 admin token: the screens they guard would be unusable, or open to anyone who read the docs. With
 COMPASS_AUTH=1 it also refuses without an admin seed user or with a hash that is not argon2id.
-With the payslip upload on (COMPASS_PAYSLIP=1) it also refuses without GEMINI_API_KEY, or with a
+With the payslip upload on (COMPASS_PAYSLIP=1) it also refuses without ANTHROPIC_API_KEY, or with a
 model that has no price entry.
 """
 
