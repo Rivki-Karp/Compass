@@ -70,6 +70,9 @@ DEFAULT_SESSION_TTL_HOURS = 8
 DEFAULT_LOGIN_PER_IP_PER_MINUTE = 10
 DEFAULT_LOGIN_MAX_FAILURES = 5  # failures for one email before it is locked
 DEFAULT_LOGIN_LOCK_MINUTES = 15
+# a looser ceiling per email over all addresses (the 5-failure lock is per email and address)
+DEFAULT_LOGIN_EMAIL_CEILING = 50
+DEFAULT_LOGIN_EMAIL_WINDOW_MINUTES = 60
 
 
 class SettingsError(ValueError):
@@ -330,6 +333,8 @@ class Settings:
     login_per_ip_per_minute: int = DEFAULT_LOGIN_PER_IP_PER_MINUTE
     login_max_failures: int = DEFAULT_LOGIN_MAX_FAILURES
     login_lock_minutes: int = DEFAULT_LOGIN_LOCK_MINUTES
+    login_email_ceiling: int = DEFAULT_LOGIN_EMAIL_CEILING
+    login_email_window_minutes: int = DEFAULT_LOGIN_EMAIL_WINDOW_MINUTES
     # The accounts re-created at every start (hashes only; never shown by repr)
     seed_users: tuple[SeedUser, ...] = field(default=(), repr=False)
 

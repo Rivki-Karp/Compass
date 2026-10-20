@@ -3,6 +3,7 @@
 import logging
 import threading
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -139,9 +140,6 @@ def test_every_register_failure_is_the_same_response(
         "an empty code": {"code": ""},
         "a used code": {"email": "used@example.com", "code": used},
         "an existing account": {"email": EMAILS["employee"], "code": existing},
-        "a short password": {"code": good, "password": "short"},
-        "a long password": {"code": good, "password": "x" * 129},
-        "the email as password": {"code": good, "password": "new@example.com"},
         "no name": {"code": good, "name": "  "},
         "a long name": {"code": good, "name": "x" * 61},
         "no @": {"email": "new.example.com", "code": good},
@@ -152,6 +150,35 @@ def test_every_register_failure_is_the_same_response(
         seen[kind] = (response.status_code, response.json()["detail"])
     assert set(seen.values()) == {(400, REGISTER_ERROR)}, seen
     # none of them used the good code up
+    assert _register(client, code=good).status_code == 201
+
+
+PASSWORD_LENGTH = "הסיסמה צריכה להיות באורך 10 עד 128 תווים"
+PASSWORD_EMAIL = "הסיסמה צריכה להיות שונה מהמייל"
+
+
+def test_a_bad_password_is_told_specifically_and_before_the_invite(
+    client: TestClient, accounts: Accounts
+) -> None:
+    good = accounts.create_invite("new@example.com", "employee", "admin-id", ttl_hours=48)
+    cases = {
+        "short": ("short", PASSWORD_LENGTH),
+        "long": ("x" * 129, PASSWORD_LENGTH),
+        "the email": ("New@Example.com", PASSWORD_EMAIL),
+    }
+    for kind, (password, message) in cases.items():
+        # with a valid invite, a wrong code, and no invite at all: the same specific answer, so it
+        # says nothing about invites
+        for overrides in (
+            {"code": good},
+            {"code": "AAAAA-AAAAA"},
+            {"email": "nobody@example.com", "code": "AAAAA-AAAAA"},
+        ):
+            reply = _register(client, password=password, **overrides)
+            if overrides.get("email") == "nobody@example.com" and kind == "the email":
+                continue  # (that password is not this email's address)
+            assert (reply.status_code, reply.json()["detail"]) == (400, message), (kind, overrides)
+    # none of that used the invite up
     assert _register(client, code=good).status_code == 201
 
 
@@ -245,6 +272,53 @@ def test_a_success_clears_the_failures(client: TestClient) -> None:
     for _ in range(4):
         assert client.post("/api/auth/login", json=bad).status_code == 401
     assert client.post("/api/auth/login", json=good).status_code == 200
+
+
+def test_a_lock_from_one_address_does_not_lock_the_email_elsewhere(
+    auth_settings: Settings,
+) -> None:
+    """During the final nobody in the room can lock the judges' demo account out."""
+    settings = replace(auth_settings, trust_proxy=True)
+    with TestClient(create_app(settings)) as client:
+
+        def login(password: str, ip: str) -> httpx.Response:
+            return client.post(
+                "/api/auth/login",
+                json={"email": EMAILS["employee"], "password": password},
+                headers={"X-Forwarded-For": ip},
+            )
+
+        assert [login("wrong password", "198.51.100.1").status_code for _ in range(6)] == [
+            401,
+            401,
+            401,
+            401,
+            401,
+            429,
+        ]
+        assert login(PASSWORD, "198.51.100.1").status_code == 429  # locked for that address
+        assert login(PASSWORD, "198.51.100.2").status_code == 200  # not for another
+
+
+def test_many_addresses_cannot_lock_an_email_out_but_a_flood_ends(
+    auth_settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    settings = replace(auth_settings, trust_proxy=True, login_email_ceiling=8)
+    with TestClient(create_app(settings)) as client:
+        caplog.set_level(logging.INFO)
+
+        def login(password: str, n: int) -> httpx.Response:
+            return client.post(
+                "/api/auth/login",
+                json={"email": EMAILS["employee"], "password": password},
+                headers={"X-Forwarded-For": f"198.51.100.{n}"},
+            )
+
+        assert [login("wrong password", n).status_code for n in range(1, 9)] == [401] * 8
+        # eight failures from eight addresses: now the email itself is locked, for everyone
+        refused = login(PASSWORD, 200)
+        assert refused.status_code == 429 and HINT in refused.json()["detail"]
+    assert "ceiling" in caplog.text and EMAILS["employee"] not in caplog.text
 
 
 def test_the_lock_ends(client: TestClient) -> None:

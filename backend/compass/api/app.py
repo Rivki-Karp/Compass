@@ -243,6 +243,8 @@ def create_app(
             settings.login_per_ip_per_minute,
             settings.login_max_failures,
             settings.login_lock_minutes * 60,
+            settings.login_email_ceiling,
+            settings.login_email_window_minutes * 60,
         )
 
         @app.exception_handler(RequestValidationError)
@@ -318,7 +320,9 @@ def create_app(
             return None
 
     else:
-        rep_only = Depends(auth.require_role("rep", "admin"))
+        # the representative's routes: rep only. The admin never sees an employee's data, so for
+        # anyone else logged in the routes do not exist (404)
+        rep_only = Depends(auth.require_role("rep", hidden=True))
         admin_only = Depends(auth.require_role("admin"))
         stream_token = auth.bearer
         session_creator = auth.current_user

@@ -30,24 +30,95 @@ def _bearer(token: str) -> dict[str, str]:
 
 # --- rep and admin routes ----------------------------------------------------------------------
 
-REP_ROUTES = [
-    ("get", "/api/tickets", {}),
-    ("post", "/api/tickets/no-such-ticket/answer", {"json": {"answer_text": "x"}}),
-]
 ADMIN_ROUTES = [("get", "/api/admin/stats", {}), ("post", "/api/admin/reload-rules", {})]
 
 
-@pytest.mark.parametrize(("method", "path", "kwargs"), REP_ROUTES)
-def test_rep_routes_need_the_rep_or_admin_role(
-    full_client: TestClient, method: str, path: str, kwargs: dict[str, object]
-) -> None:
-    def call(headers: dict[str, str] | None) -> int:
-        return getattr(full_client, method)(path, headers=headers or {}, **kwargs).status_code
+NOA = {  # E-001
+    "occupation_query": "מנהלת מוצר",
+    "base_salary": 18500,
+    "commissions": 0,
+    "bonus": 0,
+    "pension_percent": 6,
+    "study_fund_percent": 2.5,
+    "credit_points": 2.75,
+    "children_under_23": 2,
+}
+TODAY = {"today": {"kind": "company_car", "car_id": "CAR-09", "participation": 300}}
 
-    assert call(None) == 401
-    assert call(_login(full_client, "employee")) == 403
-    for who in ("rep", "admin"):
-        assert call(_login(full_client, who)) in (200, 404)  # past the guard (404: no such ticket)
+
+def _open_ticket(client: TestClient, headers: dict[str, str]) -> tuple[str, str]:
+    """An employee's session with a ticket waiting for a representative: (session id, ticket id)."""
+    sid = client.post("/api/sessions", headers=headers).json()["id"]
+    client.post(f"/api/sessions/{sid}/messages", headers=headers, json={"text": "ומה עם ATTO 3?"})
+    for name, payload in (
+        ("save_profile", NOA),
+        ("set_current_situation", TODAY),
+        (
+            "ask_representative",
+            {"question": "?", "blocking_fields": ["alternative_participation:CAR-10"]},
+        ),
+    ):
+        reply = client.post(f"/api/sessions/{sid}/tools/{name}", headers=headers, json=payload)
+        assert reply.json()["ok"], reply.json()
+    store = client.app.state.services.store  # type: ignore[attr-defined]
+    (ticket,) = store.tickets(session_id=sid)
+    return sid, ticket.id
+
+
+def test_rep_routes_are_the_reps_only_and_do_not_exist_for_anyone_else(
+    full_client: TestClient,
+) -> None:
+    """Not even the admin: an employee's tickets carry their profile and comparison."""
+    employee = _login(full_client, "employee")
+    _, ticket_id = _open_ticket(full_client, employee)
+    answer = {"json": {"answer_text": "x"}}
+    routes = [
+        ("get", "/api/tickets", {}),
+        ("get", "/api/tickets/events", {}),
+        ("post", f"/api/tickets/{ticket_id}/answer", answer),
+    ]
+    for method, path, kwargs in routes:
+
+        def call(who: str | None, method: str = method, path: str = path, kwargs=kwargs) -> int:  # type: ignore[no-untyped-def]
+            headers = {} if who is None else _login(full_client, who)
+            return getattr(full_client, method)(path, headers=headers, **kwargs).status_code
+
+        assert call(None) == 401, path
+        assert call("employee") == 404, path
+        assert call("admin") == 404, path
+    # the admin changed nothing and saw nothing; the rep sees the ticket
+    store = full_client.app.state.services.store  # type: ignore[attr-defined]
+    assert store.ticket(ticket_id).status == "open"
+    listed = full_client.get("/api/tickets", headers=_login(full_client, "rep"))
+    assert listed.status_code == 200 and [t["id"] for t in listed.json()] == [ticket_id]
+    admin_view = full_client.get("/api/tickets", headers=_login(full_client, "admin"))
+    assert "ticket" not in admin_view.text and ticket_id not in admin_view.text
+
+
+def test_the_admin_reaches_no_employee_data(full_client: TestClient) -> None:
+    """Every route that could carry an employee's conversation, profile or payslip: 404 or 401."""
+    employee = _login(full_client, "employee")
+    sid, ticket_id = _open_ticket(full_client, employee)
+    admin = _login(full_client, "admin")
+    reached = {
+        ("get", f"/api/sessions/{sid}"): None,
+        ("get", f"/api/sessions/{sid}/events"): None,
+        ("post", f"/api/sessions/{sid}/messages"): {"text": "x"},
+        ("post", f"/api/sessions/{sid}/tools/save_profile"): {"base_salary": 1},
+        ("post", f"/api/sessions/{sid}/payslip/confirm"): {"fields": {}},
+        ("post", f"/api/sessions/{sid}/current-car"): {"choice": "no_car"},
+        ("get", "/api/tickets"): None,
+        ("get", "/api/tickets/events"): None,
+        ("post", f"/api/tickets/{ticket_id}/answer"): {"answer_text": "x"},
+    }
+    for (method, path), body in reached.items():
+        kwargs = {} if body is None else {"json": body}
+        reply = getattr(full_client, method)(path, headers=admin, **kwargs)
+        assert reply.status_code == 404, (path, reply.status_code)
+        assert "בקשה" not in reply.text and "18500" not in reply.text
+    # what an admin may call on /admin carries no conversation, profile or payslip fields
+    stats = full_client.get("/api/admin/stats", headers=admin)
+    assert stats.status_code == 200 and "18500" not in stats.text and sid not in stats.text
 
 
 @pytest.mark.parametrize(("method", "path", "kwargs"), ADMIN_ROUTES)
@@ -65,7 +136,10 @@ def test_admin_routes_need_the_admin_role(
 
 def test_the_static_tokens_are_refused(full_client: TestClient) -> None:
     rep, admin = _bearer(STATIC_REP), _bearer(STATIC_ADMIN)
-    for method, path, kwargs in REP_ROUTES:
+    for method, path, kwargs in (
+        ("get", "/api/tickets", {}),
+        ("post", "/api/tickets/x/answer", {"json": {"answer_text": "x"}}),
+    ):
         for headers in (rep, admin):
             assert getattr(full_client, method)(path, headers=headers, **kwargs).status_code == 401
     for method, path, kwargs in ADMIN_ROUTES:
@@ -262,7 +336,8 @@ def test_the_rep_inbox_stream_ends_with_the_rep_login(full_settings: Settings) -
     with live_server(app) as base, httpx.Client(base_url=base, timeout=10) as http:
         rep = _login(http, "rep")
         assert http.get("/api/tickets/events").status_code == 401
-        assert http.get("/api/tickets/events", headers=_login(http, "employee")).status_code == 403
+        assert http.get("/api/tickets/events", headers=_login(http, "employee")).status_code == 404
+        assert http.get("/api/tickets/events", headers=_login(http, "admin")).status_code == 404
         with SSEReader(f"{base}/api/tickets/events", headers=rep) as inbox:
             inbox.wait_for("tickets")
             http.post("/api/auth/logout", headers=rep)

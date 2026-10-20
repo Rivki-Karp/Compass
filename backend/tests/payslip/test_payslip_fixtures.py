@@ -5,6 +5,7 @@ extracted, stored or logged, even when the "model" tries to return them."""
 
 import io
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,15 @@ from compass.payslip.service import PayslipService
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "payslips"
 IDENTIFIERS = ("Dana Bdaya", "000000018", "12-345-678901", "4417")
+
+
+def leaks(identifier: str, text: str) -> bool:
+    """Whether the identifier appears in the text as itself. A short number such as 4417 also
+    occurs inside the random hex ids of sessions and events; only a match that is not part of a
+    hex run counts, so a stray id can never fail the test."""
+    return re.search(rf"(?<![0-9a-fA-F]){re.escape(identifier)}(?![0-9a-fA-F])", text) is not None
+
+
 JPEG = "image/jpeg"
 PDF = "application/pdf"
 PNG = "image/png"
@@ -124,13 +134,20 @@ def test_no_identifier_is_extracted_stored_or_logged(
         if p.name.startswith("app.db")  # type: ignore[attr-defined]
     ).decode("latin-1")
     for identifier in IDENTIFIERS:
-        assert identifier not in body, "returned"
-        assert identifier not in events, "stored as an event"
-        assert identifier not in db, "stored in the database"
-        assert identifier not in caplog.text, "logged"
+        assert not leaks(identifier, body), "returned"
+        assert not leaks(identifier, events), "stored as an event"
+        assert not leaks(identifier, db), "stored in the database"
+        assert not leaks(identifier, caplog.text), "logged"
     # what was kept is only the schema's fields, and the unknown keys were only counted
     kept = response.json()
     assert set(kept["fields"]) <= set(FIELDS) and kept["dropped_keys"] >= 4
+
+
+def test_the_leak_check_ignores_a_number_inside_a_hex_id() -> None:
+    assert not leaks("4417", "session=564417490e6d4ea6840e04b1b45b9c5f")
+    assert leaks("4417", 'employee_number": 4417,')
+    assert leaks("4417", "no. 4417")
+    assert leaks("Dana Bdaya", "x Dana Bdaya y")
 
 
 def test_the_amounts_fixture_prints_amounts_and_wages_and_no_percent() -> None:

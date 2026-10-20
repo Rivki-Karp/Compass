@@ -77,7 +77,7 @@ def problems(app: FastAPI) -> list[str]:
         elif path in LOGIN_ONLY:
             ok = "login" in have or "role" in have
         elif path.startswith("/api/tickets"):
-            ok = have.get("role") == {"rep", "admin"}
+            ok = have.get("role") == {"rep"}
         elif path.startswith("/api/admin"):
             ok = have.get("role") == {"admin"}
         else:
