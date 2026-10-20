@@ -98,4 +98,4 @@ def test_the_global_payslip_word_check_follows_the_flag() -> None:
 
 def test_scenarios_with_a_payslip_turn_are_marked() -> None:
     marked = {s.name for s in load_all() if s.needs_payslip}
-    assert marked == {"payslip_confirmed", "payslip_injection"}
+    assert marked == {"payslip_confirmed", "payslip_injection", "payslip_offer"}

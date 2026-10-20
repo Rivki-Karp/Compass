@@ -11,6 +11,7 @@
  */
 
 import type { PayslipCandidateField } from "../api/types";
+import type { SessionState } from "../state/session";
 
 export type Unit = "ils" | "percent" | "points" | "month";
 
@@ -215,3 +216,10 @@ export interface PayslipLimits {
 
 export const PRIVACY_NOTICE =
   "התלוש נשלח לעיבוד אצל Anthropic, רק לחילוץ נתוני השכר, ואינו נשמר אצלנו. אל תעלו מסמך אחר.";
+
+/** The offer card shows in the empty state only: before the employee has written anything,
+ * while no payslip is waiting for confirmation. (It is rendered only when the server reports
+ * the payslip flag; see EmployeePage.) */
+export function offerVisible(state: Pick<SessionState, "messages" | "payslip">): boolean {
+  return state.payslip === null && !state.messages.some((m) => m.role === "employee");
+}

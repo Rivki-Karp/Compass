@@ -82,10 +82,13 @@ class Scenario(_Model):
     until_compare: bool = False
     max_extra_turns: int = Field(2, ge=0, le=5)
     checks: list[dict[str, Any]] = Field(min_length=1)
+    # runs only with the upload on (evals --payslip), even with no payslip turn: the scenario is
+    # about what the agent does when the upload exists
+    payslip_on: bool = False
 
     @property
     def needs_payslip(self) -> bool:
-        return any(turn.payslip is not None for turn in self.turns)
+        return self.payslip_on or any(turn.payslip is not None for turn in self.turns)
 
     @model_validator(mode="after")
     def _valid_checks(self) -> "Scenario":

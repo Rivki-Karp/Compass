@@ -4,8 +4,19 @@ import { describe, expect, it, vi } from "vitest";
 import type { PayslipCandidateField, SessionEvent } from "../api/types";
 import { initialSession, reduce } from "../state/session";
 import { must } from "../test/views";
-import { basisCaption, confirmBody, grouped, plain, precheck, ready, rows, warning } from "./payslip";
+import {
+  basisCaption,
+  confirmBody,
+  grouped,
+  offerVisible,
+  plain,
+  precheck,
+  ready,
+  rows,
+  warning,
+} from "./payslip";
 import { PayslipCard } from "./PayslipCard";
+import { PayslipOffer } from "./PayslipOffer";
 import { usePayslip } from "./usePayslip";
 
 const field = (
@@ -150,7 +161,7 @@ describe("usePayslip", () => {
     const { result } = renderHook(() =>
       usePayslip({ sessionId: "s", limits: undefined, pending: null }),
     );
-    expect(result.current).toEqual({ attach: null, tray: null });
+    expect(result.current).toEqual({ attach: null, tray: null, open: null });
   });
 
   it("the attach button asks for the privacy notice first, once per session", async () => {
@@ -265,5 +276,41 @@ describe("a payslip that prints amounts, not percents", () => {
     expect(confirm).toBeDisabled();
     await userEvent.click(within(card).getByLabelText("6.5% (מודפס בתלוש)"));
     expect(confirm).toBeEnabled();
+  });
+});
+
+
+describe("the payslip offer in the empty state", () => {
+  const employee = { seq: 1, role: "employee", text: "שלום", kind: null, turn: null } as const;
+
+  it("shows before the employee writes anything, and only then", () => {
+    expect(offerVisible({ messages: [], payslip: null })).toBe(true);
+    expect(offerVisible({ messages: [employee], payslip: null })).toBe(false);
+    // a payslip waiting for confirmation has its own card
+    expect(offerVisible({ messages: [], payslip: { seq: 2, fields: FIELDS } })).toBe(false);
+  });
+
+  it("the card says what the upload does, and its button opens the upload", async () => {
+    const onUpload = vi.fn();
+    render(<PayslipOffer onUpload={onUpload} />);
+    const card = screen.getByRole("region", { name: "העלאת תלוש שכר ממלאת את רוב הפרטים" });
+    await userEvent.click(within(card).getByRole("button", { name: "העלאת תלוש" }));
+    expect(onUpload).toHaveBeenCalledOnce();
+  });
+
+  it("the hook's open() asks for the privacy notice first, like the paperclip", async () => {
+    sessionStorage.clear();
+    function Harness() {
+      const { open, tray } = usePayslip({ sessionId: "s7", limits: LIMITS, pending: null });
+      return (
+        <div>
+          {tray}
+          {open ? <PayslipOffer onUpload={open} /> : null}
+        </div>
+      );
+    }
+    render(<Harness />);
+    await userEvent.click(screen.getByRole("button", { name: "העלאת תלוש" }));
+    expect(screen.getByRole("dialog", { name: "לפני שמעלים תלוש" })).toBeInTheDocument();
   });
 });

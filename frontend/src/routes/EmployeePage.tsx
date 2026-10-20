@@ -13,6 +13,8 @@ import { PHONE_QUERY, phoneBarVisible } from "../employee/phoneBarRules";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { EngineRoom } from "../judges/EngineRoom";
 import { HowItWorks, StatsGrid } from "../judges/Summary";
+import { offerVisible } from "../payslip/payslip";
+import { PayslipOffer } from "../payslip/PayslipOffer";
 import { usePayslip } from "../payslip/usePayslip";
 import { useTurnSelection } from "../judges/useTurnSelection";
 import { demoSuggestions, GENERAL_SUGGESTIONS } from "../employee/suggestions";
@@ -161,6 +163,9 @@ export function EmployeePage() {
               onNewSession={session.newSession}
               attach={payslip.attach}
               tray={payslip.tray}
+              intro={
+                payslip.open && offerVisible(state) ? <PayslipOffer onUpload={payslip.open} /> : null
+              }
             />
             <div className="flex min-w-0 flex-[999_1_640px] flex-col gap-6">
               {selector}
