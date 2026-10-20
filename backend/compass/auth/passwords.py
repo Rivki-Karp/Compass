@@ -4,6 +4,9 @@ A hash is stored and compared; a password is never kept, logged or returned. `ve
 answers False for anything that is not a valid hash, so a bad stored value can never let a login in.
 """
 
+import secrets
+from functools import cache
+
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 
@@ -34,3 +37,10 @@ def is_argon2id(password_hash: str) -> bool:
     except (VerificationError, InvalidHashError):
         return False
     return True
+
+
+@cache
+def dummy_hash() -> str:
+    """A hash of a random password nobody knows. A login for an email without an account verifies
+    against it, so that case costs the same time as a wrong password for a real one."""
+    return hash_password(secrets.token_urlsafe(16))

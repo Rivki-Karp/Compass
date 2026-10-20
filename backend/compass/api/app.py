@@ -25,6 +25,8 @@ from fastapi import (
     Query,
     Request,
 )
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -33,6 +35,7 @@ from sse_starlette import EventSourceResponse, ServerSentEvent
 from starlette.concurrency import run_in_threadpool
 
 from compass.api.agent import AgentRunner
+from compass.api.auth import Auth, add_auth_routes
 from compass.api.broker import TICKETS, Broker
 from compass.api.car import add_car_routes
 from compass.api.payslip import add_payslip_routes
@@ -41,6 +44,7 @@ from compass.api.redact import public_message, public_payload
 from compass.api.settings import Settings, token_warnings
 from compass.api.spa import mount_spa
 from compass.api.stats import judges_stats
+from compass.auth.limits import LoginGuard
 from compass.config import CATALOG_JSON, OCCUPATIONS_JSON
 from compass.engine.context import ContextError
 from compass.engine.serialize import plain_json
@@ -230,6 +234,32 @@ def create_app(
     )
     app.state.settings = settings
     app.state.accounts = accounts
+    auth: Auth | None = None
+    if settings.auth:
+        auth = Auth(accounts)
+        app.state.auth = auth
+        app.state.login_guard = LoginGuard(
+            settings.login_per_ip_per_minute,
+            settings.login_max_failures,
+            settings.login_lock_minutes * 60,
+        )
+
+        @app.exception_handler(RequestValidationError)
+        async def validation_error(request: Request, error: RequestValidationError) -> JSONResponse:
+            """A malformed request body. For /api/auth the default answer is not used: it echoes
+            the offending input back, and that input can be a password."""
+            if not request.url.path.startswith("/api/auth/"):
+                return await request_validation_exception_handler(request, error)
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "detail": [
+                        {"type": e["type"], "loc": e["loc"], "msg": e["msg"]}
+                        for e in error.errors()
+                    ]
+                },
+            )
+
     app.state.services = services
     app.state.runner = runner
     app.state.agent = agent
@@ -366,6 +396,10 @@ def create_app(
             raise HTTPException(404, "Not Found")
         require_session(session_id)
         return runner.run(session_id, name, payload or {})
+
+    # /api/auth/* (COMPASS_AUTH=1; off: the routes do not exist)
+    if auth is not None:
+        add_auth_routes(api, settings, auth, app.state.login_guard)
 
     # POST /api/sessions/{id}/payslip (COMPASS_PAYSLIP=1, otherwise 404)
     add_payslip_routes(api, settings, services, agent, require_session)

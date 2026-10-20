@@ -1,18 +1,26 @@
 """User accounts over the session store's database (COMPASS_AUTH=1).
 
-The same SQLite file and transaction helpers as Store; only hashes are stored (passwords, invite
-codes and tokens never are), and nothing here logs: a caller refers to a user by id.
+The same SQLite file and transaction helpers as Store. Only hashes are stored: of passwords
+(argon2id), invite codes and login tokens (SHA-256). Nothing here logs; a caller refers to a user
+by id, never by email.
 """
 
 import uuid
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
+from compass.auth.codes import format_code, hash_secret, new_invite_code, new_token, normalize_code
 from compass.auth.emails import normalize_email
 from compass.auth.seed import SeedUser
-from compass.state.store import Store, _now
+from compass.state.store import Store
+
+# last_seen_at is refreshed at most this often: a request is not a write transaction every time
+LAST_SEEN_EVERY = timedelta(minutes=1)
+# an expired login session is kept this long before it is deleted
+KEEP_EXPIRED = timedelta(days=1)
 
 
 class User(BaseModel):
@@ -32,6 +40,16 @@ class User(BaseModel):
         return [(k, v) for k, v in super().__repr_args__() if k != "password_hash"]
 
 
+class LoggedIn(BaseModel):
+    """A new login session: the one time the token exists in plain text."""
+
+    user: User
+    token: str = ""
+
+    def __repr_args__(self) -> Iterable[tuple[str | None, Any]]:
+        return [(k, v) for k, v in super().__repr_args__() if k != "token"]
+
+
 def _user(row: Any) -> User:
     return User(
         id=row["id"],
@@ -45,9 +63,24 @@ def _user(row: Any) -> User:
     )
 
 
+def _stamp(moment: datetime) -> str:
+    return moment.isoformat(timespec="milliseconds")
+
+
 class Accounts:
-    def __init__(self, store: Store) -> None:
+    def __init__(
+        self, store: Store, clock: Callable[[], datetime] = lambda: datetime.now(UTC)
+    ) -> None:
         self.store = store
+        self.clock = clock  # tests move it to expire a code or a session
+
+    def _now(self) -> str:
+        return _stamp(self.clock())
+
+    def _later(self, hours: float) -> str:
+        return _stamp(self.clock() + timedelta(hours=hours))
+
+    # --- users --------------------------------------------------------------------------------
 
     def user_by_email(self, email: str) -> User | None:
         with self.store._read() as conn:
@@ -71,7 +104,7 @@ class Accounts:
             conn.execute(
                 "INSERT INTO users (id, email, name, role, password_hash, status, created_at) "
                 "VALUES (?, ?, ?, ?, ?, 'active', ?)",
-                (user_id, normalize_email(email), name, role, password_hash, _now()),
+                (user_id, normalize_email(email), name, role, password_hash, self._now()),
             )
         created = self.user_by_id(user_id)
         assert created is not None
@@ -95,8 +128,129 @@ class Accounts:
                         seed.name,
                         seed.role,
                         seed.password_hash,
-                        _now(),
+                        self._now(),
                     ),
                 )
                 count += 1
         return count
+
+    def record_login(self, user_id: str) -> None:
+        with self.store._write() as (conn, _events):
+            conn.execute("UPDATE users SET last_login_at = ? WHERE id = ?", (self._now(), user_id))
+
+    # --- invites ------------------------------------------------------------------------------
+
+    def create_invite(self, email: str, role: str, created_by: str, ttl_hours: float) -> str:
+        """A new one-time invite for `email`, replacing its unused one. Returns the code as the
+        admin sees it (XXXXX-XXXXX): the only time it exists in plain text."""
+        code = new_invite_code()
+        with self.store._write() as (conn, _events):
+            email = normalize_email(email)
+            conn.execute("DELETE FROM invites WHERE email = ? AND used_at IS NULL", (email,))
+            conn.execute(
+                "INSERT INTO invites (id, email, role, code_hash, created_by, created_at, "
+                "expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    uuid.uuid4().hex,
+                    email,
+                    role,
+                    hash_secret(code),
+                    created_by,
+                    self._now(),
+                    self._later(ttl_hours),
+                ),
+            )
+        return format_code(code)
+
+    def register(
+        self, email: str, code: str, name: str, password_hash: str, session_ttl_hours: float
+    ) -> LoggedIn | None:
+        """Use an invite: one transaction that finds an unused, unexpired invite for this email
+        and code, creates the user (the invite's role), marks the invite used and opens a login
+        session. None for any reason it cannot (the caller must not say which)."""
+        email = normalize_email(email)
+        with self.store._write() as (conn, _events):
+            invite = conn.execute(
+                "SELECT id, role FROM invites WHERE code_hash = ? AND email = ? "
+                "AND used_at IS NULL AND expires_at > ?",
+                (hash_secret(normalize_code(code)), email, self._now()),
+            ).fetchone()
+            if invite is None:
+                return None
+            if conn.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone():
+                return None
+            user_id = uuid.uuid4().hex
+            conn.execute(
+                "INSERT INTO users (id, email, name, role, password_hash, status, created_at, "
+                "last_login_at) VALUES (?, ?, ?, ?, ?, 'active', ?, ?)",
+                (user_id, email, name, invite["role"], password_hash, self._now(), self._now()),
+            )
+            conn.execute("UPDATE invites SET used_at = ? WHERE id = ?", (self._now(), invite["id"]))
+            token = self._open_session(conn, user_id, session_ttl_hours)
+        user = self.user_by_id(user_id)
+        assert user is not None
+        return LoggedIn(user=user, token=token)
+
+    # --- login sessions -----------------------------------------------------------------------
+
+    def _open_session(self, conn: Any, user_id: str, ttl_hours: float) -> str:
+        token = new_token()
+        now = self._now()
+        conn.execute(
+            "INSERT INTO auth_sessions (token_hash, user_id, created_at, expires_at, last_seen_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (hash_secret(token), user_id, now, self._later(ttl_hours), now),
+        )
+        return token
+
+    def open_session(self, user_id: str, ttl_hours: float) -> str:
+        """A login session for the user; returns its token (never stored). Also forgets login
+        sessions that expired more than a day ago."""
+        with self.store._write() as (conn, _events):
+            conn.execute(
+                "DELETE FROM auth_sessions WHERE expires_at < ?",
+                (_stamp(self.clock() - KEEP_EXPIRED),),
+            )
+            return self._open_session(conn, user_id, ttl_hours)
+
+    def user_for_token(self, token: str) -> User | None:
+        """The active user a live token belongs to, else None. A token is live until it is
+        revoked or its absolute expiry (it is never extended). A disabled or deleted user gets
+        None and every session of theirs is revoked."""
+        token_hash = hash_secret(token)
+        now = self._now()
+        with self.store._read() as conn:
+            row = conn.execute(
+                "SELECT u.*, s.last_seen_at AS seen FROM auth_sessions s "
+                "JOIN users u ON u.id = s.user_id "
+                "WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > ?",
+                (token_hash, now),
+            ).fetchone()
+        if row is None:
+            return None
+        user = _user(row)
+        if user.status != "active":
+            self.revoke_user_sessions(user.id)
+            return None
+        if row["seen"] < _stamp(self.clock() - LAST_SEEN_EVERY):
+            with self.store._write() as (conn, _events):
+                conn.execute(
+                    "UPDATE auth_sessions SET last_seen_at = ? WHERE token_hash = ?",
+                    (now, token_hash),
+                )
+        return user
+
+    def revoke_token(self, token: str) -> None:
+        with self.store._write() as (conn, _events):
+            conn.execute(
+                "UPDATE auth_sessions SET revoked_at = ? WHERE token_hash = ? "
+                "AND revoked_at IS NULL",
+                (self._now(), hash_secret(token)),
+            )
+
+    def revoke_user_sessions(self, user_id: str) -> None:
+        with self.store._write() as (conn, _events):
+            conn.execute(
+                "UPDATE auth_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL",
+                (self._now(), user_id),
+            )
