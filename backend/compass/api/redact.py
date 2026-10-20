@@ -19,6 +19,8 @@ PUBLIC_KEYS: dict[str, frozenset[str] | None] = {
     "current_situation_set": _ALL,
     "comparison_ready": _ALL,
     "comparison_set_ready": _ALL,
+    "current_car_offered": _ALL,  # the catalog's own options
+    "current_car_picked": _ALL,  # the employee's own choice
     "ticket_opened": _ALL,
     "ticket_answered": _ALL,
     "agent_started": _ALL,

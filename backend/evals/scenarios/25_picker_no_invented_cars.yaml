@@ -1,0 +1,14 @@
+name: picker_no_invented_cars
+description: 'Item 5: the employee does not know her car and gives nothing: the agent calls
+  search_catalog (no query), points to the server''s picker, and never lists manufacturers or
+  models from its own knowledge (it once offered Subaru and Nissan)'
+turns:
+- employee: אני מפתחת תוכנה, שכר בסיס 18,500, אין לי עמלות או בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%,
+    3 נקודות זיכוי. אני לא יודעת איזה רכב יש לי היום. מה יקרה לנטו אם אעבור ל-MG4?
+checks:
+- tool_called:
+    name: search_catalog
+    ok: true
+- reply:
+    not_matches:
+    - סובארו|ניסאן|Subaru|Nissan|פורד|הונדה|Honda|Ford|שברולט|Chevrolet|פיג'ו|Peugeot

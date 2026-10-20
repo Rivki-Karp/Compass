@@ -10,6 +10,7 @@ const TRIGGER = {
   employee_turn: "הודעה מהעובד/ת",
   rep_answer: "תשובת הנציג",
   payslip_confirmed: "אישור נתוני התלוש",
+  car_picked: "בחירת הרכב בבורר",
 } as const;
 
 /**

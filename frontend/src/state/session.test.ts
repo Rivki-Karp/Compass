@@ -132,6 +132,7 @@ describe("reduce: every event kind", () => {
         waiting_for_rep: [],
         car_hint: null,
       }),
+      ev("current_car_picked", { outcome: "no_car" }),
       ev("session_status", { status: "closed" }),
     ];
     const kinds = new Set(events.map((e) => e.type));
@@ -139,6 +140,7 @@ describe("reduce: every event kind", () => {
       ...kinds,
       "comparison_ready",
       "comparison_set_ready", // options.test.tsx replays a real one
+      "current_car_offered", // carPicker.test.tsx
       "ticket_opened",
       "ticket_answered",
     ]);

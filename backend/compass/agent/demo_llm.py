@@ -16,11 +16,14 @@ from dataclasses import dataclass
 from typing import Any
 
 from compass.agent.llm import LLMResponse, Message, ToolChoice, text_response, tool_response
-from compass.agent.transcript import EMPLOYEE_TAG, PAYSLIP_TAG, REP_TAG
+from compass.agent.transcript import CAR_TAG, EMPLOYEE_TAG, PAYSLIP_TAG, REP_TAG
 
 # After the employee confirms payslip values (COMPASS_PAYSLIP=1): no numbers, so the guard has
 # nothing to check; the cards already show the values and the recomputed difference.
 PAYSLIP_REPLY_HE = "קיבלתי את הנתונים שאישרת מהתלוש. ההשוואה על המסך עודכנה לפיהם."
+
+# After the employee picks today's car in the catalog picker: no numbers either.
+CAR_REPLY_HE = "רשמתי את הרכב שבחרת. ההשוואה על המסך עודכנה לפיו."
 
 NO_SCRIPT_HE = (
     "במצב דמו אני עונה רק על התרחישים המוכנים. "
@@ -242,6 +245,8 @@ def _trigger(messages: Sequence[Message]) -> tuple[int, str, Any]:
             return index, "employee", _normalize(body)
         if text.startswith(f"<{PAYSLIP_TAG}"):
             return index, "payslip", None
+        if text.startswith(f"<{CAR_TAG}"):
+            return index, "car", None
         if text.startswith(f"<{REP_TAG}"):
             body = text.split("\n", 1)[1].rsplit("\n", 1)[0]
             return index, "rep", json.loads(body).get("values") or {}
@@ -284,6 +289,8 @@ class DemoClient:
         done = sum(1 for m in messages[index + 1 :] if m.get("role") == "assistant")
         if kind == "payslip":
             return text_response(PAYSLIP_REPLY_HE if done == 0 else NO_SCRIPT_HE)
+        if kind == "car":
+            return text_response(CAR_REPLY_HE if done == 0 else NO_SCRIPT_HE)
         turn = self._turn(kind, data)
         if turn is None or done >= len(turn.steps):
             return text_response(NO_SCRIPT_HE)

@@ -6,6 +6,7 @@ runner turns into {"ok": false, "error": {...}}.
 """
 
 import logging
+import re
 from collections.abc import Callable, Mapping
 from decimal import Decimal
 from typing import Annotated, Any, Literal
@@ -31,6 +32,7 @@ from compass.engine.serialize import plain_json, to_api_dict
 from compass.labels import car_details
 from compass.search import SearchResult
 from compass.state import Slot, SlotUpdate
+from compass.tools.car_picker import grouped_catalog, offer_current_car, open_offer
 from compass.tools.profile import (
     ALTERNATIVE_PARTICIPATION,
     CURRENT_CAR,
@@ -382,10 +384,12 @@ def lookup_vehicle(services: Services, session_id: str, data: LookupVehicleInput
 
 class SearchCatalogInput(_Input):
     query: str = Field(
-        min_length=1,
+        "",
         max_length=200,
         description="The car as the employee wrote it: part of the name, the manufacturer, or "
-        "the name in Hebrew letters",
+        "the name in Hebrew letters, with the registration year if they gave one. Empty or "
+        "'all': the whole catalog grouped by manufacturer (the employee gave nothing, or does "
+        "not know)",
     )
 
 
@@ -397,15 +401,37 @@ CATALOG_EXTRA_CHOICES = (
 )
 
 
+ALL_WORDS = frozenset({"all", "everything", "הכל", "הכול", "כל הרכבים", "כולם"})
+_YEAR = re.compile(r"(?<!\d)((?:19|20)\d{2})(?!\d)")
+CHECK_WITH_REP = "check_with_rep"
+
+
 def search_catalog(services: Services, session_id: str, data: SearchCatalogInput):  # type: ignore[no-untyped-def]
     """The catalog cars the employee may mean, as numbered choices, then "not in the list" and
-    "no car today". Never a pick: the employee chooses."""
+    "no car today". Never a pick: the employee chooses.
+
+    No query, or "all": the whole catalog, grouped by manufacturer (`manufacturers`), the list
+    the agent may read from; the catalog picker is on the employee's screen too. A query that
+    names no catalog car also puts the picker on screen. A registration year in the query that
+    differs from the matched car's year marks that car `year_differs` (the model is in the
+    catalog, the year is not the employee's): the choice is then "לבדיקת נציג", never "a
+    different car"."""
     ctx = services.ctx
-    choices: list[dict[str, Any]] = []
-    for number, candidate in enumerate(services.searcher.search_catalog(data.query), start=1):
-        car = ctx.catalog[candidate.id]
-        choices.append(
-            {
+    query = data.query.strip()
+    everything = not query or query.casefold() in ALL_WORDS
+    stated = _YEAR.search(query)
+    stated_year = None if everything or stated is None else int(stated.group(1))
+    out: dict[str, Any]
+    if everything:
+        groups = grouped_catalog(services)
+        total = sum(len(g["cars"]) for g in groups)
+        out = {"query": query, "all": True, "cars": [], "manufacturers": groups}
+        first_extra = total + 1
+    else:
+        choices: list[dict[str, Any]] = []
+        for number, candidate in enumerate(services.searcher.search_catalog(query), start=1):
+            car = ctx.catalog[candidate.id]
+            choice = {
                 "choice": number,
                 "car_id": car.id,
                 "name": car.commercial_name,
@@ -414,16 +440,28 @@ def search_catalog(services: Services, session_id: str, data: SearchCatalogInput
                 "drive": car.drive,
                 "details_he": car_details(car.drive, car.group),
             }
+            if stated_year is not None and stated_year != car.registration_year:
+                choice["year_differs"] = True  # the model matches; the employee's year does not
+            choices.append(choice)
+        out = {"query": query, "cars": choices}
+        if stated_year is not None:
+            out["stated_year"] = stated_year
+        first_extra = len(choices) + 1
+    others = [
+        {"choice": first_extra + i, "id": key, "label_he": label}
+        for i, (key, label) in enumerate(CATALOG_EXTRA_CHOICES)
+    ]
+    if any(c.get("year_differs") for c in out["cars"]):
+        others.append(
+            {"choice": first_extra + len(others), "id": CHECK_WITH_REP, "label_he": "לבדיקת נציג"}
         )
-    first_extra = len(choices) + 1
-    return {
-        "query": data.query,
-        "cars": choices,
-        "other_choices": [
-            {"choice": first_extra + i, "id": key, "label_he": label}
-            for i, (key, label) in enumerate(CATALOG_EXTRA_CHOICES)
-        ],
-    }
+    out["other_choices"] = others
+    # The catalog picker: on screen whenever the whole catalog is asked for or nothing matched
+    # (the employee's way to pick without typing); a named car keeps the numbered list.
+    if everything or not out["cars"]:
+        offer_current_car(services, session_id)
+    out["picker_on_screen"] = open_offer(services, session_id)
+    return out
 
 
 # --- 4. set_current_situation -----------------------------------------------------------------
@@ -462,8 +500,10 @@ def _today_scenario(services: Services, today: Any) -> tuple[Scenario, str]:
         if today.registration_year not in (None, car.registration_year):
             raise ToolError(
                 "not_found",
-                f"{car.id} is the {car.registration_year} model; look up the "
-                f"{today.registration_year} model with lookup_vehicle",
+                f"{car.commercial_name} is in the catalog as the {car.registration_year} model, "
+                f"not {today.registration_year}. Do not tell the employee it is a different car: "
+                "offer the catalog model and 'לבדיקת נציג' (ask_representative, bound_field "
+                "current_car), or the picker on their screen",
                 car_id=car.id,
             )
         cls = FamilyCar if ctx.is_family_car(car.id) else CompanyCar
@@ -543,14 +583,15 @@ def representative_today(services: Services, car_id: str) -> dict[str, Any]:
 
 def refresh_without_today(
     services: Services, session_id: str, extra: Mapping[str, Any] | None = None
-) -> None:
+) -> list[dict[str, Any]]:
     """What is on screen without today's car, computed again with no model call: once today
     is known (the diffs appear), or when a current_car ticket opens or is answered without a
     car (the pending chip comes and goes). The latest option set, if it was computed without
     today, is computed again (the same stated participations), and so is the latest
     comparison, if it was; each one exactly as list_options and compare compute it. `extra`
-    goes into the comparison's event (the ticket that caused it)."""
-    _refresh(services, session_id, extra, only_without_today=True)
+    goes into the comparison's event (the ticket that caused it). Returns the refreshed
+    comparison in compare's own shape, if any."""
+    return _refresh(services, session_id, extra, only_without_today=True)
 
 
 def refresh_after_profile_change(
@@ -742,6 +783,8 @@ def compare(services: Services, session_id: str, data: CompareInput) -> dict[str
         explicit=data.alternative.participation is not None,
     )
     kind = _record_comparison(services, session_id, scenario, payload)
+    if payload["comparison"]["today_unknown"]:
+        offer_current_car(services, session_id)  # the screen waits for today's car
     return {"alternative_kind": kind, **payload}
 
 
@@ -821,6 +864,8 @@ def list_options(services: Services, session_id: str, data: ListOptionsInput) ->
     except ToolError as error:
         if error.code != "missing_inputs":
             raise
+        if _today(services, session_id) is None:
+            offer_current_car(services, session_id)  # no amounts, and no car either
         return _options_without_amounts(services, session_id, error)
     listed = to_api_dict(options, ctx.rules)
     for option, data_out in zip(options, listed, strict=True):
@@ -836,6 +881,8 @@ def list_options(services: Services, session_id: str, data: ListOptionsInput) ->
         data_out["group"] = None if car is None else car.group
         data_out["drive"] = None if car is None else car.drive
     _emit_option_set(services, session_id, options, data.participation)
+    if any(o.comparison.today_unknown for o in options):
+        offer_current_car(services, session_id)  # the screen waits for today's car
     missing = list(dict.fromkeys(f for o in options for f in tool_fields(o.comparison.missing)))
     return {"options": listed, "partial": bool(missing), "missing": missing}
 

@@ -205,6 +205,7 @@ def test_docs_list_every_endpoint(client: TestClient) -> None:
         "/api/sessions/{session_id}/messages",
         "/api/sessions/{session_id}/events",
         "/api/sessions/{session_id}/tools/{name}",
+        "/api/sessions/{session_id}/current-car",
         "/api/tickets",
         "/api/tickets/events",
         "/api/tickets/{ticket_id}/answer",

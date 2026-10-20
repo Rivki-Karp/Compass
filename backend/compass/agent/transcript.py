@@ -35,10 +35,13 @@ REP_TAG = "rep_notification"
 REP_LABEL_HE = "עדכון אוטומטי ממערכת הנציגים"
 PAYSLIP_TAG = "payslip_notification"
 PAYSLIP_LABEL_HE = "לפי התלוש"
+CAR_TAG = "car_notification"
+CAR_LABEL_HE = "בחירה מהבורר"
 
 # Our structural tags, opening or closing, in any case or spacing: neutralised in untrusted text.
 _TAG_PATTERN = re.compile(
-    rf"<\s*/?\s*({EMPLOYEE_TAG}|{REP_TAG}|{PAYSLIP_TAG}|system[_ -]?notice)\b", re.IGNORECASE
+    rf"<\s*/?\s*({EMPLOYEE_TAG}|{REP_TAG}|{PAYSLIP_TAG}|{CAR_TAG}|system[_ -]?notice)\b",
+    re.IGNORECASE,
 )
 
 ModelMessage = dict[str, Any]
@@ -126,6 +129,23 @@ def payslip_block(event: dict[str, Any]) -> str:
     return f'<{PAYSLIP_TAG} label="{PAYSLIP_LABEL_HE}">\n{body}\n</{PAYSLIP_TAG}>'
 
 
+def car_block(event: dict[str, Any]) -> str:
+    """What the employee chose in the catalog picker, as structured data (server-written):
+    the outcome, today's situation after it, and the comparisons the server recomputed."""
+    payload: dict[str, Any] = {
+        "outcome": event["outcome"],
+        "today_after": _escaped(event.get("today_after")),
+    }
+    if event.get("car_id"):
+        payload["car_id"] = event["car_id"]
+    if event.get("ticket_id"):
+        payload["ticket_id"] = event["ticket_id"]  # a representative was asked to check the year
+    if event.get("server_comparisons"):
+        payload["server_comparisons"] = event["server_comparisons"]
+    body = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    return f'<{CAR_TAG} label="{CAR_LABEL_HE}">\n{body}\n</{CAR_TAG}>'
+
+
 def guard_note(violations: Sequence[str]) -> str:
     """The retry instruction after the number guard rejected a draft: the exact numbers, and
     what to do about them. The draft itself is not in the conversation, so the model cannot see
@@ -180,6 +200,10 @@ def build_model_messages(rows: Sequence[Message]) -> list[ModelMessage]:
             elif kind == "payslip_confirmed":
                 text = payslip_block(content)
                 out.append({"role": "user", "content": [{"type": "text", "text": text}]})
+            elif kind == "car_picked":
+                out.append(
+                    {"role": "user", "content": [{"type": "text", "text": car_block(content)}]}
+                )
             elif kind == "guard_correction":
                 out.append({"role": "system", "content": guard_note(content["violations"])})
         elif row.role == "assistant":

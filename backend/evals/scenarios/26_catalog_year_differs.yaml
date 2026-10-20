@@ -1,0 +1,16 @@
+name: catalog_year_differs
+description: 'Item 5: the model is in the catalog and the employee''s year is not (MAZDA 3 2024
+  vs the catalog''s 2025): the agent offers the catalog model and "לבדיקת נציג", and does not
+  say it is a different car'
+turns:
+- employee: אני מפתחת תוכנה, שכר בסיס 18,500, אין לי עמלות או בונוסים. פנסיה 6.5%, קרן השתלמות 2.5%,
+    3 נקודות זיכוי. הרכב שלי היום מאזדה 3 משנת 2024. מה יקרה לנטו אם אעבור ל-MG4?
+checks:
+- tool_called:
+    name: search_catalog
+    ok: true
+- reply:
+    matches:
+    - לבדיקת נציג
+    not_matches:
+    - רכב אחר|דגם אחר

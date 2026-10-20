@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from compass.engine.compare import compare
 from compass.engine.context import EngineContext
+from compass.engine.decimal_math import ZERO
 from compass.engine.eligibility import check_eligibility
 from compass.engine.models import (
     CURRENT_SITUATION,
@@ -18,7 +19,6 @@ from compass.engine.models import (
     Scenario,
     Waiver,
 )
-from compass.engine.decimal_math import ZERO
 from compass.engine.net import CONTRIBUTION_FIELDS, compute_with_rates, missing_inputs
 
 _STATUS_RANK = {"eligible": 0, "needs_info": 1, "not_eligible": 2}

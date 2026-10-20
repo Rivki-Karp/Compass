@@ -8,6 +8,8 @@ export const EVENT_TYPES = [
   "assistant_message",
   "comparison_ready",
   "comparison_set_ready",
+  "current_car_offered",
+  "current_car_picked",
   "current_situation_set",
   "guard_check",
   "payslip_confirmed",

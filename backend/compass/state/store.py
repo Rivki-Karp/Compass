@@ -45,6 +45,10 @@ EVENT_TYPES = frozenset(
         "comparison_ready",
         # every eligible alternative's view at once (list_options; origin server)
         "comparison_set_ready",
+        # today's car is unknown: the catalog picker the server offers, and the employee's pick
+        # (compass/tools/car_picker.py)
+        "current_car_offered",
+        "current_car_picked",
         "ticket_opened",
         "ticket_answered",
         # The agent (Day 3): live progress for the UI and judges mode.

@@ -128,7 +128,13 @@ export interface PayloadByType {
       note: string | null;
     }[];
   };
-  agent_started: { trigger: "employee_turn" | "rep_answer" | "payslip_confirmed" };
+  agent_started: {
+    trigger: "employee_turn" | "rep_answer" | "payslip_confirmed" | "car_picked";
+  };
+  // Today's car is unknown: the catalog picker the server offers (built from the catalog), and
+  // what the employee chose in it.
+  current_car_offered: CarPicker;
+  current_car_picked: { outcome: "car" | "no_car" | "not_in_list" | "check_year"; car_id?: string };
   agent_finished: {
     outcome: "reply" | "template" | "error" | "limit";
     // admin only
@@ -179,6 +185,34 @@ export interface PayslipConfirmed {
   not_in_payslip?: string[]; // the payslip does not show them
   unreadable?: string[]; // printed, but not a valid number
   removed_by_employee?: string[];
+}
+
+/** The picker for today's car: manufacturer, then model, then year, from the catalog. */
+export interface PickerYear {
+  car_id: string;
+  year: number;
+  label: string; // "2025 · חשמלי · קבוצה ג׳"
+}
+export interface PickerModel {
+  id: string;
+  label: string;
+  years: PickerYear[];
+}
+export interface PickerManufacturer {
+  id: string;
+  label: string;
+  models: PickerModel[];
+}
+export interface PickerChoice {
+  id: string;
+  label: string;
+}
+export interface CarPicker {
+  manufacturers: PickerManufacturer[];
+  /** "הרכב שלי לא ברשימה", "אין לי רכב היום" */
+  extra: PickerChoice[];
+  /** The year step's last choice: "שנה אחרת — לבדיקת נציג" (opens a current_car ticket). */
+  year_check: PickerChoice;
 }
 
 export interface PayslipCandidateField {

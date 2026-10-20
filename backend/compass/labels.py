@@ -261,6 +261,9 @@ ERROR_MESSAGES: dict[str, Callable[[Params], str]] = {
     "payslip_unreadable": lambda p: "לא הצלחנו לפתוח את הקובץ. נסו קובץ אחר.",
     "payslip_unavailable": lambda p: "קריאת תלושים לא זמינה כרגע. אפשר להזין את הנתונים בצ'אט.",
     "payslip_nothing_pending": lambda p: "אין נתונים מהתלוש שממתינים לאישור.",
+    "current_car_not_needed": lambda p: "הרכב של היום כבר נקבע, או שנציג כבר בודק אותו.",
+    "current_car_unknown_car": lambda p: "הרכב שנבחר אינו בקטלוג.",
+    "current_car_choice_invalid": lambda p: "הבחירה אינה תקינה.",
     "payslip_field_not_allowed": lambda p: "מהתלוש אפשר לאשר רק נתוני שכר.",
     "payslip_invalid_value": lambda p: "אחד הערכים לא תקין. בדקו אותו ונסו שוב.",
     "payslip_extraction_failed": lambda p: (

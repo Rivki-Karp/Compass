@@ -62,7 +62,7 @@ class DailySpendCapReached(Exception):
     """Today's model spend reached the cap: no more model calls until tomorrow (UTC)."""
 
 
-Job = tuple[Literal["employee_turn", "rep_answer", "payslip_confirmed"], Any]
+Job = tuple[Literal["employee_turn", "rep_answer", "payslip_confirmed", "car_picked"], Any]
 
 
 @dataclass(frozen=True)
@@ -147,6 +147,10 @@ class ClaudeAgentRunner:
     def on_payslip_confirmed(self, session_id: str, confirmed: dict[str, Any]) -> None:
         """The employee confirmed payslip values: tell the agent, as data (like a rep answer)."""
         self._submit(session_id, ("payslip_confirmed", confirmed))
+
+    def on_car_picked(self, session_id: str, picked: dict[str, Any]) -> None:
+        """The employee picked today's car in the catalog picker: tell the agent, as data."""
+        self._submit(session_id, ("car_picked", picked))
 
     # --- scheduling ---------------------------------------------------------------------
 
@@ -303,6 +307,20 @@ class ClaudeAgentRunner:
                 "not_in_payslip": ref.get("not_in_payslip", []),
                 "unreadable": ref.get("unreadable", []),
                 "removed_by_employee": ref.get("removed_by_employee", []),
+                "server_comparisons": [
+                    json.loads(model_view("compare", result)) for result in ref["comparisons"]
+                ],
+            }
+        elif kind == "car_picked":
+            # what the employee chose in the picker, today's situation after it, and the server's
+            # own recomputed comparisons as compare would have returned them
+            content = {
+                "kind": "car_picked",
+                "origin": SERVER_ORIGIN,
+                "outcome": ref["outcome"],
+                "car_id": ref.get("car_id"),
+                "ticket_id": ref.get("ticket_id"),
+                "today_after": ref["today_after"],
                 "server_comparisons": [
                     json.loads(model_view("compare", result)) for result in ref["comparisons"]
                 ],

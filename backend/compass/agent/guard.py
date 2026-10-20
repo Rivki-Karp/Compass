@@ -160,6 +160,10 @@ def allowed_for_session(store: Store, session_id: str) -> Allowed:
             allowed.add_json(content.get("values"), "payslip")
             allowed.add_json(content.get("car_hint"), "payslip")
             allowed.add_json(content.get("server_comparisons"), "server")
+        elif is_server_event(row, "car_picked"):
+            # the car the employee picked from the catalog, and what the server recomputed
+            allowed.add_json(content.get("today_after"), "server")
+            allowed.add_json(content.get("server_comparisons"), "server")
     return allowed
 
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, apiFetch } from "../api/client";
 import type { JudgesStats } from "../api/types";
 import { ChatPanel } from "../employee/ChatPanel";
+import { CurrentCarPicker } from "../employee/CurrentCarPicker";
 import { type EffectsMemory, EffectsMemoryContext } from "../employee/effects";
 import { EmptyComparison } from "../employee/EmptyComparison";
 import { HeroAnnouncement, HeroCard } from "../employee/HeroCard";
@@ -105,6 +106,25 @@ export function EmployeePage() {
     pending: state.payslip,
   });
 
+  // today's car, picked from the catalog the server offers while the car is unknown
+  const sessionId = session.sessionId;
+  const carPicker =
+    state.carPicker && sessionId ? (
+      <CurrentCarPicker
+        picker={state.carPicker}
+        onPick={async (pick) => {
+          await api.pickCurrentCar(sessionId, pick);
+        }}
+      />
+    ) : null;
+  const tray =
+    payslip.tray || carPicker ? (
+      <>
+        {payslip.tray}
+        {carPicker}
+      </>
+    ) : null;
+
   // Every alternative on screen (list_options) and the one shown: the employee's pick, until
   // the agent compares something new; by default the one the agent compared last, else the best.
   const { options, comparison, selected, select } = useOptionSelection(state);
@@ -162,7 +182,7 @@ export function EmployeePage() {
               limitReached={limitReached(state)}
               onNewSession={session.newSession}
               attach={payslip.attach}
-              tray={payslip.tray}
+              tray={tray}
               intro={
                 payslip.open && offerVisible(state) ? <PayslipOffer onUpload={payslip.open} /> : null
               }

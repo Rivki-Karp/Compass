@@ -81,8 +81,12 @@ TOOLS: tuple[Tool, ...] = (
         "details_he) and other_choices: not_in_list ('הרכב שלי לא ברשימה': then lookup_vehicle "
         "with the registration year for a car outside the catalog) and no_car ('אין לי רכב "
         "היום': set_current_situation kind none). Offer them all as one short numbered list, "
-        "in this order, and let the employee pick; never pick for them. A car whose year "
-        "differs from the employee's is a different vehicle.",
+        "in this order, and let the employee pick; never pick for them. With no query (or "
+        "'all') it returns the whole catalog grouped by manufacturer (manufacturers) and the "
+        "server puts its catalog picker on the employee's screen (picker_on_screen): never list "
+        "manufacturers or models from your own knowledge, only what this tool returns. A car "
+        "with year_differs: the model is in the catalog and the employee's year is not: offer "
+        "it with 'לבדיקת נציג' (check_with_rep), never as 'a different car'.",
         h.SearchCatalogInput,
         h.search_catalog,
     ),
