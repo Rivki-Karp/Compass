@@ -12,11 +12,11 @@ export function Header({
   heading = true,
 }: {
   children?: ReactNode;
-  variant?: "employee" | "rep";
+  variant?: "employee" | "rep" | "account";
   /** The wordmark is the page's h1 (axe: page-has-heading-one), unless the page has its own. */
   heading?: boolean;
 }) {
-  const rep = variant === "rep";
+  const rep = variant !== "employee"; // the navy header: the rep screen and the account screens
   const Title = heading ? "h1" : "div";
   return (
     <header
@@ -41,7 +41,11 @@ export function Header({
             COMPASS
           </span>
           <span className={`block text-[13px] font-normal ${rep ? "text-mist" : "text-muted"}`}>
-            {rep ? "מסך נציג" : "יועץ הרכב של Strauss"}
+            {variant === "rep"
+              ? "מסך נציג"
+              : variant === "account"
+                ? "יועץ הרכב של שטראוס"
+                : "יועץ הרכב של Strauss"}
           </span>
         </Title>
       </div>

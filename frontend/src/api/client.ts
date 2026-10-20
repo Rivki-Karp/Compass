@@ -115,6 +115,8 @@ export const api = {
   logout: () => request<null>("/auth/logout", { method: "POST" }),
   me: () => request<{ name: string; role: Role }>("/auth/me"),
   conversations: () => request<ConversationEntry[]>("/conversations"),
+  /** The session snapshot (what resuming restores): here only to see whether it is empty. */
+  snapshot: (id: string) => request<{ messages: unknown[] }>(`/sessions/${id}`),
   deleteConversation: (id: string) => request<null>(`/conversations/${id}`, { method: "DELETE" }),
   adminUsers: () => request<AdminUser[]>("/admin/users"),
   invite: (email: string, role: Role) =>
