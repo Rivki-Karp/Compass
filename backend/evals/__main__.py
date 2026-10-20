@@ -78,6 +78,7 @@ def main(argv: list[str]) -> int:
     settings = load_agent_settings()
     if args.payslip:
         settings = dataclasses.replace(settings, payslip=True)
+        scenarios = [s for s in scenarios if not s.payslip_off]
     else:  # flag off: the payslip scenarios cannot run
         scenarios = [s for s in scenarios if not s.needs_payslip]
     ledger = Ledger(cap_usd=args.cap)

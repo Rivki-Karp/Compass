@@ -1,5 +1,6 @@
 name: payslip_flag_off
 description: 'The upload is off (the default): the employee asks to upload a payslip. A polite "not available", the values asked for in text, no template fallback, no unsourced number'
+payslip_off: true
 turns:
 - employee: אני מנהלת מוצר, שכר בסיס 18,500. אפשר להעלות תלוש שכר ושתקראי ממנו את שאר
     הנתונים, במקום שאקליד?

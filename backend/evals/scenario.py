@@ -85,6 +85,8 @@ class Scenario(_Model):
     # runs only with the upload on (evals --payslip), even with no payslip turn: the scenario is
     # about what the agent does when the upload exists
     payslip_on: bool = False
+    # about the upload being OFF (the default): skipped when the run has it on (evals --payslip)
+    payslip_off: bool = False
 
     @property
     def needs_payslip(self) -> bool:
