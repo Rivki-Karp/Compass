@@ -19,11 +19,14 @@ import { PayslipOffer } from "../payslip/PayslipOffer";
 import { usePayslip } from "../payslip/usePayslip";
 import { useTurnSelection } from "../judges/useTurnSelection";
 import { demoSuggestions, GENERAL_SUGGESTIONS } from "../employee/suggestions";
+import { useAuth } from "../auth/context";
+import { expireSession } from "../auth/authStore";
 import { clearToken, getToken, setToken } from "../lib/tokens";
 import { useHealth } from "../lib/useHealth";
 import { useInView } from "../lib/useInView";
 import { limitReached } from "../state/session";
 import { useSession } from "../state/useSession";
+import { Button } from "../ui/Button";
 import { ConnectionPill, DemoBadge, Header, JudgesToggle } from "../ui/Header";
 import { tokenCheck, type TokenCheck } from "../lib/tokenCheck";
 import { TokenDialog } from "../ui/TokenDialog";
@@ -57,7 +60,10 @@ export function EmployeePage() {
   const [judges, setJudges] = useState(false);
   const [asking, setAsking] = useState(false);
   const [adminToken, setAdminToken] = useState<string | null>(() => getToken("admin"));
-  const session = useSession(judges ? adminToken : null);
+  // with accounts the stream carries the login (the server decides what each role may see)
+  const auth = useAuth();
+  const login = auth.status === "in" ? (auth.user?.token ?? null) : null;
+  const session = useSession(login ?? (judges ? adminToken : null));
   const { state } = session;
   // Which effects (motion, announcements) already played, per session: never twice.
   // A new, empty memory for each session id (the dependency is the point, not an input).
@@ -69,14 +75,20 @@ export function EmployeePage() {
   // the phone bar steps aside while the hero is on screen, below the bar's own 48 px
   const heroInView = useInView(HERO_ID, phone && !judges, 48, state.comparison !== null);
 
+  // The login ended under an open stream: back to the landing page.
+  useEffect(() => {
+    if (login && session.connection === "unauthorized") expireSession();
+  }, [login, session.connection]);
+
   // A stored admin token the server no longer accepts: forget it, leave judges mode.
   useEffect(() => {
+    if (login) return;
     if (session.connection === "unauthorized" && judges) {
       clearToken("admin");
       setAdminToken(null);
       setJudges(false);
     }
-  }, [session.connection, judges]);
+  }, [session.connection, judges, login]);
 
   const suggestions = useMemo(() => {
     if (state.thinking || session.sending) return [];
@@ -140,7 +152,12 @@ export function EmployeePage() {
         <Header>
           <ConnectionPill status={session.connection} />
           {health?.llm === "scripted" ? <DemoBadge /> : null}
-          <JudgesToggle on={judges} onToggle={toggleJudges} />
+          {login ? null : <JudgesToggle on={judges} onToggle={toggleJudges} />}
+          {login ? (
+            <Button variant="secondary" onClick={() => void auth.logout()}>
+              יציאה
+            </Button>
+          ) : null}
         </Header>
         {comparison && phoneBarVisible({ narrow: phone, comparison, judges }) ? (
           <PhoneBar comparison={comparison} heroId={HERO_ID} hidden={heroInView} />

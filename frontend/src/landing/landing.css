@@ -1,0 +1,113 @@
+/* The landing page's motion (briefs/design/Landing.reference.html). CSS only; every animation is
+   off under prefers-reduced-motion, and the demo card then rests on its final state. */
+
+@keyframes lp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes lp-spin-rev {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+@keyframes lp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes lp-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes lp-bar {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes lp-out {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes lp-in {
+  0%,
+  45% {
+    opacity: 0;
+  }
+  55%,
+  100% {
+    opacity: 1;
+  }
+}
+
+.lp-hero {
+  background: radial-gradient(
+    1200px 700px at 50% 18%,
+    var(--color-hero-mid) 0%,
+    var(--color-engine-guard-bg) 38%,
+    var(--color-engine-code) 78%
+  );
+}
+.lp-cta {
+  background: radial-gradient(
+    900px 420px at 50% 100%,
+    var(--color-hero-mid) 0%,
+    var(--color-engine-code) 70%
+  );
+}
+.lp-field:focus {
+  outline: none;
+  border-color: var(--color-knob-on);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-knob-on) 35%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lp-ring {
+    animation: lp-spin 40s linear infinite;
+  }
+  .lp-ring2 {
+    animation: lp-spin-rev 70s linear infinite;
+  }
+  .lp-halo {
+    animation: lp-glow 5s ease-in-out infinite;
+  }
+  .lp-rise {
+    animation: lp-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .lp-bar {
+    transform-origin: bottom;
+    animation: lp-bar 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .lp-swap-a {
+    animation: lp-out 7s ease-in-out infinite;
+  }
+  .lp-swap-b {
+    animation: lp-in 7s ease-in-out infinite;
+  }
+}
+
+/* reduced motion: nothing moves, and only the final state of the demo card shows */
+@media (prefers-reduced-motion: reduce) {
+  .lp-swap-a {
+    opacity: 0;
+  }
+}
