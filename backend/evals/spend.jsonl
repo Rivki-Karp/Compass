@@ -411,3 +411,6 @@
 {"at": "2026-10-20T16:45:19+00:00", "scenario": "payslip-smoke (03_blurry.jpg)", "model": "claude-haiku-5-5", "cost_usd": 0.000461}
 {"at": "2026-10-20T16:45:20+00:00", "scenario": "payslip-smoke (04_injection.pdf)", "model": "claude-haiku-5-5", "cost_usd": 0.000621}
 {"at": "2026-10-20T16:45:22+00:00", "scenario": "payslip-smoke (11_amounts.pdf)", "model": "claude-haiku-5-5", "cost_usd": 0.000605}
+{"at": "2026-10-20T17:38:33+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.046962}
+{"at": "2026-10-20T17:38:40+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.010313}
+{"at": "2026-10-20T17:38:48+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.010343}
