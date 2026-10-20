@@ -90,7 +90,7 @@ const FEATURES = [
  * login. Layout, copy and motion follow briefs/design/Landing.reference.html. */
 export function Landing() {
   return (
-    <div className="bg-engine-code text-engine-text">
+    <main className="bg-engine-code text-engine-text">
       <section aria-label="פתיחה" className="lp-hero relative px-6 pt-7 pb-[120px] max-sm:pb-16">
         <nav
           aria-label="ניווט"
@@ -118,7 +118,7 @@ export function Landing() {
           </div>
         </nav>
 
-        <main className="mx-auto flex max-w-[1240px] flex-col items-center gap-7 pt-[72px] text-center max-sm:pt-8">
+        <div className="mx-auto flex max-w-[1240px] flex-col items-center gap-7 pt-[72px] text-center max-sm:pt-8">
           <Logo />
           <div className="lp-rise flex flex-col items-center gap-2.5 [animation-delay:0.15s]">
             <span className="ltr text-[clamp(48px,8vw,96px)] leading-none font-bold tracking-[0.08em] text-white">
@@ -128,7 +128,7 @@ export function Landing() {
               יועץ הרכב של שטראוס
             </span>
           </div>
-          <h1 className="lp-rise mt-3 max-w-[820px] text-[clamp(30px,4vw,52px)] leading-[1.2] font-bold text-white [animation-delay:0.3s]">
+          <h1 className="lp-rise mt-3 max-w-[980px] text-[clamp(30px,4vw,52px)] leading-[1.2] font-bold text-white [animation-delay:0.3s]">
             כך תוכלו לדעת בדיוק כמה נשאר בנטו,
             <br />
             לפני שבוחרים רכב.
@@ -150,7 +150,7 @@ export function Landing() {
               <DemoCard />
             </div>
           </div>
-        </main>
+        </div>
       </section>
 
       <section
@@ -252,6 +252,6 @@ export function Landing() {
           </div>
         </div>
       </section>
-    </div>
+    </main>
   );
 }

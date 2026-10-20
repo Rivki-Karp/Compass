@@ -428,5 +428,10 @@ class Settings:
                 "COMPASS_SESSION_TTL_HOURS",
                 DEFAULT_SESSION_TTL_HOURS,
             ),
+            login_per_ip_per_minute=_positive_int(
+                env.get("COMPASS_LOGIN_PER_IP_PER_MINUTE"),
+                "COMPASS_LOGIN_PER_IP_PER_MINUTE",
+                DEFAULT_LOGIN_PER_IP_PER_MINUTE,
+            ),
             seed_users=_seed_users(env.get("COMPASS_SEED_USERS")),
         )

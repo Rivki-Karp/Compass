@@ -514,3 +514,35 @@ dashboard (`sync: false`, never in `render.yaml`).
 
 A live server with `COMPASS_AUTH=1` refuses to start when `COMPASS_SEED_USERS` holds no `admin`,
 or a hash that is not argon2id; it says which entry, never the value.
+
+**Turning it on (Render).** Build `COMPASS_SEED_USERS` as above (one employee, one rep, one
+admin), then in the `compass-api` service's **Environment**: paste it into `COMPASS_SEED_USERS`
+(declared `sync: false`, so it is never in the repo), set `COMPASS_AUTH` to `1` and save. The
+service restarts, creates the three accounts, and refuses to start if there is no admin or a hash
+is not argon2id (it names the entry, never the value). The static `COMPASS_REP_TOKEN` and
+`COMPASS_ADMIN_TOKEN` stop working while it is on. To turn it off, set `COMPASS_AUTH` back to `0`.
+
+**What a deploy does.** The free plan has no disk, so every deploy or restart wipes the users,
+their conversations and any invite; the three seeded accounts come back with their original
+passwords, and anyone else must be invited again. Do not promise judges that a conversation
+survives a redeploy.
+
+**By-hand checklist (after turning it on, from outside).**
+
+1. `/` shows the landing page, not the old chat; `/register` loads.
+2. Log in as the employee: the greeting names them; send a message; the conversation appears in the
+   list with a title and, after a comparison, the diff and its state.
+3. Log out: back on the landing page, and the old conversation's address shows it too.
+4. Log in as the admin: `/admin` lists the three accounts; invite an email, copy the code from the
+   dialog (it will not be shown again), close it; register that email in a private window.
+5. As the employee, open a conversation address in a second browser logged in as someone else: it
+   must say the page was not found.
+6. As the rep: `/rep` opens the inbox with no token to type; the admin gets "not found" on it.
+7. Disable a user in `/admin` while they are logged in: their next action sends them to the
+   landing page with "החיבור הסתיים, צריך להיכנס שוב".
+8. Delete a conversation: it disappears from the list, and its address says not found.
+9. Wrong password five times from one device: the sixth is refused with the same message and a
+   "try again in a few minutes" hint; the right password from another device still works.
+10. Run `uv run --project backend python tasks.py smoke --api <api> --web <web>`: it opens a session
+    without a login, which must now fail (401) with the flag on, so skip this step then and rely on
+    the list above.

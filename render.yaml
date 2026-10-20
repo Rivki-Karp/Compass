@@ -62,6 +62,14 @@ services:
         value: "3"
       - key: COMPASS_PAYSLIP_TIMEOUT_S
         value: "20"
+      # Accounts (login, invite codes, per-user conversations): OFF until someone turns it on.
+      # The free plan has no disk: users and history are wiped on every deploy, and the accounts in
+      # COMPASS_SEED_USERS (a JSON list of hashes, never passwords: tasks.py hash-password) are
+      # re-created at every start. With 1, the static rep/admin tokens are refused.
+      - key: COMPASS_AUTH
+        value: "0"
+      - key: COMPASS_SEED_USERS
+        sync: false
 
   - type: web
     name: compass-web
