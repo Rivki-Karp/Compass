@@ -126,11 +126,11 @@ server's.
 
 Per-scenario figures are averages over the repeats.
 
-**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-20): pytest **974** · vitest **220** · Playwright **15**. CI runs all of them on every push.
+**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-20): pytest **1004** · vitest **220** · Playwright **15**. CI runs all of them on every push.
 
 **Cost per conversation:** **$0.0334**, the last report's run cost over its 22 scenario runs.
 
-**Total spend on evals:** **$8.66** of the $30.00 cap, over every eval run so far: 299 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
+**Total spend on evals:** **$9.85** of the $30.00 cap, over every eval run so far: 334 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
 
 <!-- results:end -->
 
@@ -182,6 +182,68 @@ browser (React, RTL)  ──POST /messages──▶  FastAPI  ──▶  agent r
   the hard limit is the Anthropic Console's workspace spend limit. The container reads
   configuration from the environment only (`COMPASS_ENV_ONLY=1`). See the runbook, section 8.
 
+## Payslip upload (feature flag, off by default)
+
+With `COMPASS_PAYSLIP=1` an employee can attach a payslip in the chat. Claude reads its salary
+numbers; the employee checks them on a card and confirms; only then do they become profile
+values. **Off (the default) nothing changes:** both endpoints answer 404 and are left out of the
+OpenAPI schema, `/api/health` does not mention them, the UI has no button, and the agent's prompt
+is the system prompt file byte for byte (`tests/agent/test_prompt_payslip.py`).
+
+```
+browser ─ raw file ─► POST /api/sessions/{id}/payslip
+                        validate (flag, session, attempts, rate, daily cap, type, size,
+                                  magic bytes, PDF pages and encryption)
+                        extract   (Claude, one isolated call: no tools, no conversation, a JSON
+                                   schema, max_tokens 800) ─► normalise (Decimal, range checks,
+                                   unknown keys dropped) ─► a PENDING candidate (an event)
+confirmation card ─► POST /api/sessions/{id}/payslip/confirm  (each field kept, edited or removed)
+                        apply through the existing slots ─► the server recomputes the comparison
+                        ─► the agent is told the confirmed values as data
+```
+
+**Models.** `claude-haiku-5-5` reads (about $0.0005 per one-page payslip, measured);
+`claude-sonnet-5-5` only if Haiku hard-fails: an API error after one retry, or an answer that is
+not JSON. Never because of low confidence: low-confidence fields reach the card, flagged. One 45 s
+deadline covers every attempt of both models. Every call is priced from `compass/agent/llm.py`,
+counted in the same daily spend cap as the agent's, and logged in `evals/spend.jsonl`.
+
+**Which fields.** Base salary, commissions, bonus, the employee's pension % and study-fund %, tax
+credit points: each fills an existing slot. The car's value of use and the payslip month are shown
+for information only; a value of use equal to exactly one catalog car's makes the agent ask
+whether that is the employee's car (the existing current-car flow), never assume it.
+
+**Invariants, each with its test** (`backend/tests/payslip/`):
+
+1. The agent never sees the file, the model's raw answer or an unconfirmed value: the candidate
+   is an event, never a message (`test_payslip_extraction_api.py`, `test_payslip_confirm.py`).
+2. The extraction call has no tools and no conversation, and its answer is parsed into a fixed
+   schema with no free-text field (`test_payslip_extractor.py`, `test_payslip_schema.py`).
+3. A payslip never sets occupation, group, a group exception, today's car or a ticket answer
+   (`test_payslip_confirm.py`).
+4. A representative's value is never overwritten (`test_payslip_confirm.py`).
+5. Only confirmed values are number-guard sources; a reply quoting an unconfirmed value is
+   rejected (`test_payslip_confirm.py`, and the eval scenario `payslip_injection`).
+6. Flag off: 404, no UI, an unchanged prompt (`test_payslip_upload.py`, `test_prompt_payslip.py`,
+   Playwright).
+
+**Privacy.** The employee sees this before the first upload: "התלוש נשלח לעיבוד אצל Anthropic, רק
+לחילוץ נתוני השכר, ואינו נשמר אצלנו. אל תעלו מסמך אחר." The file is read from the request stream
+into memory (never multipart, so nothing spools to disk) and dropped when the request ends: never
+written, stored, logged, or hashed. Logs carry only the session, type, size bucket, pages,
+latency, cost and outcome. No name, ID number, address, bank account or employee number is
+extracted or kept: the schema has no place for them, unknown keys are dropped and only counted.
+**Anthropic processes the file** to read it; what Anthropic itself retains is governed by the
+terms of the account behind `ANTHROPIC_API_KEY`, not by Compass.
+
+**Try it.** `COMPASS_PAYSLIP=1` with `tasks.py demo`: the scripted extractor reads every file as
+a demo payslip (no key, no network). Live: set `COMPASS_PAYSLIP=1` and `ANTHROPIC_API_KEY`
+(the server refuses to start without the key). `tasks.py payslip-check` verifies both model IDs
+and the request shape; `tasks.py payslip-smoke` sends the synthetic payslips in
+`backend/tests/fixtures/payslips/` (made by `backend/scripts/make_payslip_fixtures.py`) to the
+real models, including one with a prompt injection. Both cost real money and are run by hand,
+never in CI.
+
 ## All commands
 
 These commands work as-is in PowerShell, cmd and bash, on Windows, macOS and Linux, from the
@@ -197,6 +259,9 @@ uv run --project backend python tasks.py demo      # the demo: UI + API on :8000
 uv run --project backend python tasks.py demo E-001  # Hebrew breakdown of a golden employee
 uv run --project backend python tasks.py calc      # interactive calculator for your own numbers
 uv run --project backend python tasks.py serve     # the API on :8000 (Swagger at /docs)
+uv run --project backend python tasks.py check     # every suite: ruff, pytest, web lint, typecheck, vitest, build, Playwright
+uv run --project backend python tasks.py payslip-check  # live, by hand: the payslip models and request shape
+uv run --project backend python tasks.py payslip-smoke  # live, by hand: the synthetic payslips, with an injection
 uv run --project backend python tasks.py openapi   # regenerate backend/openapi.json
 uv run --project backend python tasks.py chat      # terminal chat (ANTHROPIC_API_KEY in backend/.env)
 uv run --project backend python tasks.py eval      # agent evals -> backend/evals/report.md

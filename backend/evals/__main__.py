@@ -1,11 +1,19 @@
 """uv run python tasks.py eval [--only a,b] [--repeat N] [--effort low|medium] [--out PATH]
+                            [--payslip] [--prompt PATH]
 
 Runs the scenarios against the real model (needs ANTHROPIC_API_KEY in .env), each in a fresh
 temporary session store, and writes the report. Refuses to start a run that could take the
 total spend (evals/spend.jsonl) over the cap.
+
+--payslip runs with the payslip upload on (COMPASS_PAYSLIP=1): the prompt gets its payslip
+section, the scenarios with a `payslip` turn run (scripted extractor, no network), and the
+global "no mention of תלוש" check is off. Without it those scenarios are skipped.
+--prompt PATH runs with that system prompt file instead of the one in the repository (the
+flag's section is still added with --payslip).
 """
 
 import argparse
+import dataclasses
 import sys
 import tempfile
 from pathlib import Path
@@ -13,6 +21,7 @@ from pathlib import Path
 from compass.agent.factory import build_claude_runner
 from compass.agent.guard import make_guard
 from compass.agent.llm import AnthropicClient
+from compass.agent.prompts import load_system_prompt
 from compass.agent.startup import load_agent_settings
 from compass.api.settings import Settings
 from compass.state import Store
@@ -29,10 +38,14 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--effort", choices=["low", "medium"], default="low")
     parser.add_argument("--out", type=Path, default=REPORT)
     parser.add_argument("--cap", type=float, default=CAP_USD, help="total spend cap, USD")
+    parser.add_argument("--payslip", action="store_true", help="run with COMPASS_PAYSLIP=1")
+    parser.add_argument("--prompt", type=Path, default=None, help="a system prompt file")
     return parser.parse_args(argv)
 
 
-def run_one(settings: Settings, scenario: Scenario, effort: str) -> RunResult:
+def run_one(
+    settings: Settings, scenario: Scenario, effort: str, prompt: Path | None = None
+) -> RunResult:
     services = Services(
         Store(Path(tempfile.mkdtemp(prefix="compass-eval-")) / "app.db"),
         rules_path=settings.rules_path,
@@ -42,7 +55,11 @@ def run_one(settings: Settings, scenario: Scenario, effort: str) -> RunResult:
     assert settings.anthropic_api_key
     llm = AnthropicClient(settings.anthropic_api_key, settings.model, effort=effort)
     runner = build_claude_runner(settings, services, llm=llm, background=False)
-    return Harness(services, runner, make_guard(services.store), settings.model).run(scenario)
+    if prompt is not None:
+        runner.system_prompt = load_system_prompt(prompt, payslip=settings.payslip)
+    harness = Harness(services, runner, make_guard(services.store), settings.model)
+    harness.payslip = settings.payslip
+    return harness.run(scenario)
 
 
 def main(argv: list[str]) -> int:
@@ -59,6 +76,10 @@ def main(argv: list[str]) -> int:
         print(error, file=sys.stderr)
         return 2
     settings = load_agent_settings()
+    if args.payslip:
+        settings = dataclasses.replace(settings, payslip=True)
+    else:  # flag off: the payslip scenarios cannot run
+        scenarios = [s for s in scenarios if not s.needs_payslip]
     ledger = Ledger(cap_usd=args.cap)
     spent_before = ledger.spent()
     runs: list[RunResult] = []
@@ -67,7 +88,7 @@ def main(argv: list[str]) -> int:
         for scenario in scenarios:
             for i in range(args.repeat):
                 ledger.reserve()
-                run = run_one(settings, scenario, args.effort)
+                run = run_one(settings, scenario, args.effort, args.prompt)
                 ledger.record(run, args.effort, settings.model)
                 runs.append(run)
                 failed = [r.label for r in run.results if not r.passed]

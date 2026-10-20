@@ -21,6 +21,7 @@ Usage:
     tasks.py eval      # agent evals against the real model -> backend/evals/report.md
     tasks.py eval --only walkthrough,e001_rep_flow --repeat 3 --effort medium
     tasks.py payslip-check  # live: both payslip models exist and read a PDF and a PNG
+    tasks.py payslip-smoke  # live, by hand, never CI: synthetic payslips 1-4 through the extractor
     tasks.py openapi   # write backend/openapi.json (commit it with API changes)
     tasks.py ts-types  # write frontend/src/api/generated.ts (commit it with view changes)
     tasks.py test-counts  # write backend/tests/counts.json (judges mode; pytest checks it)
@@ -316,6 +317,12 @@ def payslip_check() -> None:
     run(sys.executable, "-m", "evals.payslip_live", "check")
 
 
+def payslip_smoke() -> None:
+    """Live: the synthetic payslips 1 to 4 through the real extractor; asserts the injection
+    payslip cannot set the salary or a group. Costs real money (about a cent); by hand only."""
+    run(sys.executable, "-m", "evals.payslip_live", "smoke")
+
+
 def openapi() -> None:
     run(sys.executable, "-m", "compass.api.openapi")
 
@@ -512,6 +519,7 @@ TASKS: dict[str, Callable[..., None]] = {
     "chat": chat,
     "eval": evals,
     "payslip-check": payslip_check,
+    "payslip-smoke": payslip_smoke,
     "smoke": smoke,
 }
 TAKES_ARGS: set[str] = {"demo", "eval", "smoke"}

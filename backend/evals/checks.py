@@ -37,7 +37,8 @@ the actual list, numbers match by value ("18500" == 18500). Turns are 0-based sc
 
 Global checks run on every scenario: no agent errors, every shown reply passes the number
 guard (re-checked), no forbidden phrase (a recommendation, a national ID request), and no
-"תלוש" in a reply unless an employee message at or before that turn had it.
+"תלוש" in a reply unless an employee message at or before that turn had it (with the payslip
+upload on, COMPASS_PAYSLIP=1, the agent may mention it once, so that check is off).
 """
 
 import re
@@ -45,8 +46,8 @@ from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-# A word a reply may use only after the employee used it first (the agent never brings up a
-# payslip: there is no upload; if the employee does, the data can simply be typed in).
+# A word a reply may use only after the employee used it first (flag off: the agent never brings
+# up a payslip, there is no upload; if the employee does, the data can simply be typed in).
 ONLY_AFTER_EMPLOYEE_HE = {"payslip": "תלוש"}
 
 FORBIDDEN_HE = {
@@ -123,6 +124,8 @@ class Trace:
     guard_rechecks: list[tuple[int, list[str]]] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)  # e.g. a rep turn with no open ticket
     employee_messages: list[tuple[int, str]] = field(default_factory=list)  # (turn, text)
+    # the payslip upload was on for this run: the agent may bring up a payslip (once)
+    payslip_enabled: bool = False
     # every ticket opened: {"bound_fields", "free_types", "occupation_options_from_table"}
     tickets: list[dict[str, Any]] = field(default_factory=list)
 
@@ -392,7 +395,8 @@ def global_checks(trace: Trace) -> list[CheckResult]:
         f"t{r.turn} {name}"
         for r in shown
         for name, word in ONLY_AFTER_EMPLOYEE_HE.items()
-        if word in r.text
+        if not trace.payslip_enabled
+        and word in r.text
         and not any(word in text for turn, text in trace.employee_messages if turn <= r.turn)
     ]
     return [

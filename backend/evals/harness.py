@@ -6,12 +6,16 @@ from typing import Any
 
 from compass.agent.llm import Usage, requests_cost_usd
 from compass.agent.runner import ClaudeAgentRunner, Guard, RunOutcome
+from compass.payslip.confirm import confirm
+from compass.payslip.extractor import ScriptedExtractor
+from compass.payslip.service import PayslipService
+from compass.payslip.upload import PayslipRejected
 from compass.tools.profile import TOOL_OF, to_tool_value
 from compass.tools.questions import OTHER_OCCUPATION, is_free, ticket_questions
 from compass.tools.services import Services
 from compass.tools.tickets import QuestionAnswer, TicketAnswerError, answer_ticket
 from evals.checks import Call, CheckResult, Comparison, Reply, Trace, evaluate
-from evals.scenario import FALLBACK_HE, RepAnswer, Scenario
+from evals.scenario import FALLBACK_HE, PayslipTurn, RepAnswer, Scenario
 
 
 @dataclass
@@ -54,14 +58,17 @@ class Harness:
     ) -> None:
         self.services, self.store, self.runner = services, services.store, runner
         self.guard, self.model = guard, model
+        self.payslip = False  # the upload is on (evals --payslip): payslip turns, the prompt
 
     def run(self, scenario: Scenario) -> RunResult:
         session_id = self.store.create_session()
-        result = RunResult(scenario.name, [], Trace(), session_id)
+        result = RunResult(scenario.name, [], Trace(payslip_enabled=self.payslip), session_id)
         bounds: list[int] = []  # the last event seq at the end of each turn
         for turn in scenario.turns:
             if turn.employee is not None:
                 self._employee(session_id, turn.employee, result)
+            elif turn.payslip is not None:
+                self._payslip(session_id, turn.payslip, result)
             else:
                 assert turn.rep is not None
                 self._rep(session_id, turn.rep, result)
@@ -121,6 +128,27 @@ class Harness:
         self._timed(
             result, lambda: self.runner.on_ticket_answered(session_id, answered.id), session_id
         )
+
+    def _payslip(self, session_id: str, payslip: PayslipTurn, result: RunResult) -> None:
+        """What POST /payslip and POST /payslip/confirm do, with the scripted extractor reading
+        `payslip.read`: the candidate is stored, the employee's confirmation is applied through
+        the slots, the server recomputes, and the agent is told (only if something was applied
+        or a car hint was made, as the route does)."""
+        if not self.payslip:
+            result.trace.problems.append("payslip turn: run with --payslip (the flag is off)")
+            return
+        service = PayslipService(self.store, ScriptedExtractor([payslip.read]), count_spend=False)
+        try:
+            service.extract(session_id, b"%PDF-1.4 synthetic", "application/pdf")
+            confirmed = confirm(self.services, session_id, payslip.confirm)
+        except PayslipRejected as error:
+            result.trace.problems.append(f"payslip turn: {error.code}")
+            return
+        if confirmed.applied or confirmed.car_hint:
+            data = {**confirmed.to_dict(), "comparisons": confirmed.comparisons}
+            self._timed(
+                result, lambda: self.runner.on_payslip_confirmed(session_id, data), session_id
+            )
 
     def _timed(self, result: RunResult, call: Any, session_id: str) -> None:
         before = self.runner.last_outcome.get(session_id)
