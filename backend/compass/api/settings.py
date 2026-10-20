@@ -57,6 +57,9 @@ DEFAULT_PAYSLIP_FALLBACK_MODEL = "claude-sonnet-5-5"
 DEFAULT_PAYSLIP_MAX_BYTES = 5 * 1024 * 1024
 DEFAULT_PAYSLIP_MAX_PAGES = 3
 DEFAULT_PAYSLIP_PER_SESSION = 3
+# With accounts (COMPASS_AUTH=1) uploads are also counted per user per UTC day, across their
+# conversations: a new conversation does not bring a new allowance.
+DEFAULT_PAYSLIP_PER_USER_PER_DAY = 10
 # One extraction call; every attempt of both models also fits a 45 s deadline (extractor).
 DEFAULT_PAYSLIP_TIMEOUT_S = 20.0
 MAX_PAYSLIP_TIMEOUT_S = 20.0
@@ -186,8 +189,9 @@ KNOWN_TOKENS = frozenset({"rep-demo", "admin-demo", "rep-demo-change-me", "admin
 
 def live_token_errors(settings: "Settings") -> list[str]:
     """Why a live server (COMPASS_LLM=anthropic) must not start: an empty token, or a demo /
-    placeholder one. Demo mode (scripted) has none. Never includes a token's value."""
-    if settings.llm == "scripted":
+    placeholder one. Demo mode (scripted) has none, and neither has a server with accounts
+    (COMPASS_AUTH=1): the static tokens are refused there. Never includes a token's value."""
+    if settings.llm == "scripted" or settings.auth:
         return []
     given = {"COMPASS_REP_TOKEN": settings.rep_token, "COMPASS_ADMIN_TOKEN": settings.admin_token}
     errors = []
@@ -316,6 +320,7 @@ class Settings:
     payslip_max_bytes: int = DEFAULT_PAYSLIP_MAX_BYTES
     payslip_max_pages: int = DEFAULT_PAYSLIP_MAX_PAGES
     payslip_per_session: int = DEFAULT_PAYSLIP_PER_SESSION
+    payslip_per_user_per_day: int = DEFAULT_PAYSLIP_PER_USER_PER_DAY
     payslip_timeout_s: float = DEFAULT_PAYSLIP_TIMEOUT_S
     # Accounts: off by default; off = /api/auth answers 404, the static rep/admin tokens work as
     # before. On = they are refused, and every session belongs to the user who made it.
@@ -400,6 +405,11 @@ class Settings:
                 env.get("COMPASS_PAYSLIP_PER_SESSION"),
                 "COMPASS_PAYSLIP_PER_SESSION",
                 DEFAULT_PAYSLIP_PER_SESSION,
+            ),
+            payslip_per_user_per_day=_positive_int(
+                env.get("COMPASS_PAYSLIP_PER_USER_PER_DAY"),
+                "COMPASS_PAYSLIP_PER_USER_PER_DAY",
+                DEFAULT_PAYSLIP_PER_USER_PER_DAY,
             ),
             payslip_timeout_s=_payslip_timeout(env.get("COMPASS_PAYSLIP_TIMEOUT_S")),
             auth=env.get("COMPASS_AUTH") == "1",

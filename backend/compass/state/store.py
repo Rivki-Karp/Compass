@@ -153,6 +153,7 @@ class Store:
                     "delete the file to recreate it"
                 )
             self._add_columns(conn)
+            conn.execute("CREATE INDEX IF NOT EXISTS sessions_by_owner ON sessions (owner_user_id)")
         finally:
             conn.close()
 
@@ -265,16 +266,37 @@ class Store:
 
     # --- sessions ---------------------------------------------------------------------------
 
-    def create_session(self) -> str:
+    def create_session(self, owner_user_id: str | None = None) -> str:
+        """A new conversation. With COMPASS_AUTH=1 `owner_user_id` is the account it belongs to
+        (every route then checks it); None: created with accounts off, owned by nobody."""
         session_id = uuid.uuid4().hex
         now = _now()
         with self._write() as (conn, events):
             conn.execute(
-                "INSERT INTO sessions (id, created_at, updated_at, status) VALUES (?, ?, ?, ?)",
-                (session_id, now, now, "active"),
+                "INSERT INTO sessions (id, created_at, updated_at, status, owner_user_id) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (session_id, now, now, "active", owner_user_id),
             )
             self._event(conn, events, session_id, "session_created", {"status": "active"})
         return session_id
+
+    def session_owner(self, session_id: str) -> str | None:
+        """The account that owns the session; None if nobody does. NotFound: no such session."""
+        with self._read() as conn:
+            owner = self._require_session(conn, session_id)["owner_user_id"]
+        return None if owner is None else str(owner)
+
+    def count_user_events(self, user_id: str, types: tuple[str, ...], since: str) -> int:
+        """How many events of `types`, at or after `since` (an ISO UTC time), the sessions of
+        this account have (the per-user daily payslip count)."""
+        marks = ", ".join("?" for _ in types)
+        with self._read() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM events e JOIN sessions s ON s.id = e.session_id "
+                f"WHERE s.owner_user_id = ? AND e.created_at >= ? AND e.type IN ({marks})",
+                (user_id, since, *types),
+            ).fetchone()
+        return int(row[0])
 
     def session_status(self, session_id: str) -> SessionStatus:
         with self._read() as conn:

@@ -5,10 +5,11 @@
 
 The body is the file itself (Content-Type application/pdf, image/jpeg or image/png), read from
 the request stream into memory with a hard cap; never multipart, never on disk. Checks, in this
-order: the flag, the session (the same check as the other session endpoints), this session's
-attempts (and one upload at a time), the per-IP rate limit, the daily spend cap (live mode, as
-the agent's), the declared type, the size, the magic bytes, and for a PDF its pages and
-encryption.
+order: the flag, the session (the same check as the other session endpoints, which with accounts
+is the ownership rule), this session's attempts and, with accounts, this user's attempts today
+(and one upload at a time per session and per user), the per-IP rate limit, the daily spend cap
+(live mode, as the agent's), the declared type, the size, the magic bytes, and for a PDF its
+pages and encryption.
 
 A refusal is {"detail": code, "errors": [{"code", "field", "message"}]} with a Hebrew
 message (compass.labels), the shape of a refused ticket answer. One log line per upload, metadata
@@ -21,9 +22,9 @@ import threading
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
@@ -43,6 +44,7 @@ from compass.payslip.upload import (
     size_bucket,
 )
 from compass.state import Store
+from compass.state.accounts import User
 from compass.tools.services import Services
 
 # Every upload that reached the extractor leaves one of these events: the per-session count.
@@ -83,7 +85,7 @@ def add_payslip_routes(
     settings: Settings,
     services: Services,
     agent: AgentRunner,
-    require_session: Callable[[str], None],
+    session_access: Callable[..., User | None],
 ) -> None:
     store: Store = services.store
     limiter = RateLimiter(UPLOADS_PER_MINUTE)
@@ -116,25 +118,39 @@ def add_payslip_routes(
             503: {"description": "The daily spend cap, or reading payslips is unavailable"},
         },
     )
-    async def upload_payslip(session_id: str, request: Request) -> JSONResponse:
+    async def upload_payslip(
+        session_id: str,
+        request: Request,
+        user: Annotated[User | None, Depends(session_access)],
+    ) -> JSONResponse:
         """Upload a payslip (the raw file as the body). Its salary numbers are read into a
         pending candidate the employee confirms; the file is never stored."""
         if not settings.payslip:
             raise HTTPException(404, "Not Found")
-        require_session(session_id)
         started = time.monotonic()
         meta: dict[str, Any] = {"type": None, "size": None, "pages": None, "cost": None}
         outcome = "rejected"
-        claimed = False
+        claims: list[str] = []
         try:
             attempts = store.count_events(session_id, ATTEMPT_EVENTS)
             if attempts >= settings.payslip_per_session:
                 raise PayslipRejected(429, "payslip_per_session", max=settings.payslip_per_session)
+            if user is not None:
+                # the allowance is the user's, across conversations: a new one adds none
+                midnight = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+                today = store.count_user_events(user.id, ATTEMPT_EVENTS, midnight.isoformat())
+                if today >= settings.payslip_per_user_per_day:
+                    raise PayslipRejected(
+                        429, "payslip_per_user_day", max=settings.payslip_per_user_per_day
+                    )
             with lock:
-                if session_id in in_flight:
+                # one upload at a time per conversation, and per user (two conversations at once
+                # could otherwise both pass the day's count)
+                keys = [session_id] + ([] if user is None else [f"user:{user.id}"])
+                if any(key in in_flight for key in keys):
                     raise PayslipRejected(409, "payslip_in_progress")
-                in_flight.add(session_id)
-                claimed = True
+                in_flight.update(keys)
+                claims = keys
             wait = limiter.check(client_ip(request, settings.trust_proxy))
             if wait is not None:
                 raise PayslipRejected(
@@ -167,9 +183,9 @@ def add_payslip_routes(
             outcome = error.code
             return rejected(error)
         finally:
-            if claimed:
+            if claims:
                 with lock:
-                    in_flight.discard(session_id)
+                    in_flight.difference_update(claims)
             log.info(
                 "payslip upload: session=%s type=%s size=%s pages=%s latency_ms=%d "
                 "cost_usd=%s outcome=%s",
@@ -185,6 +201,7 @@ def add_payslip_routes(
     @api.post(
         "/sessions/{session_id}/payslip/confirm",
         tags=["sessions"],
+        dependencies=[Depends(session_access)],
         include_in_schema=settings.payslip,
         responses={
             404: {"description": "The upload is off (COMPASS_PAYSLIP=0), or no such session"},
@@ -198,7 +215,6 @@ def add_payslip_routes(
         (no model call) and the agent is told the confirmed values, as data."""
         if not settings.payslip:
             raise HTTPException(404, "Not Found")
-        require_session(session_id)
         try:
             confirmed = confirm(services, session_id, body.fields)
         except PayslipRejected as error:

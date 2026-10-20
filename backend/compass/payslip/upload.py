@@ -17,6 +17,7 @@ from typing import Any, Literal
 PayslipErrorCode = Literal[
     "payslip_in_progress",
     "payslip_per_session",
+    "payslip_per_user_day",
     "payslip_rate_limited",
     "payslip_daily_cap",
     "payslip_unsupported_type",

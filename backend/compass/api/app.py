@@ -35,7 +35,7 @@ from sse_starlette import EventSourceResponse, ServerSentEvent
 from starlette.concurrency import run_in_threadpool
 
 from compass.api.agent import AgentRunner
-from compass.api.auth import Auth, add_auth_routes
+from compass.api.auth import Auth, add_auth_routes, mark_guard
 from compass.api.broker import TICKETS, Broker
 from compass.api.car import add_car_routes
 from compass.api.payslip import add_payslip_routes
@@ -53,7 +53,7 @@ from compass.payslip.service import build_service
 from compass.payslip.upload import MAGIC as PAYSLIP_TYPES
 from compass.rules import RulesError
 from compass.state import NotFound, Store
-from compass.state.accounts import Accounts
+from compass.state.accounts import Accounts, User
 from compass.tools import ToolRunner
 from compass.tools.services import Services
 from compass.tools.tickets import QuestionAnswer, TicketAnswerError
@@ -188,8 +188,9 @@ def create_app(
     """`agent` replaces the agent outright; `agent_factory` builds it on the app's own services
     (tests plug a scripted model in this way). Default: Claude if a key is set, else none."""
     settings = Settings.from_env() if settings is None else settings
-    for warning in token_warnings(settings.rep_token, settings.admin_token):
-        log.warning(warning)
+    if not settings.auth:  # with accounts the static tokens are refused: nothing to warn about
+        for warning in token_warnings(settings.rep_token, settings.admin_token):
+            log.warning(warning)
     store = Store(settings.app_db)
     accounts = Accounts(store)
     if settings.auth:
@@ -267,30 +268,7 @@ def create_app(
     app.state.payslip = build_service(settings, store)
     api = APIRouter(prefix="/api")
     messages_limiter = RateLimiter(settings.message_rate_per_minute)
-    rep_only = Depends(
-        _token_guard(
-            settings.rep_token,
-            HTTPBearer(auto_error=False, scheme_name="RepToken"),
-            "representative",
-            "COMPASS_REP_TOKEN",
-        )
-    )
-    admin_only = Depends(
-        _token_guard(
-            settings.admin_token,
-            HTTPBearer(auto_error=False, scheme_name="AdminToken"),
-            "admin",
-            "COMPASS_ADMIN_TOKEN",
-        )
-    )
-
-    admin_optional = _optional_token(
-        settings.admin_token,
-        HTTPBearer(auto_error=False, scheme_name="AdminToken"),
-        "admin",
-        "COMPASS_ADMIN_TOKEN",
-    )
-    IsAdmin = Annotated[bool, Depends(admin_optional)]
+    user_messages_limiter = RateLimiter(settings.message_rate_per_minute)
 
     def require_session(session_id: str) -> None:
         try:
@@ -298,13 +276,91 @@ def create_app(
         except NotFound:
             raise HTTPException(404, f"session {session_id} not found") from None
 
+    # --- who may do what ------------------------------------------------------------------
+    # Accounts off: the static rep and admin tokens, and sessions that anyone with the id may
+    # use, exactly as before. Accounts on (COMPASS_AUTH=1): the static tokens are not consulted at
+    # all (they are just invalid logins), the rep and admin routes need that role, and every
+    # route that names a session goes through `session_access`, the one ownership rule.
+    session_access: Callable[..., User | None]
+    session_creator: Callable[..., User | None]
+    stream_token: Callable[..., str | None]
+    if auth is None:
+        rep_only = Depends(
+            _token_guard(
+                settings.rep_token,
+                HTTPBearer(auto_error=False, scheme_name="RepToken"),
+                "representative",
+                "COMPASS_REP_TOKEN",
+            )
+        )
+        admin_only = Depends(
+            _token_guard(
+                settings.admin_token,
+                HTTPBearer(auto_error=False, scheme_name="AdminToken"),
+                "admin",
+                "COMPASS_ADMIN_TOKEN",
+            )
+        )
+        full_view = _optional_token(
+            settings.admin_token,
+            HTTPBearer(auto_error=False, scheme_name="AdminToken"),
+            "admin",
+            "COMPASS_ADMIN_TOKEN",
+        )
+
+        def session_access(session_id: str) -> None:
+            require_session(session_id)
+
+        def session_creator() -> None:
+            return None
+
+        def stream_token() -> None:
+            return None
+
+    else:
+        rep_only = Depends(auth.require_role("rep", "admin"))
+        admin_only = Depends(auth.require_role("admin"))
+        stream_token = auth.bearer
+        session_creator = auth.current_user
+
+        def session_access(
+            session_id: str, user: Annotated[User, Depends(auth.current_user)]
+        ) -> User:
+            """The ownership rule: the logged-in user must be the session's owner. Anyone else,
+            and a session nobody owns or that does not exist, gets the same 404: whether a
+            session exists is never told. (Not logged in: 401, before the session is looked at.)"""
+            try:
+                owner = store.session_owner(session_id)
+            except NotFound:
+                owner = None
+            if owner is None or owner != user.id:
+                raise HTTPException(404, f"session {session_id} not found")
+            return user
+
+        mark_guard(session_access, "owner")
+
+        def full_view(user: Annotated[User, Depends(session_access)]) -> bool:
+            """Judges mode's engine room: an admin, in a session that is their own."""
+            return user.role == "admin"
+
+    IsAdmin = Annotated[bool, Depends(full_view)]
+    SessionUser = Annotated[User | None, Depends(session_access)]
+    accounts_on = auth is not None
+
+    def still_logged_in(token: str | None) -> bool:
+        """An open stream re-checks its login: a logout, a disabling or the 8 hours end it."""
+        return not accounts_on or (token is not None and accounts.user_for_token(token) is not None)
+
     # --- sessions -------------------------------------------------------------------------
 
     @api.post("/sessions", status_code=201, response_model=SessionCreated, tags=["sessions"])
-    def create_session() -> SessionCreated:
-        return SessionCreated(id=store.create_session())
+    def create_session(
+        owner: Annotated[User | None, Depends(session_creator)],
+    ) -> SessionCreated:
+        # with accounts: needs a login, and the conversation belongs to that user
+        return SessionCreated(id=store.create_session(None if owner is None else owner.id))
 
-    @api.get("/sessions/{session_id}", tags=["sessions"])
+    @api.get("/sessions/{session_id}", tags=["sessions"], dependencies=[Depends(session_access)])
     def get_session(session_id: str, admin: IsAdmin) -> dict[str, Any]:
         """Snapshot: everything the UI needs to restore after a refresh. Without the admin
         bearer, messages are the employee's and the shown replies' text only."""
@@ -324,10 +380,14 @@ def create_app(
         tags=["sessions"],
         responses={429: {"description": "Too many messages from this IP (Retry-After)"}},
     )
-    def post_message(session_id: str, body: UserMessage, request: Request) -> MessageAccepted:
+    def post_message(
+        session_id: str, body: UserMessage, request: Request, user: SessionUser
+    ) -> MessageAccepted:
         """Store the message and hand it to the agent. At most COMPASS_MESSAGE_RATE_PER_MINUTE
         per client IP (429 with Retry-After beyond that)."""
         wait = messages_limiter.check(client_ip(request, settings.trust_proxy))
+        if wait is None and user is not None:  # with accounts the same limit counts per user too
+            wait = user_messages_limiter.check(user.id)
         if wait is not None:
             raise HTTPException(
                 429,
@@ -342,6 +402,7 @@ def create_app(
     @api.get(
         "/sessions/{session_id}/events",
         tags=["sessions"],
+        dependencies=[Depends(session_access)],
         response_class=EventSourceResponse,
         responses={200: {"content": {"text/event-stream": {}}}},
     )
@@ -349,6 +410,7 @@ def create_app(
         request: Request,
         session_id: str,
         admin: IsAdmin,
+        token: Annotated[str | None, Depends(stream_token)],
         last_event_id: Annotated[int | None, Header(alias="Last-Event-ID", ge=0)] = None,
         after: Annotated[
             int | None, Query(ge=0, description="Replay after this seq (no header)")
@@ -357,7 +419,6 @@ def create_app(
         """Server-sent events. Replays everything after Last-Event-ID (or `after`), then
         streams live; a comment heartbeat keeps the connection open. Without the admin bearer
         each payload is redacted to its public part (compass/api/redact.py)."""
-        require_session(session_id)
         start = last_event_id if last_event_id is not None else (after or 0)
 
         async def events() -> AsyncIterator[ServerSentEvent]:
@@ -366,7 +427,10 @@ def create_app(
             try:
                 while True:
                     waiter.clear()  # clear first: a commit after this read will set it again
-                    batch = await run_in_threadpool(store.events_after, session_id, cursor)
+                    try:
+                        batch = await run_in_threadpool(store.events_after, session_id, cursor)
+                    except NotFound:  # the conversation was deleted under the stream
+                        return
                     for event in batch:
                         cursor = event.seq
                         data = event.model_dump()
@@ -381,20 +445,25 @@ def create_app(
                         return
                     with suppress(TimeoutError):  # re-check periodically even without a commit
                         await asyncio.wait_for(waiter.wait(), timeout=settings.heartbeat_seconds)
+                    if not await run_in_threadpool(still_logged_in, token):
+                        return
             finally:
                 broker.unsubscribe(session_id, waiter)
 
         ping = max(1, round(settings.heartbeat_seconds))  # sse-starlette pings in whole seconds
         return EventSourceResponse(events(), ping=ping, headers=SSE_HEADERS)
 
-    @api.post("/sessions/{session_id}/tools/{name}", tags=["dev"])
+    @api.post(
+        "/sessions/{session_id}/tools/{name}",
+        tags=["dev"],
+        dependencies=[Depends(session_access)],
+    )
     def run_tool(
         session_id: str, name: str, payload: Annotated[dict[str, Any] | None, Body()] = None
     ) -> dict[str, Any]:
         """Run a tool directly (dev / demo only: COMPASS_DEV_TOOLS=1, otherwise 404)."""
         if not settings.dev_tools:
             raise HTTPException(404, "Not Found")
-        require_session(session_id)
         return runner.run(session_id, name, payload or {})
 
     # /api/auth/* (COMPASS_AUTH=1; off: the routes do not exist)
@@ -402,10 +471,10 @@ def create_app(
         add_auth_routes(api, settings, auth, app.state.login_guard)
 
     # POST /api/sessions/{id}/payslip (COMPASS_PAYSLIP=1, otherwise 404)
-    add_payslip_routes(api, settings, services, agent, require_session)
+    add_payslip_routes(api, settings, services, agent, session_access)
 
     # POST /api/sessions/{id}/current-car (the catalog picker's answer)
-    add_car_routes(api, services, agent, require_session)
+    add_car_routes(api, services, agent, session_access)
 
     # --- representative -------------------------------------------------------------------
 
@@ -430,7 +499,9 @@ def create_app(
         response_class=EventSourceResponse,
         responses={200: {"content": {"text/event-stream": {}}}},
     )
-    async def stream_tickets(request: Request) -> EventSourceResponse:
+    async def stream_tickets(
+        request: Request, token: Annotated[str | None, Depends(stream_token)]
+    ) -> EventSourceResponse:
         """Server-sent events for the inbox: a `tickets` event with every open ticket (as in
         GET /tickets?status=open) on connect and whenever the list or a ticket's comparison
         changes. Each event is the whole list, so a reconnect needs no replay."""
@@ -450,6 +521,8 @@ def create_app(
                         return
                     with suppress(TimeoutError):
                         await asyncio.wait_for(waiter.wait(), timeout=settings.heartbeat_seconds)
+                    if not await run_in_threadpool(still_logged_in, token):
+                        return
             finally:
                 broker.unsubscribe(TICKETS, waiter)
 
@@ -571,7 +644,14 @@ def create_app(
             "dev_tools": settings.dev_tools,
             # Whether each token is set (never its value): an empty one disables its screen,
             # and the UI says so instead of asking for a token that can never work.
-            "auth": {"rep": bool(settings.rep_token), "admin": bool(settings.admin_token)},
+            # (with accounts on both are refused: the UI logs in instead)
+            "auth": {
+                "rep": bool(settings.rep_token) and not settings.auth,
+                "admin": bool(settings.admin_token) and not settings.auth,
+            },
+            # only with COMPASS_AUTH=1 (off: the response is as it was): the UI shows the
+            # landing page and login. The UI reads the flag here, never from its own constant.
+            **({"accounts": True} if settings.auth else {}),
             # "scripted": demo mode (the UI shows its badge and the scripts' messages).
             "llm": llm_mode,
             "demo_scripts": scripts,

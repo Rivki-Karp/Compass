@@ -42,6 +42,16 @@ from compass.state.accounts import Accounts, User
 
 log = logging.getLogger("compass.auth")
 
+# Every guard a route can depend on carries a mark, so a test can walk the router and fail on a
+# route that names a session without the ownership rule (tests/auth/test_ownership_routes.py).
+GUARD_ATTR = "compass_guard"
+
+
+def mark_guard[F: Callable[..., object]](guard: F, kind: str, *detail: str) -> F:
+    setattr(guard, GUARD_ATTR, (kind, frozenset(detail)))
+    return guard
+
+
 REGISTER_ERROR_HE = "הקוד או המייל אינם תקינים"
 LOGIN_ERROR_HE = "מייל או סיסמה שגויים"
 RETRY_HINT_HE = "נסו שוב בעוד כמה דקות"
@@ -99,7 +109,7 @@ class Auth:
             return user
 
         self.bearer = bearer
-        self.current_user = current_user
+        self.current_user = mark_guard(current_user, "login")
 
     def require_role(self, *roles: str) -> Callable[..., User]:
         """Dependency: the logged-in user if their role is one of `roles`, else 403 (401 when
@@ -111,7 +121,7 @@ class Auth:
                 raise HTTPException(403, "this role may not use this route")
             return user
 
-        return guard
+        return mark_guard(guard, "role", *roles)
 
 
 def _unauthorized() -> HTTPException:

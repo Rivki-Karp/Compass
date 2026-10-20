@@ -1,18 +1,26 @@
 import json
 import shutil
+import sys
 from collections.abc import Callable, Iterator
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from compass.api import Settings, create_app
+from compass.api.agent import NullAgentRunner
 from compass.auth.passwords import hash_password
 from compass.auth.seed import parse_seed_users
 from compass.config import RULES_YAML
 from compass.state.accounts import Accounts
 
+# the helpers of tests/api (live server, SSE reader) and tests/payslip (synthetic files)
+for _helpers in ("api", "payslip"):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / _helpers))
+
 PASSWORD = "correct horse battery"
+STATIC_REP, STATIC_ADMIN = "rep-static-token", "admin-static-token"
 # role -> the seeded account's email; every one logs in with PASSWORD
 EMAILS = {
     "employee": "dana@example.com",
@@ -87,3 +95,23 @@ def login(client: TestClient) -> Callable[[str], dict[str, str]]:
         return {"Authorization": f"Bearer {response.json()['token']}"}
 
     return do
+
+
+@pytest.fixture
+def full_settings(auth_settings: Settings) -> Settings:
+    """Accounts on, plus everything with a session id on it: dev tools (run a tool), the payslip
+    upload (demo extractor), and the old static tokens set, to show they are refused."""
+    return replace(
+        auth_settings,
+        llm="scripted",
+        dev_tools=True,
+        payslip=True,
+        rep_token=STATIC_REP,
+        admin_token=STATIC_ADMIN,
+    )
+
+
+@pytest.fixture
+def full_client(full_settings: Settings) -> Iterator[TestClient]:
+    with TestClient(create_app(full_settings, agent=NullAgentRunner())) as test_client:
+        yield test_client
