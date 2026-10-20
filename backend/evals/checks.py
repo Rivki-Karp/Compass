@@ -15,6 +15,8 @@ Check types (one key per check):
                      the server's recomputes (a ticket opened, or the rep's answer settled it);
                      `origin: tool` only at compare's own results. `input_sources`: the view's
                      input chips by id, e.g. {occupation: representative}
+    no_template      {turn?}   no reply (in that turn) was the fixed template: the guard did not
+                     reject the draft and its rewrite
     ticket           {bound_fields?, free_types?, occupation_options_from_table?,
                       allow_pending_participation?}
                      some ticket opened in the session has exactly these bound fields and
@@ -82,6 +84,7 @@ _ARGS: dict[str, set[str]] = {
     },
     "slot": {"field", "value", "state", "source", "absent"},
     "reply": {"turn", "matches", "not_matches"},
+    "no_template": {"turn"},
     "options_reply": {"top", "turn"},
 }
 _REQUIRED: dict[str, set[str]] = {"tool_called": {"name"}, "tool_not_called": {"name"}}
@@ -310,6 +313,14 @@ def _reply(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
     return (not problems), "; ".join(problems)
 
 
+def _no_template(trace: Trace, args: dict[str, Any]) -> tuple[bool, str]:
+    """No reply (in the turn, if given) was the fixed template: the guard rejected the draft and
+    its one rewrite, and the employee got the template instead of an answer."""
+    sent = [r for r in trace.replies if "turn" not in args or r.turn == args["turn"]]
+    templates = [f"t{r.turn}" for r in sent if r.kind == "template"]
+    return not templates, "template reply in " + ", ".join(templates) if templates else ""
+
+
 # How a reply names the waiver option (a car is named by its commercial name).
 WAIVER_HE = "ויתור"
 
@@ -362,6 +373,7 @@ _CHECKS = {
     "comparison": _comparison,
     "slot": _slot,
     "reply": _reply,
+    "no_template": _no_template,
     "options_reply": _options_reply,
     "ticket": _ticket,
 }

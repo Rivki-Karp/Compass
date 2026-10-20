@@ -122,12 +122,19 @@ def payslip_block(event: dict[str, Any]) -> str:
 
 
 def guard_note(violations: Sequence[str]) -> str:
+    """The retry instruction after the number guard rejected a draft: the exact numbers, and
+    what to do about them. The draft itself is not in the conversation, so the model cannot see
+    which sentence they were in: it must be told to drop them, and that a number inside a
+    question to the employee (an age, a count) is dropped too, the question asked in words."""
     listed = ", ".join(violations)
     return (
-        "Automated number check: your draft reply contained numbers that do not come from "
-        f"any tool result, the employee's words or get_rule: {listed}. The draft was not shown. "
-        "Write the reply again using only numbers that appear in tool results (display values) "
-        "or that the employee wrote. Do not compute, round or estimate."
+        "Automated number check: your draft reply was NOT shown, because it contained numbers "
+        "that no tool result, employee message or representative answer supports: "
+        f"{listed}. Write the reply again WITHOUT these exact numbers: do not write them, do "
+        "not round them, do not swap in another figure. If one of them was inside a question to "
+        "the employee (an age, a count, an amount), ask that question in words with no number. "
+        "Every number you do write must appear in a tool result already in this conversation "
+        "(display values) or be one the employee wrote. Do not compute or estimate."
     )
 
 

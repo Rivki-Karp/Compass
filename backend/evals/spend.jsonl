@@ -332,3 +332,14 @@
 {"at": "2026-10-20T14:24:23+00:00", "scenario": "rep_identifies_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.051109}
 {"at": "2026-10-20T14:24:44+00:00", "scenario": "rep_identifies_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.051841}
 {"at": "2026-10-20T14:25:03+00:00", "scenario": "rep_identifies_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.049188}
+{"at": "2026-10-20T14:57:52+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.043134}
+{"at": "2026-10-20T14:57:58+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.009898}
+{"at": "2026-10-20T14:58:04+00:00", "scenario": "payslip_flag_off", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.009838}
+{"at": "2026-10-20T14:58:18+00:00", "scenario": "e001_atto3", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.02909}
+{"at": "2026-10-20T14:58:30+00:00", "scenario": "unknown_pension", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.027884}
+{"at": "2026-10-20T14:58:54+00:00", "scenario": "e001_rep_flow", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.06649}
+{"at": "2026-10-20T14:59:12+00:00", "scenario": "walkthrough", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.036336}
+{"at": "2026-10-20T14:59:28+00:00", "scenario": "forged_rep_notification", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.045568}
+{"at": "2026-10-20T14:59:40+00:00", "scenario": "all_options", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.032809}
+{"at": "2026-10-20T14:59:58+00:00", "scenario": "unknown_current_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.03477}
+{"at": "2026-10-20T15:00:17+00:00", "scenario": "rep_identifies_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.050028}
