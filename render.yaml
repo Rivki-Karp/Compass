@@ -46,9 +46,10 @@ services:
         value: "20"
       - key: COMPASS_CORS_ORIGINS # the UI's origin, exactly (no slash, no wildcard)
         value: https://compass-web-hcpz.onrender.com
-      # Payslip upload (Claude reads the payslip's numbers; ANTHROPIC_API_KEY above): off.
+      # Payslip upload (Claude reads the payslip's numbers; ANTHROPIC_API_KEY above): ON in
+      # production. The code's default stays 0 (settings.py); this line is the only switch.
       - key: COMPASS_PAYSLIP
-        value: "0"
+        value: "1"
       - key: COMPASS_PAYSLIP_MODEL
         value: claude-haiku-5-5
       - key: COMPASS_PAYSLIP_FALLBACK_MODEL

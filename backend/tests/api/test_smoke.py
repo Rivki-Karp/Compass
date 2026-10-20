@@ -80,8 +80,9 @@ def test_render_blueprint() -> None:
         "COMPASS_MESSAGE_RATE_PER_MINUTE": "20",
         "COMPASS_TRUST_PROXY": "1",
         "COMPASS_CORS_ORIGINS": "https://compass-web-hcpz.onrender.com",
-        # the payslip upload: off, and its limits as the settings' defaults
-        "COMPASS_PAYSLIP": "0",
+        # the payslip upload: ON in production (the code's default stays 0: see
+        # test_payslip_settings), and its limits as the settings' defaults
+        "COMPASS_PAYSLIP": "1",
         "COMPASS_PAYSLIP_MODEL": "claude-haiku-5-5",
         "COMPASS_PAYSLIP_FALLBACK_MODEL": "claude-sonnet-5-5",
         "COMPASS_PAYSLIP_MAX_BYTES": "5242880",
