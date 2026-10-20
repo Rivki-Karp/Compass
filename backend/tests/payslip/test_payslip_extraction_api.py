@@ -18,6 +18,7 @@ from compass.agent.transcript import build_model_messages
 from compass.api import Settings, create_app
 from compass.api.redact import public_payload
 from compass.payslip.extractor import DEMO_ANSWER, ScriptedExtractor
+from compass.payslip.schema import FIELDS
 from compass.payslip.service import PayslipService
 
 ADMIN = "a" * 32
@@ -163,14 +164,9 @@ def test_a_malicious_read_is_flagged_and_dropped_end_to_end(
         sid = client.post("/api/sessions").json()["id"]
         body = upload(client, sid, pdf()).json()
     assert body["dropped_keys"] == 3 and set(body["fields"]) <= {
-        "base_salary",
-        "commissions",
-        "bonus",
-        "pension_percent",
-        "study_fund_percent",
-        "credit_points",
-        "car_benefit_value",
-        "payslip_month",
+        *FIELDS,
+        "pension_percent_derived",
+        "study_fund_percent_derived",
     }
     assert "group" not in json.dumps(body) and "+5,000" not in json.dumps(body)
 

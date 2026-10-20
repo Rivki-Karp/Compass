@@ -175,12 +175,18 @@ export interface PayslipConfirmed {
   kept_representative: string[]; // a representative's value wins
   waiting_for_rep: string[];
   car_hint: { car_id: string; commercial_name: string } | null;
+  // the salary fields that did not become values, so the agent can say why
+  not_in_payslip?: string[]; // the payslip does not show them
+  unreadable?: string[]; // printed, but not a valid number
+  removed_by_employee?: string[];
 }
 
 export interface PayslipCandidateField {
   value: string | null; // a Decimal as text (or YYYY-MM); null when unknown or flagged
   confidence: "high" | "medium" | "low";
   flag: "wrong_type" | "out_of_range" | "too_many_decimals" | "not_a_step" | "invalid" | null;
+  /** A percent the server derived from a printed deduction amount and its wage: its source. */
+  basis?: { amount: string; wage: string };
 }
 
 /** One event as the session stream sends it (`data` of an SSE message). */

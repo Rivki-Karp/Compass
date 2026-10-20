@@ -64,6 +64,18 @@ EXPECTED = {
     "car_benefit_value": "3480",
     "payslip_month": "2026-09",
 }
+# The amounts layout (fixture 11): the model copies the four printed numbers, the server derives
+# the percents; commissions and bonus are not on that payslip.
+AMOUNTS_EXPECTED = {
+    "base_salary": "14000",
+    "employee_pension_amount": "1200",
+    "pension_wage": "20000",
+    "employee_study_fund_amount": "500",
+    "study_fund_wage": "20000",
+    "pension_percent_derived": "6",
+    "study_fund_percent_derived": "2.5",
+    "credit_points": "2.75",
+}
 ACCEPTED = "accepted"
 QUOTA = "quota/billing"
 
@@ -319,12 +331,13 @@ SMOKE_FILES = (
     ("02_clean.png", "image/png"),
     ("03_blurry.jpg", "image/jpeg"),
     ("04_injection.pdf", "application/pdf"),
+    ("11_amounts.pdf", "application/pdf"),
 )
 FAKE_IDENTIFIERS = ("Dana Bdaya", "000000018", "12-345-678901", "4417")
 
 
 def smoke(settings: Settings, ledger: Ledger | None = None, extractor: Any = None) -> int:
-    """Payslips 1 to 4 through the real extractor (module docstring). 0 = all good."""
+    """Payslips 1 to 4 and 11 through the real extractor (module docstring). 0 = all good."""
     key = settings.anthropic_api_key
     if extractor is None:
         if not key:
@@ -364,11 +377,12 @@ def smoke(settings: Settings, ledger: Ledger | None = None, extractor: Any = Non
         for model, usage in extraction.calls:
             ledger.record_call(f"payslip-smoke ({name})", model, usage.cost_usd(model) or 0.0)
         read = _values(extraction.candidate)
-        right = sum(1 for key, value in EXPECTED.items() if read.get(key) == value)
+        expected = AMOUNTS_EXPECTED if name.startswith("11_") else EXPECTED
+        right = sum(1 for key, value in expected.items() if read.get(key) == value)
         fallback = " (fallback)" if extraction.fallback else ""
-        say(f"{name}: {extraction.model}{fallback} · ${cost:.6f} · {right}/{len(EXPECTED)} right")
+        say(f"{name}: {extraction.model}{fallback} · ${cost:.6f} · {right}/{len(expected)} right")
         for name_, value in read.items():
-            mark = "ok" if EXPECTED.get(name_) == value else f"expected {EXPECTED.get(name_)}"
+            mark = "ok" if expected.get(name_) == value else f"expected {expected.get(name_)}"
             got = extraction.candidate.fields[name_]
             note = f" flag={got.flag}" if got.flag else ""
             say(f"    {name_:20} {value} [{got.confidence}]{note} ({mark})")

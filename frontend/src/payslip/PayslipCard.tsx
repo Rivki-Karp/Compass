@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { PendingPayslip } from "../state/session";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/icons";
-import { confirmBody, ready, rows, warning, type Row } from "./payslip";
+import { basisCaption, confirmBody, ready, rows, warning, type Row } from "./payslip";
 
 const UNIT_SUFFIX: Record<Row["unit"], string> = { ils: "₪", percent: "%", points: "", month: "" };
 
@@ -45,7 +45,10 @@ export function PayslipCard({
                 {row.label}
                 {row.info ? <span className="ms-1 text-[12px] text-muted">(לידיעה)</span> : null}
               </label>
-              {row.removed ? (
+              {row.removed && row.noneable && row.read === null ? (
+                // the payslip has no such line: one tap answers 0 (the employee's answer)
+                <span className="text-[13px] text-muted">לא נמצא בתלוש — אין?</span>
+              ) : row.removed ? (
                 <span className="text-[13px] text-muted">
                   {row.read === null ? "לא יישמר" : (
                     <>
@@ -53,6 +56,21 @@ export function PayslipCard({
                     </>
                   )}
                 </span>
+              ) : row.choices ? (
+                <fieldset className="flex w-full flex-col gap-1">
+                  <legend className="sr-only">{row.label}</legend>
+                  {row.choices.map((choice) => (
+                    <label key={choice.value} className="flex items-center gap-2 text-[14px]">
+                      <input
+                        type="radio"
+                        name={inputId}
+                        checked={row.value === choice.value}
+                        onChange={() => set(row.name, { value: choice.value })}
+                      />
+                      <span>{choice.label}</span>
+                    </label>
+                  ))}
+                </fieldset>
               ) : (
                 <span className="inline-flex items-center gap-1">
                   <input
@@ -68,7 +86,11 @@ export function PayslipCard({
                   {UNIT_SUFFIX[row.unit] ? <span aria-hidden="true">{UNIT_SUFFIX[row.unit]}</span> : null}
                 </span>
               )}
-              {row.removed ? (
+              {row.removed && row.noneable && row.read === null ? (
+                <Button variant="secondary" onClick={() => set(row.name, { removed: false, value: "0" })}>
+                  אין
+                </Button>
+              ) : row.removed ? (
                 <Button variant="secondary" onClick={() => set(row.name, { removed: false, value: row.value || (row.read ?? "") })}>
                   החזרה
                 </Button>
@@ -82,6 +104,9 @@ export function PayslipCard({
                   <Icon name="x" size={16} />
                 </button>
               )}
+              {basisCaption(row) && !row.removed ? (
+                <p className="w-full text-[12px] text-muted">{basisCaption(row)}</p>
+              ) : null}
               {note && !row.removed ? (
                 <p id={`${inputId}-note`} className="flex w-full items-center gap-1 text-[12px] text-chip-pending">
                   <Icon name="alert" size={13} />

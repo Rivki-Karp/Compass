@@ -112,6 +112,11 @@ def payslip_block(event: dict[str, Any]) -> str:
         "kept_representative": event.get("kept_representative", []),
         "waiting_for_rep": event.get("waiting_for_rep", []),
     }
+    # The salary fields that did NOT come from the payslip, and why (server-written): the
+    # payslip does not show them, they could not be read, or the employee removed them.
+    for key in ("not_in_payslip", "unreadable", "removed_by_employee"):
+        if event.get(key):
+            payload[key] = event[key]
     if event.get("car_hint"):
         # one catalog car has exactly the payslip's value of use: ask, never assume
         payload["car_hint"] = _escaped(event["car_hint"])

@@ -272,3 +272,101 @@ def test_one_upload_at_a_time_per_session(make: Callable[..., App]) -> None:
     first = app.upload()
     assert first.status_code == 201 and seen == [409]
     assert len(extractor.calls) == 1
+
+
+# --- the amounts layout: the percent is derived by the server, and the agent hears what is missing
+
+
+AMOUNTS = {  # "כלל פנסיה 1,200 / שכר לקופ"ג 20,000", "כלל השתלמות 500 / שכר לקה"ל 20,000"
+    "base_salary": {"value": 14000, "confidence": "high"},
+    "commissions": {"value": None, "confidence": "high"},
+    "bonus": {"value": None, "confidence": "high"},
+    "employee_pension_amount": {"value": 1200, "confidence": "high"},
+    "pension_wage": {"value": 20000, "confidence": "high"},
+    "employee_study_fund_amount": {"value": 500, "confidence": "high"},
+    "study_fund_wage": {"value": 20000, "confidence": "high"},
+    "credit_points": {"value": 2.75, "confidence": "high"},
+}
+
+
+def told(app: App) -> dict[str, Any]:
+    text = app.llm.calls[-1].messages[-1]["content"][0]["text"]
+    return json.loads(text.split("\n", 1)[1].rsplit("\n", 1)[0])  # type: ignore[no-any-return]
+
+
+def test_a_derived_percent_confirmed_unchanged_is_the_payslips(make: Callable[..., App]) -> None:
+    app = make(AMOUNTS)
+    app.run("save_profile", {"occupation_query": "מנהלת מוצר"})
+    app.upload()
+    body = app.confirm(
+        {"base_salary": "14000", "pension_percent": "6", "study_fund_percent": "2.5"}
+    )
+    assert body.json()["applied"] == {
+        "base_salary": {"value": "14000", "source": "payslip"},
+        "pension_percent": {"value": "6", "source": "payslip"},
+        "study_fund_percent": {"value": "2.5", "source": "payslip"},
+    }
+    slots = app.store.slots(app.sid)
+    assert (slots["pension_pct"].value, slots["pension_pct"].source) == ("0.06", "payslip")
+    assert (slots["study_fund_pct"].value, slots["study_fund_pct"].source) == ("0.025", "payslip")
+
+
+def test_an_edited_derived_percent_is_the_employees(make: Callable[..., App]) -> None:
+    app = make(AMOUNTS)
+    app.run("save_profile", {"occupation_query": "מנהלת מוצר"})
+    app.upload()
+    body = app.confirm({"pension_percent": "6.5"}).json()
+    assert body["applied"]["pension_percent"] == {"value": "6.5", "source": "employee"}
+
+
+def test_a_printed_and_a_derived_percent_that_differ_are_both_the_payslips(
+    make: Callable[..., App],
+) -> None:
+    read = {**AMOUNTS, "pension_percent": {"value": 6.5, "confidence": "high"}}
+    app = make(read)
+    app.run("save_profile", {"occupation_query": "מנהלת מוצר"})
+    fields = app.upload().json()["fields"]
+    assert fields["pension_percent"]["value"] == "6.5"
+    assert fields["pension_percent_derived"]["value"] == "6"
+    assert app.confirm({"pension_percent": "6"}).json()["applied"]["pension_percent"]["source"] == (
+        "payslip"
+    )
+    app.upload()
+    assert app.confirm({"pension_percent": "6.5"}).json()["applied"]["pension_percent"][
+        "source"
+    ] == ("payslip")
+
+
+def test_the_agent_hears_which_fields_the_payslip_did_not_give(make: Callable[..., App]) -> None:
+    """Why pension was never filled in the incident: the payslip printed amounts, the schema
+    asked for percents. Now the model reads the amounts and the server derives; and whatever is
+    still missing is listed, so the agent can say what happened instead of "no access"."""
+    read = {**AMOUNTS, "credit_points": {"value": 2.3, "confidence": "low"}}  # printed, not valid
+    app = make(read)
+    app.run("save_profile", {"occupation_query": "מנהלת מוצר"})
+    app.upload()
+    body = app.confirm({"base_salary": "14000", "study_fund_percent": "2.5"}).json()
+    # commissions and bonus: not on the payslip; credit points: read but not a valid value;
+    # pension: read and derived but left out of the confirmation by the employee
+    assert body["not_in_payslip"] == ["commissions", "bonus"]
+    assert body["unreadable"] == ["credit_points"]
+    assert body["removed_by_employee"] == ["pension_percent"]
+    data = told(app)
+    assert data["not_in_payslip"] == ["commissions", "bonus"]
+    assert data["unreadable"] == ["credit_points"]
+    assert data["removed_by_employee"] == ["pension_percent"]
+
+
+def test_a_field_the_employee_answered_is_not_listed_as_missing(make: Callable[..., App]) -> None:
+    """Commissions and bonus the payslip does not show: one tap on "אין" sends 0, which is the
+    employee's own answer (source employee), and the agent is not told they are missing."""
+    app = make(AMOUNTS)
+    app.run("save_profile", {"occupation_query": "מנהלת מוצר"})
+    app.upload()
+    body = app.confirm(
+        {"base_salary": "14000", "commissions": "0", "bonus": "0", "pension_percent": "6"}
+    ).json()
+    assert body["applied"]["commissions"] == {"value": "0", "source": "employee"}
+    assert body["applied"]["bonus"] == {"value": "0", "source": "employee"}
+    assert "commissions" not in body["not_in_payslip"] and "bonus" not in body["not_in_payslip"]
+    assert told(app)["confirmed_values"]["bonus"]["source"] == "employee"

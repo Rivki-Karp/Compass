@@ -300,6 +300,9 @@ class ClaudeAgentRunner:
                 "kept_representative": ref["kept_representative"],
                 "waiting_for_rep": ref["waiting_for_rep"],
                 "car_hint": ref["car_hint"],
+                "not_in_payslip": ref.get("not_in_payslip", []),
+                "unreadable": ref.get("unreadable", []),
+                "removed_by_employee": ref.get("removed_by_employee", []),
                 "server_comparisons": [
                     json.loads(model_view("compare", result)) for result in ref["comparisons"]
                 ],
