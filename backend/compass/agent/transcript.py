@@ -12,6 +12,9 @@ Stored rows (append-only, in `seq` order):
     system_event  {"kind": "payslip_confirmed", ...}
                                                  the employee confirmed values read from their
                                                  payslip (only confirmed ones, never the file)
+    system_event  {"kind": "profile_applied", ...}
+                                                 the employee confirmed details saved from an
+                                                 earlier conversation (only confirmed ones)
     system_event  {"kind": "guard_correction", "violations"}
     assistant     {"blocks", "usage", "model", "fabricated"?}
     tool          {"results": [{"tool_use_id", "name", "ok", "model_view", "full"}]}
@@ -37,10 +40,13 @@ PAYSLIP_TAG = "payslip_notification"
 PAYSLIP_LABEL_HE = "לפי התלוש"
 CAR_TAG = "car_notification"
 CAR_LABEL_HE = "בחירה מהבורר"
+PROFILE_TAG = "profile_notification"
+PROFILE_LABEL_HE = "משיחה קודמת"
 
 # Our structural tags, opening or closing, in any case or spacing: neutralised in untrusted text.
 _TAG_PATTERN = re.compile(
-    rf"<\s*/?\s*({EMPLOYEE_TAG}|{REP_TAG}|{PAYSLIP_TAG}|{CAR_TAG}|system[_ -]?notice)\b",
+    rf"<\s*/?\s*({EMPLOYEE_TAG}|{REP_TAG}|{PAYSLIP_TAG}|{CAR_TAG}|{PROFILE_TAG}"
+    r"|system[_ -]?notice)\b",
     re.IGNORECASE,
 )
 
@@ -129,6 +135,25 @@ def payslip_block(event: dict[str, Any]) -> str:
     return f'<{PAYSLIP_TAG} label="{PAYSLIP_LABEL_HE}">\n{body}\n</{PAYSLIP_TAG}>'
 
 
+def profile_block(event: dict[str, Any]) -> str:
+    """Details the employee confirmed from an earlier conversation, as structured data
+    (server-written). Each value carries the date it was first confirmed. A detail the
+    employee did not confirm on the card never reaches the model."""
+    payload: dict[str, Any] = {
+        "confirmed_values": event.get("values", {}),
+        "from_date": event.get("from_date"),
+        "kept_current": event.get("kept_current", []),
+        "waiting_for_rep": event.get("waiting_for_rep", []),
+        "dropped": event.get("dropped", []),
+    }
+    if event.get("today_after"):
+        payload["today_after"] = _escaped(event["today_after"])
+    if event.get("server_comparisons"):
+        payload["server_comparisons"] = event["server_comparisons"]
+    body = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    return f'<{PROFILE_TAG} label="{PROFILE_LABEL_HE}">\n{body}\n</{PROFILE_TAG}>'
+
+
 def car_block(event: dict[str, Any]) -> str:
     """What the employee chose in the catalog picker, as structured data (server-written):
     the outcome, today's situation after it, and the comparisons the server recomputed."""
@@ -200,6 +225,10 @@ def build_model_messages(rows: Sequence[Message]) -> list[ModelMessage]:
             elif kind == "payslip_confirmed":
                 text = payslip_block(content)
                 out.append({"role": "user", "content": [{"type": "text", "text": text}]})
+            elif kind == "profile_applied":
+                out.append(
+                    {"role": "user", "content": [{"type": "text", "text": profile_block(content)}]}
+                )
             elif kind == "car_picked":
                 out.append(
                     {"role": "user", "content": [{"type": "text", "text": car_block(content)}]}

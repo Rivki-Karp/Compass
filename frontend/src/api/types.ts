@@ -164,7 +164,12 @@ export interface PayloadByType {
     }[];
   };
   agent_started: {
-    trigger: "employee_turn" | "rep_answer" | "payslip_confirmed" | "car_picked";
+    trigger:
+      | "employee_turn"
+      | "rep_answer"
+      | "payslip_confirmed"
+      | "car_picked"
+      | "profile_applied";
   };
   // Today's car is unknown: the catalog picker the server offers (built from the catalog), and
   // what the employee chose in it.
@@ -213,6 +218,44 @@ export interface PayloadByType {
   };
   payslip_failed: { code: string };
   payslip_confirmed: PayslipConfirmed & { candidate_seq: number };
+  // Remembered details (COMPASS_PROFILE_MEMORY=1): the offer of the saved profile in a new
+  // conversation (a pending candidate), what the employee made of it, or "start fresh".
+  profile_offer: ProfileOffer;
+  profile_applied: ProfileApplied;
+  profile_dismissed: { offer_seq: number };
+}
+
+/** One saved detail on the offer card. `value` is in the units the tools use (a percent as
+ * "6.5", a car as its catalog id); `display` is what to show; `source` is where it came from
+ * the first time, `saved_at` when. */
+export interface ProfileOfferField {
+  name: string;
+  label: string;
+  value: string;
+  display: string;
+  unit: "ils" | "percent" | "points" | "text";
+  source: "employee" | "payslip" | "representative";
+  source_chip: "employee_input" | "payslip" | "representative";
+  source_label: string;
+  saved_at: string;
+  age_days: number;
+}
+
+export interface ProfileOffer {
+  fields: ProfileOfferField[];
+  saved_at: string; // the newest of the fields
+  age_days: number;
+  stale: boolean;
+  stale_note: string | null; // "ייתכן שהפרטים השתנו" when over 30 days
+}
+
+/** POST /profile/apply's answer, and the profile_applied event. */
+export interface ProfileApplied {
+  values: Record<string, { value: string; source: "previous" | "employee" }>;
+  kept_current: string[]; // already said in this conversation: it wins
+  waiting_for_rep: string[];
+  dropped: string[];
+  from_date: string | null;
 }
 
 /** POST /payslip/confirm's answer, and the payslip_confirmed event: what became a profile value. */

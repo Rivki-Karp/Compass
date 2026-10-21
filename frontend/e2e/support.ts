@@ -12,6 +12,8 @@ export const PAYSLIP_PORT = 8766;
 
 /** The e2e server with accounts on (COMPASS_AUTH=1, scripted model); see playwright.config.ts. */
 export const AUTH_PORT = 8767;
+/** The e2e server with remembered details on (accounts, number sources); see playwright.config.ts. */
+export const PROFILE_PORT = 8768;
 /** The one password of the e2e accounts. A test value, public on purpose; only its hash is seeded. */
 export const E2E_PASSWORD = "e2e-password-only-for-tests";
 const E2E_HASH =

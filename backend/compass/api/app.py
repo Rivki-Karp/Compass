@@ -41,6 +41,7 @@ from compass.api.broker import TICKETS, Broker
 from compass.api.car import add_car_routes
 from compass.api.conversations import add_conversation_routes, delete_empty_conversations
 from compass.api.payslip import add_payslip_routes
+from compass.api.profile import add_profile_routes
 from compass.api.ratelimit import RateLimiter, client_ip
 from compass.api.redact import public_message, public_payload
 from compass.api.settings import Settings, token_warnings
@@ -54,9 +55,11 @@ from compass.engine.serialize import plain_json
 from compass.labels import error_message
 from compass.payslip.service import build_service
 from compass.payslip.upload import MAGIC as PAYSLIP_TYPES
+from compass.profile_memory import offer_new_conversation
 from compass.rules import RulesError
 from compass.state import NotFound, Store
 from compass.state.accounts import Accounts, User
+from compass.state.store import Memory
 from compass.tools import ToolRunner
 from compass.tools.services import Services
 from compass.tools.tickets import QuestionAnswer, TicketAnswerError
@@ -205,6 +208,13 @@ def create_app(
         aliases_path=settings.aliases_path,
         vehicles_db=settings.vehicles_db,
     )
+    if settings.profile_memory_on:
+        # confirmed details of an account's conversations are also saved in its profile
+        store.memory = Memory(
+            catalog_year=lambda car_id: (
+                car.registration_year if (car := services.ctx.catalog.get(car_id)) else None
+            )
+        )
     runner = ToolRunner(services)
     broker = Broker()
     store.subscribers.append(broker.publish)
@@ -371,7 +381,10 @@ def create_app(
         if owner is None or token is None:
             return SessionCreated(id=store.create_session(None))
         delete_empty_conversations(store, broker, owner.id, token)
-        return SessionCreated(id=store.create_session(owner.id, hash_secret(token)))
+        session_id = store.create_session(owner.id, hash_secret(token))
+        if settings.profile_memory_on:  # a saved profile is offered, never applied
+            offer_new_conversation(services, session_id, owner.id)
+        return SessionCreated(id=session_id)
 
     @api.get("/sessions/{session_id}", tags=["sessions"], dependencies=[Depends(session_access)])
     def get_session(session_id: str, admin: IsAdmin) -> dict[str, Any]:
@@ -490,6 +503,12 @@ def create_app(
 
     # POST /api/sessions/{id}/payslip (COMPASS_PAYSLIP=1, otherwise 404)
     add_payslip_routes(api, settings, services, agent, session_access)
+
+    # POST /api/sessions/{id}/profile/apply, /dismiss and DELETE /api/profile
+    # (COMPASS_PROFILE_MEMORY=1 with accounts, otherwise 404)
+    add_profile_routes(
+        api, settings, services, agent, session_access, auth.current_user if auth else None
+    )
 
     # POST /api/sessions/{id}/current-car (the catalog picker's answer)
     add_car_routes(api, services, agent, session_access)

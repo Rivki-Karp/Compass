@@ -13,6 +13,10 @@ class AgentRunner(Protocol):
     def on_payslip_confirmed(self, session_id: str, confirmed: dict[str, Any]) -> None:
         """The employee confirmed payslip values (COMPASS_PAYSLIP=1); resume, with them as data."""
 
+    def on_profile_applied(self, session_id: str, applied: dict[str, Any]) -> None:
+        """The employee confirmed details from an earlier conversation (COMPASS_PROFILE_MEMORY=1);
+        resume, with them as data."""
+
     def on_car_picked(self, session_id: str, picked: dict[str, Any]) -> None:
         """The employee picked today's car in the catalog picker; resume, with it as data."""
 
@@ -27,6 +31,9 @@ class NullAgentRunner:
         return None
 
     def on_payslip_confirmed(self, session_id: str, confirmed: dict[str, Any]) -> None:
+        return None
+
+    def on_profile_applied(self, session_id: str, applied: dict[str, Any]) -> None:
         return None
 
     def on_car_picked(self, session_id: str, picked: dict[str, Any]) -> None:

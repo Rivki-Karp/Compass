@@ -66,6 +66,10 @@ services:
       # ON in production. The code's default stays 0 (settings.py); this line is the only switch.
       - key: COMPASS_NUMBER_SOURCES
         value: "1"
+      # Remembered details, with the employee's confirmation (needs accounts): ON in production.
+      # The code's default stays 0 (settings.py); this line is the only switch.
+      - key: COMPASS_PROFILE_MEMORY
+        value: "1"
       # Accounts (login, invite codes, per-user conversations): ON in production.
       # The free plan has no disk: users and history are wiped on every deploy, and the accounts in
       # COMPASS_SEED_USERS (a JSON list of hashes, never passwords: tasks.py hash-password) are

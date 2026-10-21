@@ -74,7 +74,7 @@ export function ProvenanceStrip({
                       )}
                     </span>
                   </span>
-                  <SourceChip source={input.source} />
+                  <SourceChip source={input.source} date={input.previous_from} />
                 </li>
               ))}
             </ul>

@@ -564,3 +564,24 @@ survives a redeploy.
 10. Run `uv run --project backend python tasks.py smoke --api <api> --web <web>`: it opens a session
     without a login, which must now fail (401) with the flag on, so skip this step then and rely on
     the list above.
+
+## Remembered details (COMPASS_PROFILE_MEMORY=1, with accounts): by-hand checklist
+
+1. Log in as the employee and tell the bot your details (occupation, salary, pension, study fund,
+   credit points) and today's car. Nothing special appears.
+2. Open "שיחה חדשה" (or log out and in): the card "יש לי פרטים מהשיחה מ־{date}" is at the top,
+   before the payslip offer, with each value and its chip. The chat is still empty: nothing was
+   used, and the comparison is not drawn.
+3. "להשתמש בהם": the card goes, the bot answers, the comparison appears, the inputs show the chip
+   "משיחה קודמת · {date}", and clicking a number in the reply says "משיחה קודמת, {date}".
+4. In a new conversation, "לעדכן": change a number, confirm: that row is "לפי דבריך", the others
+   "משיחה קודמת". Remove a row: it is not used and the bot asks for it.
+5. "להתחיל מחדש": the normal flow, no saved value in any reply; a refresh keeps it dismissed; the
+   next new conversation offers them again.
+6. Say a different salary in a conversation, then press "להשתמש בהם": your new salary stays.
+7. Another account (and the rep and the admin) never sees the card; opening the conversation
+   address of someone else says not found.
+8. "מחיקת הפרטים השמורים": it asks first; after "מחיקה" the card goes and the next new conversation
+   has none.
+9. On a phone (400 px) the card fits, each button is reachable, and the keyboard reaches every
+   control.

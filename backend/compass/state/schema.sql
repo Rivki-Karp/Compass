@@ -26,8 +26,12 @@ CREATE TABLE IF NOT EXISTS profile_slots (
     field       TEXT NOT NULL,
     value_json  TEXT NOT NULL,  -- JSON null unless state = 'filled'
     state       TEXT NOT NULL CHECK (state IN ('filled', 'unknown', 'pending_rep')),
-    source      TEXT NOT NULL CHECK (source IN ('employee', 'payslip', 'representative', 'derived')),
+    source      TEXT NOT NULL CHECK (
+        source IN ('employee', 'payslip', 'representative', 'derived', 'previous')
+    ),
     updated_at  TEXT NOT NULL,
+    -- source 'previous' only: when the value was first confirmed, in the conversation it came from
+    previous_from TEXT,
     PRIMARY KEY (session_id, field)
 );
 
@@ -107,3 +111,13 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
     revoked_at    TEXT
 );
 CREATE INDEX IF NOT EXISTS auth_sessions_by_user ON auth_sessions (user_id);
+
+-- The details an account chose to have remembered (COMPASS_PROFILE_MEMORY=1; compass/profile_memory.py):
+-- {field: {value, source, saved_at, from_session}} for the occupation, the salary fields and
+-- today's car only. Never the group, a rep's answer about a car, a payslip file or an id. Owner
+-- only; deleted with the account, or by the employee. Created always, read only with the flag on.
+CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id     TEXT PRIMARY KEY,
+    fields_json TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);

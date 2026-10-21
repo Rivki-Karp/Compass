@@ -148,6 +148,7 @@ NUMBER_CHIP_LABELS: dict[str, str] = {
     "representative": "אושר על ידי נציג",
     "catalog_default": "ברירת מחדל מהקטלוג",
     "payslip": "לפי התלוש",
+    "previous": "משיחה קודמת",
     "computed": "חושב בשרת",
     "rule": "לפי הכללים",
 }
@@ -173,6 +174,8 @@ ORIGIN_LABELS: dict[str, str] = {
     "employee": "לפי דבריך, בהודעה מ־{time}",
     "representative": "אושר על ידי נציג, {time}",
     "payslip": "לפי התלוש, אושר ב־{time}",
+    "previous": "משיחה קודמת, {date}",
+    "previous_untimed": "משיחה קודמת",
     "server": COMPUTED_BY_LABELS["server"],
 }
 # The same without a time (the value reached the reply through a tool or the stored view).
@@ -180,6 +183,7 @@ ORIGIN_LABELS_UNTIMED: dict[str, str] = {
     "employee": "לפי דבריך",
     "representative": "אושר על ידי נציג",
     "payslip": "לפי התלוש",
+    "previous": "משיחה קודמת",
     "catalog": "מהקטלוג",
     "derived": "לפי העיסוק",
 }
@@ -330,6 +334,11 @@ ERROR_MESSAGES: dict[str, Callable[[Params], str]] = {
     "current_car_choice_invalid": lambda p: "הבחירה אינה תקינה.",
     "payslip_field_not_allowed": lambda p: "מהתלוש אפשר לאשר רק נתוני שכר.",
     "payslip_invalid_value": lambda p: "אחד הערכים לא תקין. בדקו אותו ונסו שוב.",
+    # remembered details (COMPASS_PROFILE_MEMORY)
+    "profile_nothing_pending": lambda p: "אין פרטים שמורים שממתינים לאישור.",
+    "profile_field_not_allowed": lambda p: "אפשר לאשר רק פרטים שהוצעו.",
+    "profile_invalid_value": lambda p: "אחד הערכים לא תקין. בדקו אותו ונסו שוב.",
+    "profile_action_invalid": lambda p: "הפעולה על אחד הפרטים לא תקינה.",
     "payslip_extraction_failed": lambda p: (
         "לא הצלחנו לקרוא את נתוני השכר מהתלוש. אפשר לנסות שוב או להזין אותם בצ'אט."
     ),

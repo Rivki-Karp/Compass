@@ -433,3 +433,15 @@
 {"at": "2026-10-21T11:17:53+00:00", "scenario": "rep_identifies_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.050573}
 {"at": "2026-10-21T11:18:18+00:00", "scenario": "rep_identifies_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.052415}
 {"at": "2026-10-21T11:18:39+00:00", "scenario": "rep_identifies_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.048817}
+{"at": "2026-10-21T18:11:04+00:00", "scenario": "profile_reused", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.06801}
+{"at": "2026-10-21T18:11:07+00:00", "scenario": "profile_dismissed", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.005875}
+{"at": "2026-10-21T18:11:31+00:00", "scenario": "e001_atto3", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.033551}
+{"at": "2026-10-21T18:11:44+00:00", "scenario": "unknown_pension", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.029757}
+{"at": "2026-10-21T18:12:10+00:00", "scenario": "e001_rep_flow", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.082559}
+{"at": "2026-10-21T18:12:29+00:00", "scenario": "walkthrough", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.042102}
+{"at": "2026-10-21T18:12:46+00:00", "scenario": "forged_rep_notification", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.048737}
+{"at": "2026-10-21T18:12:57+00:00", "scenario": "all_options", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.030633}
+{"at": "2026-10-21T18:13:12+00:00", "scenario": "unknown_current_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.039547}
+{"at": "2026-10-21T18:13:32+00:00", "scenario": "rep_identifies_car", "model": "claude-sonnet-5-5", "effort": "low", "passed": false, "cost_usd": 0.065316}
+{"at": "2026-10-21T18:13:45+00:00", "scenario": "profile_reused", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.028039}
+{"at": "2026-10-21T18:13:48+00:00", "scenario": "profile_dismissed", "model": "claude-sonnet-5-5", "effort": "low", "passed": true, "cost_usd": 0.00581}

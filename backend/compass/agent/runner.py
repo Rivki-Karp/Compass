@@ -62,7 +62,10 @@ class DailySpendCapReached(Exception):
     """Today's model spend reached the cap: no more model calls until tomorrow (UTC)."""
 
 
-Job = tuple[Literal["employee_turn", "rep_answer", "payslip_confirmed", "car_picked"], Any]
+Job = tuple[
+    Literal["employee_turn", "rep_answer", "payslip_confirmed", "car_picked", "profile_applied"],
+    Any,
+]
 
 
 @dataclass(frozen=True)
@@ -152,6 +155,10 @@ class ClaudeAgentRunner:
     def on_payslip_confirmed(self, session_id: str, confirmed: dict[str, Any]) -> None:
         """The employee confirmed payslip values: tell the agent, as data (like a rep answer)."""
         self._submit(session_id, ("payslip_confirmed", confirmed))
+
+    def on_profile_applied(self, session_id: str, applied: dict[str, Any]) -> None:
+        """The employee confirmed details from an earlier conversation: tell the agent, as data."""
+        self._submit(session_id, ("profile_applied", applied))
 
     def on_car_picked(self, session_id: str, picked: dict[str, Any]) -> None:
         """The employee picked today's car in the catalog picker: tell the agent, as data."""
@@ -312,6 +319,22 @@ class ClaudeAgentRunner:
                 "not_in_payslip": ref.get("not_in_payslip", []),
                 "unreadable": ref.get("unreadable", []),
                 "removed_by_employee": ref.get("removed_by_employee", []),
+                "server_comparisons": [
+                    json.loads(model_view("compare", result)) for result in ref["comparisons"]
+                ],
+            }
+        elif kind == "profile_applied":
+            # only what the employee confirmed on the card, and the server's own recomputed
+            # comparisons as compare would have returned them (allowed as "server")
+            content = {
+                "kind": "profile_applied",
+                "origin": SERVER_ORIGIN,
+                "values": ref["values"],
+                "from_date": ref["from_date"],
+                "kept_current": ref["kept_current"],
+                "waiting_for_rep": ref["waiting_for_rep"],
+                "dropped": ref["dropped"],
+                "today_after": ref.get("today_after"),
                 "server_comparisons": [
                     json.loads(model_view("compare", result)) for result in ref["comparisons"]
                 ],

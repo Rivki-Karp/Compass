@@ -11,6 +11,7 @@ const TRIGGER = {
   rep_answer: "תשובת הנציג",
   payslip_confirmed: "אישור נתוני התלוש",
   car_picked: "בחירת הרכב בבורר",
+  profile_applied: "אישור פרטים משיחה קודמת",
 } as const;
 
 /**

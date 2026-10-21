@@ -1,0 +1,39 @@
+name: profile_reused
+description: 'Remembered details (flag on): a saved profile, applied with one click; the agent states the diff with no re-asking'
+saved:
+  profile:
+    occupation_query: מנהלת מוצר
+    base_salary: 18500
+    commissions: 0
+    bonus: 0
+    pension_percent: 6
+    study_fund_percent: 2.5
+    credit_points: 2.75
+  today:
+    today: {kind: company_car, car_id: CAR-09, participation: 300}
+turns:
+- profile: {action: apply}
+- employee: מה יקרה לנטו אם אעבור ל-BYD Atto 3 החשמלי?
+until_compare: true
+checks:
+- comparison:
+    alternative:
+      kind: car
+      car_id: CAR-10
+    diff: 661
+    input_sources:
+      base_salary: previous
+      pension_percent: previous
+- slot:
+    field: base_salary
+    value: '18500'
+    source: previous
+- slot:
+    field: occupation
+    source: previous
+- reply:
+    turn: 1
+    not_matches:
+    - 'מה (השכר|העיסוק|אחוז)'
+    - 'כמה (נקודות|אתה מרוויח|את מרוויחה)'
+    - 'מה התפקיד'

@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from compass.agent.llm import LLMResponse, Message, ToolChoice, text_response, tool_response
-from compass.agent.transcript import CAR_TAG, EMPLOYEE_TAG, PAYSLIP_TAG, REP_TAG
+from compass.agent.transcript import CAR_TAG, EMPLOYEE_TAG, PAYSLIP_TAG, PROFILE_TAG, REP_TAG
 
 # After the employee confirms payslip values (COMPASS_PAYSLIP=1): no numbers, so the guard has
 # nothing to check; the cards already show the values and the recomputed difference.
@@ -24,6 +24,11 @@ PAYSLIP_REPLY_HE = "קיבלתי את הנתונים שאישרת מהתלוש. 
 
 # After the employee picks today's car in the catalog picker: no numbers either.
 CAR_REPLY_HE = "רשמתי את הרכב שבחרת. ההשוואה על המסך עודכנה לפיו."
+
+# After the employee confirms details from an earlier conversation (COMPASS_PROFILE_MEMORY=1): says
+# the salary back when it was among them (a number the guard accepts as "previous"), else no number.
+PROFILE_REPLY_HE = "קיבלתי את הפרטים שאישרת מהשיחה הקודמת. ההשוואה על המסך תתעדכן לפיהם."
+PROFILE_SALARY_REPLY_HE = "קיבלתי את הפרטים שאישרת מהשיחה הקודמת. שכר הבסיס שלך הוא {salary} ₪."
 
 NO_SCRIPT_HE = (
     "במצב דמו אני עונה רק על התרחישים המוכנים. "
@@ -247,6 +252,9 @@ def _trigger(messages: Sequence[Message]) -> tuple[int, str, Any]:
             return index, "payslip", None
         if text.startswith(f"<{CAR_TAG}"):
             return index, "car", None
+        if text.startswith(f"<{PROFILE_TAG}"):
+            body = text.split("\n", 1)[1].rsplit("\n", 1)[0]
+            return index, "profile", json.loads(body).get("confirmed_values") or {}
         if text.startswith(f"<{REP_TAG}"):
             body = text.split("\n", 1)[1].rsplit("\n", 1)[0]
             return index, "rep", json.loads(body).get("values") or {}
@@ -291,6 +299,13 @@ class DemoClient:
             return text_response(PAYSLIP_REPLY_HE if done == 0 else NO_SCRIPT_HE)
         if kind == "car":
             return text_response(CAR_REPLY_HE if done == 0 else NO_SCRIPT_HE)
+        if kind == "profile":
+            if done:
+                return text_response(NO_SCRIPT_HE)
+            salary = (data.get("base_salary") or {}).get("value")
+            if salary is None:
+                return text_response(PROFILE_REPLY_HE)
+            return text_response(PROFILE_SALARY_REPLY_HE.format(salary=f"{int(float(salary)):,}"))
         turn = self._turn(kind, data)
         if turn is None or done >= len(turn.steps):
             return text_response(NO_SCRIPT_HE)

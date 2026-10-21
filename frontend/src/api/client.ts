@@ -13,6 +13,7 @@ import type {
   JudgesStats,
   PayloadByType,
   PayslipConfirmed,
+  ProfileApplied,
   TicketWithView,
 } from "./types";
 
@@ -213,6 +214,18 @@ export const confirmPayslip = (sessionId: string, fields: Record<string, string>
     method: "POST",
     body: JSON.stringify({ fields }),
   });
+
+export const applyProfile = (
+  sessionId: string,
+  fields: { name: string; action: "keep" | "edit" | "drop"; value?: string }[],
+) =>
+  request<ProfileApplied>(`/sessions/${sessionId}/profile/apply`, {
+    method: "POST",
+    body: JSON.stringify({ fields }),
+  });
+export const dismissProfile = (sessionId: string) =>
+  request<null>(`/sessions/${sessionId}/profile/dismiss`, { method: "POST" });
+export const deleteProfile = () => request<null>("/profile", { method: "DELETE" });
 
 export const sessionEventsUrl = (sessionId: string) => apiUrl(`/sessions/${sessionId}/events`);
 export const ticketEventsUrl = apiUrl("/tickets/events");

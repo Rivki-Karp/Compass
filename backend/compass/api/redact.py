@@ -37,6 +37,11 @@ PUBLIC_KEYS: dict[str, frozenset[str] | None] = {
     "payslip_extracted": frozenset({"fields", "dropped_keys"}),
     "payslip_failed": frozenset({"code"}),
     "payslip_confirmed": _ALL,  # the employee's own confirmed values
+    # Remembered details: the owner's own (the ownership rule keeps everyone else out of the
+    # session); the offer is the pending candidate, the rest what they made of it.
+    "profile_offer": _ALL,
+    "profile_applied": _ALL,
+    "profile_dismissed": _ALL,
 }
 
 
