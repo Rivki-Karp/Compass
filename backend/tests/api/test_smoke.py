@@ -95,8 +95,8 @@ def test_render_blueprint() -> None:
         "COMPASS_PAYSLIP_MAX_PAGES": "3",
         "COMPASS_PAYSLIP_PER_SESSION": "3",
         "COMPASS_PAYSLIP_TIMEOUT_S": "20",
-        # accounts: off until someone turns it on (the code's default is 0 too)
-        "COMPASS_AUTH": "0",
+        # accounts: ON in production (the code's default stays 0: see the auth settings tests)
+        "COMPASS_AUTH": "1",
     }
 
     # the UI: a static site whose CSP and API URL name the backend above

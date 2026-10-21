@@ -539,6 +539,26 @@ def test_a_malformed_body_does_not_echo_the_input(client: TestClient) -> None:
 # --- CORS -------------------------------------------------------------------------------------
 
 
+def test_the_live_web_origin_may_use_every_method_the_ui_needs(
+    make_settings: Callable[..., Settings],
+) -> None:
+    """The origin in render.yaml, accounts on: GET, POST, PATCH and DELETE with Authorization."""
+    origin = "https://compass-web-hcpz.onrender.com"
+    with TestClient(create_app(make_settings(auth=True, cors_origins=(origin,)))) as client:
+        for method in ("GET", "POST", "PATCH", "DELETE"):
+            preflight = client.options(
+                "/api/conversations",
+                headers={
+                    "Origin": origin,
+                    "Access-Control-Request-Method": method,
+                    "Access-Control-Request-Headers": "authorization,content-type",
+                },
+            )
+            assert preflight.status_code == 200, method
+            assert preflight.headers["access-control-allow-origin"] == origin
+            assert "authorization" in preflight.headers["access-control-allow-headers"].lower()
+
+
 def test_authorization_is_allowed_from_the_ui_origin(
     make_settings: Callable[..., Settings], password_hash: str
 ) -> None:
