@@ -12,12 +12,13 @@ with a Hebrew message (compass.labels).
 from collections.abc import Callable
 from typing import Any, Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 from compass.api.agent import AgentRunner
 from compass.labels import error_message
+from compass.state.accounts import User
 from compass.tools.car_pick import PickRejected, pick_current_car
 from compass.tools.services import Services
 
@@ -33,11 +34,12 @@ def add_car_routes(
     api: APIRouter,
     services: Services,
     agent: AgentRunner,
-    require_session: Callable[[str], None],
+    session_access: Callable[..., User | None],
 ) -> None:
     @api.post(
         "/sessions/{session_id}/current-car",
         tags=["sessions"],
+        dependencies=[Depends(session_access)],
         responses={
             404: {"description": "No such session"},
             409: {"description": "Today's car is known already, or a representative was asked"},
@@ -47,7 +49,6 @@ def add_car_routes(
     def pick_car(session_id: str, body: CurrentCarPick) -> JSONResponse:
         """The employee's choice in the picker: a catalog car, 'no car', 'not in the list' or
         'another year, a representative checks'."""
-        require_session(session_id)
         try:
             picked = pick_current_car(services, session_id, body.choice, body.car_id)
         except PickRejected as error:

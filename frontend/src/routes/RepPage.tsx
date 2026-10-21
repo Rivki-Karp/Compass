@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { apiFetch } from "../api/client";
+import { useAuth } from "../auth/context";
+import { expireSession } from "../auth/authStore";
+import { AccountBar } from "../home/AccountBar";
 import { clearToken, getToken, setToken } from "../lib/tokens";
 import { useHealth } from "../lib/useHealth";
 import { selectedTicket } from "../rep/inbox";
@@ -32,8 +35,12 @@ async function verifyRep(token: string): Promise<TokenCheck> {
 /** The representative screen (brief §4.6): the live inbox and the answer form. */
 export function RepPage() {
   const health = useHealth();
-  const [token, setRepToken] = useState<string | null>(() => getToken("rep"));
-  const [asking, setAsking] = useState(token === null);
+  // with accounts the login is the rep's token: no token to type, nothing kept besides it
+  const auth = useAuth();
+  const login = auth.status === "in" ? auth.user : null;
+  const [typed, setRepToken] = useState<string | null>(() => getToken("rep"));
+  const token = login ? login.token : typed;
+  const [asking, setAsking] = useState(!login && typed === null);
   const [notice, setNotice] = useState("");
   const inbox = useRepInbox(token);
   const { state, select: selectTicket } = inbox;
@@ -42,6 +49,7 @@ export function RepPage() {
   const fromUrl = useRef(params.get("ticket"));
 
   function forgetToken() {
+    if (login) return expireSession();
     clearToken("rep");
     setRepToken(null);
     setAsking(true);
@@ -50,11 +58,12 @@ export function RepPage() {
   // A stored token the server no longer accepts: ask again.
   useEffect(() => {
     if (token && inbox.connection === "unauthorized") {
+      if (login) return expireSession();
       clearToken("rep");
       setRepToken(null);
       setAsking(true);
     }
-  }, [token, inbox.connection]);
+  }, [token, inbox.connection, login]);
 
   // ?ticket=… (a row opened in a new tab): select it once the list is in.
   useEffect(() => {
@@ -86,10 +95,13 @@ export function RepPage() {
       <Header variant="rep">
         {health?.llm === "scripted" ? <DemoBadge /> : null}
         {token && inbox.connection === "open" ? (
-          <span className="text-[13px] text-mist">מחובר כנציג · טוקן נשמר לסשן הזה בלבד</span>
+          <span className="text-[13px] text-mist">
+            {login ? "מחובר כנציג" : "מחובר כנציג · טוקן נשמר לסשן הזה בלבד"}
+          </span>
         ) : token ? (
           <ConnectionPill status={inbox.connection} />
         ) : null}
+        {login ? <AccountBar user={login} onLogout={() => void auth.logout()} /> : null}
       </Header>
       <TokenDialog
         open={asking}

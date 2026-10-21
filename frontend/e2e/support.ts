@@ -10,6 +10,24 @@ export const TOKENS = { rep: "rep-e2e", admin: "admin-e2e" } as const;
 /** The e2e server with the payslip upload on (playwright.config.ts); the main one has it off. */
 export const PAYSLIP_PORT = 8766;
 
+/** The e2e server with accounts on (COMPASS_AUTH=1, scripted model); see playwright.config.ts. */
+export const AUTH_PORT = 8767;
+/** The one password of the e2e accounts. A test value, public on purpose; only its hash is seeded. */
+export const E2E_PASSWORD = "e2e-password-only-for-tests";
+const E2E_HASH =
+  "$argon2id$v=19$m=65536,t=3,p=4$RDTMi22r8zOARemy2bXa/g$Za4skWmuK9SPiHb+0pb+Z00WNgyMLxuuvap7sVmV1aY";
+export const ACCOUNTS = {
+  employee: { email: "dana@example.com", name: "דנה לוי", role: "employee" },
+  other: { email: "avi@example.com", name: "אבי כהן", role: "employee" },
+  victim: { email: "noa@example.com", name: "נועה בר", role: "employee" },
+  rep: { email: "rep@example.com", name: "רותם נציגה", role: "rep" },
+  admin: { email: "admin@example.com", name: "מנהל מערכת", role: "admin" },
+} as const;
+/** COMPASS_SEED_USERS for the accounts server: the hash only, never a password. */
+export const SEED_USERS = JSON.stringify(
+  Object.values(ACCOUNTS).map((a) => ({ ...a, password_hash: E2E_HASH })),
+);
+
 /** README screenshots (brief Stage 8): committed from this run. */
 export const SCREENSHOTS = path.resolve(HERE, "..", "..", "docs", "screenshots");
 

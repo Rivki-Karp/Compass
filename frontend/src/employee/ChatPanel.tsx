@@ -20,6 +20,7 @@ export function ChatPanel({
   attach = null,
   tray = null,
   intro = null,
+  greeting = null,
 }: {
   messages: ChatMessage[];
   turns: Turn[];
@@ -36,6 +37,8 @@ export function ChatPanel({
   tray?: ReactNode;
   /** A card above the messages (the payslip offer, in the empty state). */
   intro?: ReactNode;
+  /** Accounts: the name to greet in the empty state ("שלום {name}, מה בודקים היום?"). */
+  greeting?: string | null;
 }) {
   const [draft, setDraft] = useState("");
   const list = useRef<HTMLOListElement>(null);
@@ -83,7 +86,14 @@ export function ChatPanel({
         className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-4"
         aria-live="polite"
       >
-        {messages.length === 0 && !thinking ? (
+        {messages.length === 0 && !thinking && greeting ? (
+          <li className="flex flex-col gap-1.5 py-2 text-center">
+            <p className="text-[24px] leading-tight font-bold text-navy">
+              שלום <bdi>{greeting}</bdi>, מה בודקים היום?
+            </p>
+            <p className="text-[15px] text-muted">אפשר לספר במילים שלך, או להתחיל מהתלוש.</p>
+          </li>
+        ) : messages.length === 0 && !thinking ? (
           <li className="text-[13px] text-muted">
             ספרו לי על התפקיד והשכר שלכם, ואחשב איך שינוי ברכב ישפיע על הנטו.
           </li>

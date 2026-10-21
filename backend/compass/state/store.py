@@ -153,12 +153,17 @@ class Store:
                     "delete the file to recreate it"
                 )
             self._add_columns(conn)
+            conn.execute("CREATE INDEX IF NOT EXISTS sessions_by_owner ON sessions (owner_user_id)")
         finally:
             conn.close()
 
     # Nullable columns added after a file was created: added in place (additive, so every row
     # stored before reads as it did). table -> (column, SQL type).
-    _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (("tickets", "questions_json", "TEXT"),)
+    _ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
+        ("tickets", "questions_json", "TEXT"),
+        # the account that owns the conversation (COMPASS_AUTH=1); NULL: created with the flag off
+        ("sessions", "owner_user_id", "TEXT"),
+    )
 
     @classmethod
     def _add_columns(cls, conn: sqlite3.Connection) -> None:
@@ -261,16 +266,97 @@ class Store:
 
     # --- sessions ---------------------------------------------------------------------------
 
-    def create_session(self) -> str:
+    def create_session(self, owner_user_id: str | None = None) -> str:
+        """A new conversation. With COMPASS_AUTH=1 `owner_user_id` is the account it belongs to
+        (every route then checks it); None: created with accounts off, owned by nobody."""
         session_id = uuid.uuid4().hex
         now = _now()
         with self._write() as (conn, events):
             conn.execute(
-                "INSERT INTO sessions (id, created_at, updated_at, status) VALUES (?, ?, ?, ?)",
-                (session_id, now, now, "active"),
+                "INSERT INTO sessions (id, created_at, updated_at, status, owner_user_id) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (session_id, now, now, "active", owner_user_id),
             )
             self._event(conn, events, session_id, "session_created", {"status": "active"})
         return session_id
+
+    def session_owner(self, session_id: str) -> str | None:
+        """The account that owns the session; None if nobody does. NotFound: no such session."""
+        with self._read() as conn:
+            owner = self._require_session(conn, session_id)["owner_user_id"]
+        return None if owner is None else str(owner)
+
+    def conversation_rows(self, owner_user_id: str) -> list[dict[str, Any]]:
+        """The account's own sessions, newest first, each with the latest event of the kinds a
+        list entry is built from: {id, status, updated_at, latest: {type: (seq, payload)}}."""
+        kinds = ("comparison_ready", "comparison_set_ready", "options_requested")
+        with self._read() as conn:
+            sessions = conn.execute(
+                "SELECT id, status, updated_at FROM sessions WHERE owner_user_id = ? "
+                "ORDER BY updated_at DESC, created_at DESC, id",
+                (owner_user_id,),
+            ).fetchall()
+            rows = []
+            for s in sessions:
+                latest = {}
+                for kind in kinds:
+                    event = conn.execute(
+                        "SELECT seq, payload_json FROM events WHERE session_id = ? AND type = ? "
+                        "ORDER BY seq DESC LIMIT 1",
+                        (s["id"], kind),
+                    ).fetchone()
+                    if event is not None:
+                        latest[kind] = (event["seq"], json.loads(event["payload_json"]))
+                rows.append(
+                    {
+                        "id": s["id"],
+                        "status": s["status"],
+                        "updated_at": s["updated_at"],
+                        "latest": latest,
+                    }
+                )
+        return rows
+
+    def owned_session_ids(self, owner_user_id: str) -> list[str]:
+        with self._read() as conn:
+            rows = conn.execute(
+                "SELECT id FROM sessions WHERE owner_user_id = ?", (owner_user_id,)
+            ).fetchall()
+        return [r["id"] for r in rows]
+
+    def delete_session(self, session_id: str) -> bool:
+        """Delete a conversation and everything of it: messages, events (the pending payslip
+        candidate among them), profile, scenarios and tickets (open ones included). Pages are
+        scrubbed when freed and the write-ahead log is checkpointed, so the content does not
+        linger in the files. Nothing about the content is recorded. False: no such session."""
+        with self._write() as (conn, _events):
+            conn.execute("PRAGMA secure_delete = ON")
+            found = conn.execute("SELECT 1 FROM sessions WHERE id = ?", (session_id,)).fetchone()
+            if found is None:
+                return False
+            for table in ("events", "messages", "profile_slots", "scenarios", "tickets"):
+                conn.execute(f"DELETE FROM {table} WHERE session_id = ?", (session_id,))
+            conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        conn = self._connect()
+        try:
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")  # best effort: a reader may hold it
+        except sqlite3.Error:
+            pass
+        finally:
+            conn.close()
+        return True
+
+    def count_user_events(self, user_id: str, types: tuple[str, ...], since: str) -> int:
+        """How many events of `types`, at or after `since` (an ISO UTC time), the sessions of
+        this account have (the per-user daily payslip count)."""
+        marks = ", ".join("?" for _ in types)
+        with self._read() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM events e JOIN sessions s ON s.id = e.session_id "
+                f"WHERE s.owner_user_id = ? AND e.created_at >= ? AND e.type IN ({marks})",
+                (user_id, since, *types),
+            ).fetchone()
+        return int(row[0])
 
     def session_status(self, session_id: str) -> SessionStatus:
         with self._read() as conn:

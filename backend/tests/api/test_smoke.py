@@ -71,7 +71,13 @@ def test_render_blueprint() -> None:
     assert service["healthCheckPath"] == "/api/health"
     variables = {v["key"]: v for v in service["envVars"]}
     # the secrets: names only, the values are set in the dashboard
-    for secret in ("ANTHROPIC_API_KEY", "COMPASS_REP_TOKEN", "COMPASS_ADMIN_TOKEN"):
+    # (COMPASS_SEED_USERS: argon2id hashes of the demo accounts, never passwords or the repo)
+    for secret in (
+        "ANTHROPIC_API_KEY",
+        "COMPASS_REP_TOKEN",
+        "COMPASS_ADMIN_TOKEN",
+        "COMPASS_SEED_USERS",
+    ):
         assert variables.pop(secret) == {"key": secret, "sync": False}
     # the rest: set in the file
     assert {k: v["value"] for k, v in variables.items()} == {
@@ -89,6 +95,8 @@ def test_render_blueprint() -> None:
         "COMPASS_PAYSLIP_MAX_PAGES": "3",
         "COMPASS_PAYSLIP_PER_SESSION": "3",
         "COMPASS_PAYSLIP_TIMEOUT_S": "20",
+        # accounts: ON in production (the code's default stays 0: see the auth settings tests)
+        "COMPASS_AUTH": "1",
     }
 
     # the UI: a static site whose CSP and API URL name the backend above

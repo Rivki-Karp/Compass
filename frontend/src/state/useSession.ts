@@ -92,9 +92,19 @@ export interface UseSession {
   newSession: () => void;
 }
 
-/** `adminToken`: open the stream with it (judges mode gets the full events). */
-export function useSession(adminToken: string | null): UseSession {
-  const [sessionId, setSessionId] = useState<string | null>(storedSession);
+export interface SessionOptions {
+  /** A conversation fixed by the address (accounts: /c/:id). It is never created or replaced
+   * here; `onGone` is called when the server does not know it (or it is not the user's). */
+  fixedId?: string;
+  onGone?: () => void;
+}
+
+/** `adminToken`: open the stream with it (judges mode gets the full events; with accounts, the
+ * login's token). */
+export function useSession(adminToken: string | null, options: SessionOptions = {}): UseSession {
+  const { fixedId, onGone } = options;
+  const [ownId, setSessionId] = useState<string | null>(fixedId ?? storedSession);
+  const sessionId = fixedId ?? ownId;
   const [stream, dispatch] = useReducer(streamReducer, initialStream);
   const state = visibleState(stream);
   const [connection, setConnection] = useState<StreamStatus>("connecting");
@@ -104,7 +114,7 @@ export function useSession(adminToken: string | null): UseSession {
 
   // No session yet: create one.
   useEffect(() => {
-    if (sessionId || creating.current) return;
+    if (sessionId || creating.current || fixedId) return;
     creating.current = true;
     api
       .createSession()
@@ -116,7 +126,7 @@ export function useSession(adminToken: string | null): UseSession {
       .finally(() => {
         creating.current = false;
       });
-  }, [sessionId]);
+  }, [sessionId, fixedId]);
 
   // Stream the session's events (replayed from the start on every (re)open).
   useEffect(() => {
@@ -126,6 +136,10 @@ export function useSession(adminToken: string | null): UseSession {
       url: sessionEventsUrl(sessionId),
       token: adminToken,
       onStatus: (status) => {
+        if (status === "gone" && fixedId) {
+          onGone?.(); // not this user's, or deleted: the page says so
+          return;
+        }
         if (status === "gone") {
           // 404: the server no longer knows this session (e.g. a fresh database)
           storeSession(null);
@@ -144,6 +158,8 @@ export function useSession(adminToken: string | null): UseSession {
       },
     });
     return close;
+    // onGone is the page's own callback: a change of it must not reopen the stream
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, adminToken]);
 
   // The run started (or finished): the message is no longer "sending".

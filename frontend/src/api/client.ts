@@ -6,6 +6,7 @@
  * Vite proxies /api in dev, FastAPI serves the build in the demo.
  */
 
+import { expireSession, getAuth, type Role } from "../auth/authStore";
 import type {
   AnswerError,
   Health,
@@ -25,8 +26,21 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 /** An API URL: `apiUrl("/health")` is `${VITE_API_BASE_URL}/api/health`. */
 export const apiUrl = (path: string) => `${API_BASE}/api${path}`;
 
-/** fetch() to the API, for a caller that needs the raw Response (its status). */
-export const apiFetch = (path: string, init: RequestInit = {}) => fetch(apiUrl(path), init);
+/**
+ * fetch() to the API, for a caller that needs the raw Response (its status). With a login
+ * (COMPASS_AUTH=1) it adds `Authorization: Bearer <session token>` unless the caller set one, and
+ * a 401 to such a call means the login has ended: it is forgotten and the app goes back to the
+ * landing page. Without a login nothing changes.
+ */
+export const apiFetch = async (path: string, init: RequestInit = {}): Promise<Response> => {
+  const auth = getAuth();
+  if (!auth || new Headers(init.headers).has("Authorization")) return fetch(apiUrl(path), init);
+  const headers = new Headers(init.headers);
+  headers.set("Authorization", `Bearer ${auth.token}`);
+  const response = await fetch(apiUrl(path), { ...init, headers });
+  if (response.status === 401) expireSession();
+  return response;
+};
 
 export class ApiError extends Error {
   constructor(
@@ -58,8 +72,61 @@ export type CarPick =
   | { choice: "car" | "check_year"; car_id: string }
   | { choice: "not_in_list" | "no_car" };
 
+/** What register and login answer: the session token (shown once), the name and the role. */
+export interface Granted {
+  token: string;
+  name: string;
+  role: Role;
+}
+
+/** GET /conversations: one entry of the user's own list. */
+export interface ConversationEntry {
+  id: string;
+  title: string;
+  updated_at: string;
+  status: "final" | "pending" | "partial" | "none";
+  diff: number | null;
+}
+
+/** What the admin may know of a person (GET /admin/users). */
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  status: "active" | "disabled";
+  created_at: string;
+  last_login_at: string | null;
+}
+
+export interface InviteCreated {
+  code: string;
+  email: string;
+  role: Role;
+  expires_at: string;
+}
+
 export const api = {
   health: () => request<Health>("/health"),
+  login: (email: string, password: string) =>
+    request<Granted>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+  register: (body: { email: string; code: string; name: string; password: string }) =>
+    request<Granted>("/auth/register", { method: "POST", body: JSON.stringify(body) }),
+  logout: () => request<null>("/auth/logout", { method: "POST" }),
+  me: () => request<{ name: string; role: Role }>("/auth/me"),
+  conversations: () => request<ConversationEntry[]>("/conversations"),
+  /** The session snapshot (what resuming restores): here only to see whether it is empty. */
+  snapshot: (id: string) => request<{ messages: unknown[] }>(`/sessions/${id}`),
+  deleteConversation: (id: string) => request<null>(`/conversations/${id}`, { method: "DELETE" }),
+  adminUsers: () => request<AdminUser[]>("/admin/users"),
+  invite: (email: string, role: Role) =>
+    request<InviteCreated>("/admin/invites", {
+      method: "POST",
+      body: JSON.stringify({ email, role }),
+    }),
+  patchUser: (id: string, change: { role?: Role; status?: "active" | "disabled" }) =>
+    request<AdminUser>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(change) }),
+  deleteUser: (id: string) => request<null>(`/admin/users/${id}`, { method: "DELETE" }),
   createSession: () => request<{ id: string }>("/sessions", { method: "POST" }),
   postMessage: (sessionId: string, text: string) =>
     request<{ message_seq: number }>(`/sessions/${sessionId}/messages`, {
@@ -119,8 +186,11 @@ export function uploadPayslip(
     const xhr = new XMLHttpRequest();
     xhr.open("POST", apiUrl(`/sessions/${sessionId}/payslip`));
     xhr.setRequestHeader("Content-Type", file.type);
+    const auth = getAuth();
+    if (auth) xhr.setRequestHeader("Authorization", `Bearer ${auth.token}`);
     xhr.upload.onload = onSent;
     xhr.onload = () => {
+      if (auth && xhr.status === 401) expireSession();
       let body: { detail?: unknown; errors?: AnswerError[] } | PayslipCandidate | null = null;
       try {
         body = JSON.parse(xhr.responseText) as typeof body;

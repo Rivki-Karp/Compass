@@ -126,11 +126,11 @@ server's.
 
 Per-scenario figures are averages over the repeats.
 
-**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-20): pytest **1076** · vitest **238** · Playwright **17**. CI runs all of them on every push.
+**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-21): pytest **1216** · vitest **274** · Playwright **27**. CI runs all of them on every push.
 
 **Cost per conversation:** **$0.0334**, the last report's run cost over its 22 scenario runs.
 
-**Total spend on evals:** **$12.28** of the $30.00 cap, over every eval run so far: 416 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
+**Total spend on evals:** **$12.67** of the $30.00 cap, over every eval run so far: 424 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
 
 <!-- results:end -->
 
@@ -246,6 +246,47 @@ and the request shape; `tasks.py payslip-smoke` sends the synthetic payslips in
 real models, including one with a prompt injection. Both cost real money and are run by hand,
 never in CI.
 
+## Accounts (feature flag `COMPASS_AUTH`: off by default)
+
+With `COMPASS_AUTH=0` (the default) nothing here exists: no `/api/auth`, no landing page, and the
+static rep and admin tokens work as before. With `COMPASS_AUTH=1` people log in, and the static
+tokens are refused.
+
+**Roles.** `employee`, `rep`, `admin`, all through the same login (`/`). A login is a token in
+`sessionStorage`, sent as `Authorization: Bearer`; it ends when the browser closes, after 8 hours
+absolute, or on logout. No cookies (the web and api are different sites), so there is no CSRF
+surface.
+
+**The invite flow.** Only someone the admin invited can register. The admin (`/admin`) adds an
+email and a role and gets a one-time code, `XXXXX-XXXXX`, shown once (only its hash is stored; it
+expires after `COMPASS_INVITE_TTL_HOURS`, 48 by default). The person registers at `/register`
+with the email, the code, their own name and a password of 10 to 128 characters (argon2id). Every
+invite or email failure says the same thing, so the form cannot be used to find out who was
+invited. After 5 failed logins for an email from one address that pair is locked for 15 minutes;
+a looser ceiling covers one email from many addresses.
+
+**No reset: delete and re-invite.** There is no password reset. The admin deletes the user, which
+deletes their conversations too, and invites them again.
+
+**Whose is whose.** Every conversation belongs to the user who started it, and every route that
+names one answers `404` to anyone else (never `403`, so existence does not leak). A user sees a
+list of their own conversations, can resume any of them from any browser, and can delete them. A
+representative sees the tickets and nothing else of the employee's. **The admin manages access
+only** (email, name, role, status, created, last login): an admin can never read an employee's
+conversation, profile or payslip data, and the representative's screen is not the admin's. Judges
+mode's engine room is shown to an admin only in their own conversations. A test walks the router
+and fails on any `/api` route that does not carry the rule for its class.
+
+**No persistence on the free plan.** Render's free plan has no disk, so **users and history are
+wiped on every deploy**. The accounts in `COMPASS_SEED_USERS` (a JSON list of
+`{email, name, role, password_hash}`) are re-created at every start, which is how the three demo
+accounts survive; build it with `tasks.py hash-password`, which prompts for the password with no
+echo and prints only the hash (docs/demo-runbook.md, section 11). To try accounts locally in two
+commands: `tasks.py setup-demo-accounts`, then `tasks.py serve --accounts`. A live server with
+`COMPASS_AUTH=1` refuses to start without an admin among them, or with a hash that is not
+argon2id. A password, an invite code or a token is never logged or stored in plain text, and logs
+name users by id, never by email.
+
 ## All commands
 
 These commands work as-is in PowerShell, cmd and bash, on Windows, macOS and Linux, from the
@@ -261,9 +302,12 @@ uv run --project backend python tasks.py demo      # the demo: UI + API on :8000
 uv run --project backend python tasks.py demo E-001  # Hebrew breakdown of a golden employee
 uv run --project backend python tasks.py calc      # interactive calculator for your own numbers
 uv run --project backend python tasks.py serve     # the API on :8000 (Swagger at /docs)
+uv run --project backend python tasks.py setup-demo-accounts  # prompts for 3 passwords, saves the demo accounts to backend/.env (hashes only)
+uv run --project backend python tasks.py serve --accounts  # `serve` with accounts and the payslip upload on, in data/accounts-local.db
 uv run --project backend python tasks.py check     # every suite: ruff, pytest, web lint, typecheck, vitest, build, Playwright
 uv run --project backend python tasks.py payslip-check  # live, by hand: the payslip models and request shape
 uv run --project backend python tasks.py payslip-smoke  # live, by hand: the synthetic payslips, with an injection
+uv run --project backend python tasks.py hash-password  # prompts twice, prints only the argon2id hash (COMPASS_SEED_USERS)
 uv run --project backend python tasks.py openapi   # regenerate backend/openapi.json
 uv run --project backend python tasks.py chat      # terminal chat (ANTHROPIC_API_KEY in backend/.env)
 uv run --project backend python tasks.py eval      # agent evals -> backend/evals/report.md

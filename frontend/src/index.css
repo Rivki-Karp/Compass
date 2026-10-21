@@ -62,6 +62,13 @@
   --color-engine-guard-border: #2f5fa8;
   --color-knob-on: #5b9bff;
 
+  /* landing page and account screens (briefs/design) */
+  --color-hero-mid: #123a78;
+  --color-royal-hover: #3a78da;
+  --color-up-ink: #0b5e49;
+  --color-faint: #8fa3c0;
+  --color-soft: #c9d6e8;
+
   /* type */
   --font-sans: "IBM Plex Sans Hebrew", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;

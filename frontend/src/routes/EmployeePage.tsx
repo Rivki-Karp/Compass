@@ -1,4 +1,6 @@
+import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, apiFetch } from "../api/client";
 import type { JudgesStats } from "../api/types";
 import { ChatPanel } from "../employee/ChatPanel";
@@ -19,11 +21,17 @@ import { PayslipOffer } from "../payslip/PayslipOffer";
 import { usePayslip } from "../payslip/usePayslip";
 import { useTurnSelection } from "../judges/useTurnSelection";
 import { demoSuggestions, GENERAL_SUGGESTIONS } from "../employee/suggestions";
+import { useAuth } from "../auth/context";
+import { expireSession } from "../auth/authStore";
 import { clearToken, getToken, setToken } from "../lib/tokens";
 import { useHealth } from "../lib/useHealth";
 import { useInView } from "../lib/useInView";
 import { limitReached } from "../state/session";
 import { useSession } from "../state/useSession";
+import { AccountBar } from "../home/AccountBar";
+import { ConversationSidebar } from "../home/ConversationSidebar";
+import { useConversations } from "../home/useConversations";
+import { NotFound } from "./NotFound";
 import { ConnectionPill, DemoBadge, Header, JudgesToggle } from "../ui/Header";
 import { tokenCheck, type TokenCheck } from "../lib/tokenCheck";
 import { TokenDialog } from "../ui/TokenDialog";
@@ -52,31 +60,51 @@ function useJudgesStats(token: string | null): JudgesStats | null {
  * The employee screen (brief §4.2): chat on the right, the comparison on the left. In judges
  * mode (§4.5): the summary on the right, the engine room on the left.
  */
-export function EmployeePage() {
+export function EmployeePage({ conversationId }: { conversationId?: string } = {}) {
   const health = useHealth();
+  const navigate = useNavigate();
+  const [gone, setGone] = useState(false);
+  const [drawer, setDrawer] = useState(false);
   const [judges, setJudges] = useState(false);
   const [asking, setAsking] = useState(false);
   const [adminToken, setAdminToken] = useState<string | null>(() => getToken("admin"));
-  const session = useSession(judges ? adminToken : null);
+  // with accounts the stream carries the login (the server decides what each role may see)
+  const auth = useAuth();
+  const login = auth.status === "in" ? (auth.user?.token ?? null) : null;
+  const accounts = login !== null && conversationId !== undefined;
+  const session = useSession(login ?? (judges ? adminToken : null), {
+    fixedId: accounts ? conversationId : undefined,
+    onGone: () => setGone(true),
+  });
   const { state } = session;
+  // the list beside the chat (accounts): reloaded as this conversation moves
+  const conversations = useConversations(accounts, state.lastSeq);
+  // with accounts the admin's judges mode needs no token dialog: the login is the proof
+  const isAdmin = accounts && auth.user?.role === "admin";
   // Which effects (motion, announcements) already played, per session: never twice.
   // A new, empty memory for each session id (the dependency is the point, not an input).
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const effects = useMemo<EffectsMemory>(() => ({}), [session.sessionId]);
-  const stats = useJudgesStats(judges ? adminToken : null);
+  const stats = useJudgesStats(judges ? (login ?? adminToken) : null);
   const [turn, setTurn] = useTurnSelection(state.turns.length);
   const phone = useMediaQuery(PHONE_QUERY);
   // the phone bar steps aside while the hero is on screen, below the bar's own 48 px
   const heroInView = useInView(HERO_ID, phone && !judges, 48, state.comparison !== null);
 
+  // The login ended under an open stream: back to the landing page.
+  useEffect(() => {
+    if (login && session.connection === "unauthorized") expireSession();
+  }, [login, session.connection]);
+
   // A stored admin token the server no longer accepts: forget it, leave judges mode.
   useEffect(() => {
+    if (login) return;
     if (session.connection === "unauthorized" && judges) {
       clearToken("admin");
       setAdminToken(null);
       setJudges(false);
     }
-  }, [session.connection, judges]);
+  }, [session.connection, judges, login]);
 
   const suggestions = useMemo(() => {
     if (state.thinking || session.sending) return [];
@@ -87,7 +115,7 @@ export function EmployeePage() {
 
   function toggleJudges() {
     if (judges) setJudges(false);
-    else if (adminToken) setJudges(true);
+    else if (accounts || adminToken) setJudges(true);
     else setAsking(true);
   }
 
@@ -132,16 +160,55 @@ export function EmployeePage() {
     selected && options.length > 1 ? (
       <OptionsSelector options={options} selected={selected} onSelect={select} />
     ) : null;
+  // the conversation is not this user's (or was deleted): the not-found view, as for any page
+  if (gone) return <NotFound />;
+
+  async function deleteConversation(id: string) {
+    await api.deleteConversation(id);
+    if (id === conversationId) navigate("/new", { replace: true });
+    else conversations.reload();
+  }
+  const sidebar = accounts ? (
+    <ConversationSidebar
+      items={conversations.items}
+      failed={conversations.failed}
+      currentId={conversationId}
+      onDelete={deleteConversation}
+      onNavigate={() => setDrawer(false)}
+    />
+  ) : null;
   return (
     <EffectsMemoryContext.Provider value={effects}>
       <div className="min-h-screen bg-ground">
         {/* once, outside both layouts: switching layouts never re-announces */}
         <HeroAnnouncement comparison={comparison} />
-        <Header>
+        <Header variant={accounts ? "account" : "employee"}>
           <ConnectionPill status={session.connection} />
           {health?.llm === "scripted" ? <DemoBadge /> : null}
-          <JudgesToggle on={judges} onToggle={toggleJudges} />
+          {!login || isAdmin ? <JudgesToggle on={judges} onToggle={toggleJudges} /> : null}
+          {accounts && auth.user ? (
+            <AccountBar
+              user={auth.user}
+              onLogout={() => void auth.logout()}
+              onMenu={phone ? () => setDrawer(true) : undefined}
+            />
+          ) : null}
         </Header>
+        {accounts && phone ? (
+          <Dialog.Root open={drawer} onOpenChange={setDrawer}>
+            <Dialog.Portal>
+              <Dialog.Overlay className="fixed inset-0 z-40 bg-navy/40" />
+              <Dialog.Content
+                dir="rtl"
+                aria-describedby={undefined}
+                className="fixed inset-y-0 right-0 z-50 w-[min(320px,88vw)] overflow-y-auto bg-ground p-3"
+              >
+                <Dialog.Title className="sr-only">השיחות שלי</Dialog.Title>
+                {sidebar}
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog.Root>
+        ) : null}
         {comparison && phoneBarVisible({ narrow: phone, comparison, judges }) ? (
           <PhoneBar comparison={comparison} heroId={HERO_ID} hidden={heroInView} />
         ) : null}
@@ -172,6 +239,11 @@ export function EmployeePage() {
           </main>
         ) : (
           <main className="wide:flex-nowrap flex flex-wrap items-start gap-6 px-8 py-6 max-sm:px-4">
+            {accounts && !phone ? (
+              <div className="wide:sticky wide:top-[calc(var(--header-h)+24px)] wide:max-h-[calc(100dvh-var(--header-h)-48px)] w-[280px] max-w-full shrink-0 overflow-y-auto">
+                {sidebar}
+              </div>
+            ) : null}
             <ChatPanel
               messages={state.messages}
               turns={state.turns}
@@ -180,7 +252,8 @@ export function EmployeePage() {
               failedText={session.sendFailure?.text ?? null}
               onSend={session.send}
               limitReached={limitReached(state)}
-              onNewSession={session.newSession}
+              onNewSession={accounts ? () => navigate("/new") : session.newSession}
+              greeting={accounts ? (auth.user?.name ?? null) : null}
               attach={payslip.attach}
               tray={tray}
               intro={

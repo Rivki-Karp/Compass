@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
-import { PAYSLIP_PORT, TOKENS } from "./e2e/support";
+import { AUTH_PORT, PAYSLIP_PORT, SEED_USERS, TOKENS } from "./e2e/support";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -31,6 +31,8 @@ const SERVER_ENV = {
   COMPASS_ADMIN_TOKEN: TOKENS.admin,
   COMPASS_WEB_DIST: path.join(HERE, "dist"),
 };
+// Accounts (COMPASS_AUTH=1): its own server and database, so the flag-off tests never see it.
+const AUTH_DB = path.join(HERE, "test-results", `e2e-auth-${Date.now()}.db`);
 const EXTERNAL = process.env.E2E_BASE_URL;
 
 export default defineConfig({
@@ -69,6 +71,22 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 180_000,
       env: { ...SERVER_ENV, COMPASS_DEMO_DB: PAYSLIP_DB, COMPASS_PAYSLIP: "1" },
+    },
+    {
+      command: `cd ../backend && uv run python -m uvicorn compass.api.main:app --workers 1 --port ${AUTH_PORT}`,
+      cwd: HERE,
+      url: `http://127.0.0.1:${AUTH_PORT}/api/health`,
+      reuseExistingServer: false,
+      timeout: 180_000,
+      env: {
+        ...SERVER_ENV,
+        COMPASS_DEMO_DB: AUTH_DB,
+        COMPASS_PAYSLIP: "1",
+        COMPASS_AUTH: "1",
+        COMPASS_SEED_USERS: SEED_USERS,
+        // every test logs in from 127.0.0.1: not the per-IP limit under test here
+        COMPASS_LOGIN_PER_IP_PER_MINUTE: "1000",
+      },
     },
   ],
 });

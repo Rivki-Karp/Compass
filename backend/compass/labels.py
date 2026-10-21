@@ -250,6 +250,7 @@ ERROR_MESSAGES: dict[str, Callable[[Params], str]] = {
     # payslip upload: never a number from the file (limits come from the settings)
     "payslip_in_progress": lambda p: "התלוש הקודם עדיין בעיבוד. רגע אחד.",
     "payslip_per_session": lambda p: f"אפשר להעלות עד {p['max']} תלושים בשיחה אחת.",
+    "payslip_per_user_day": lambda p: f"אפשר להעלות עד {p['max']} תלושים ביום. נסו שוב מחר.",
     "payslip_rate_limited": lambda p: "יותר מדי העלאות בזמן קצר. נסו שוב בעוד רגע.",
     "payslip_daily_cap": lambda p: "קריאת תלושים לא זמינה כרגע. אפשר להזין את הנתונים בצ'אט.",
     "payslip_unsupported_type": lambda p: "אפשר להעלות רק PDF, JPG או PNG.",

@@ -482,3 +482,85 @@ every session, a pending card included.)
 
 **Limits** (all settings, defaults): 5 MB, 3 pages, 3 uploads per session, 5 per IP per minute,
 20 s per attempt and 45 s in all; an upload over the daily spend cap is refused.
+
+## 11. Accounts (optional, behind a flag)
+
+Off by default (`COMPASS_AUTH=0`): nothing below applies and the static rep and admin tokens work as
+before. With `COMPASS_AUTH=1` the tokens are refused and everyone logs in. Users and history live
+in the container's own database, so **every deploy wipes them**; the accounts in
+`COMPASS_SEED_USERS` are re-created at each start.
+
+**The three demo accounts (employee, rep, admin), without a password ever in a command line or a
+file.** `tasks.py hash-password` asks for the password twice with no echo and prints only its
+argon2id hash. In Windows PowerShell, from the repository root:
+
+```powershell
+$accounts = @(
+  @{ email = 'employee@example.com'; name = 'Dana Levi';  role = 'employee' },
+  @{ email = 'rep@example.com';      name = 'Avi Cohen';  role = 'rep' },
+  @{ email = 'admin@example.com';    name = 'Admin';      role = 'admin' }
+)
+foreach ($account in $accounts) {
+  Write-Host "Password for $($account.email) (10 to 128 characters, typed at the prompt):"
+  $account.password_hash = uv run --project backend python tasks.py hash-password | Select-Object -Last 1
+}
+$env:COMPASS_SEED_USERS = ConvertTo-Json -Compress -InputObject @($accounts)
+```
+
+The password is typed only at the
+prompt, so it is never in the shell history or in a file. The hash is not a secret you can log, but
+keep it out of the repository too: set `COMPASS_SEED_USERS` in the shell (local) or in the Render
+dashboard (`sync: false`, never in `render.yaml`).
+
+A live server with `COMPASS_AUTH=1` refuses to start when `COMPASS_SEED_USERS` holds no `admin`,
+or a hash that is not argon2id; it says which entry, never the value.
+
+**Trying it locally (two commands).** From the repository root:
+
+```powershell
+uv run --project backend python tasks.py setup-demo-accounts
+uv run --project backend python tasks.py serve --accounts
+```
+
+`setup-demo-accounts` asks for three passwords (employee, rep, admin; each twice, no echo) and
+writes the one `COMPASS_SEED_USERS=...` line in `backend\.env` (git-ignored), hashes only. The
+accounts are `employee@demo.compass`, `rep@demo.compass` and `admin@demo.compass`. It prints only
+"3 demo accounts saved to backend\.env". `serve --accounts` turns `COMPASS_AUTH=1` and
+`COMPASS_PAYSLIP=1` on for that process only (the file keeps its values), uses
+`backend\data\accounts-local.db` (never `app.db`), rebuilds the UI if it is older than its
+source, then serves http://127.0.0.1:8000 and prints "accounts: ON". Without
+`COMPASS_SEED_USERS` it stops and says to run `setup-demo-accounts`. The live server still needs
+`ANTHROPIC_API_KEY` for the payslip upload and non-placeholder rep and admin tokens in
+`backend\.env`.
+
+**Turning it on (Render).** Build `COMPASS_SEED_USERS` as above (one employee, one rep, one
+admin), then in the `compass-api` service's **Environment**: paste it into `COMPASS_SEED_USERS`
+(declared `sync: false`, so it is never in the repo), set `COMPASS_AUTH` to `1` and save. The
+service restarts, creates the three accounts, and refuses to start if there is no admin or a hash
+is not argon2id (it names the entry, never the value). The static `COMPASS_REP_TOKEN` and
+`COMPASS_ADMIN_TOKEN` stop working while it is on. To turn it off, set `COMPASS_AUTH` back to `0`.
+
+**What a deploy does.** The free plan has no disk, so every deploy or restart wipes the users,
+their conversations and any invite; the three seeded accounts come back with their original
+passwords, and anyone else must be invited again. Do not promise judges that a conversation
+survives a redeploy.
+
+**By-hand checklist (after turning it on, from outside).**
+
+1. `/` shows the landing page, not the old chat; `/register` loads.
+2. Log in as the employee: the greeting names them; send a message; the conversation appears in the
+   list with a title and, after a comparison, the diff and its state.
+3. Log out: back on the landing page, and the old conversation's address shows it too.
+4. Log in as the admin: `/admin` lists the three accounts; invite an email, copy the code from the
+   dialog (it will not be shown again), close it; register that email in a private window.
+5. As the employee, open a conversation address in a second browser logged in as someone else: it
+   must say the page was not found.
+6. As the rep: `/rep` opens the inbox with no token to type; the admin gets "not found" on it.
+7. Disable a user in `/admin` while they are logged in: their next action sends them to the
+   landing page with "החיבור הסתיים, צריך להיכנס שוב".
+8. Delete a conversation: it disappears from the list, and its address says not found.
+9. Wrong password five times from one device: the sixth is refused with the same message and a
+   "try again in a few minutes" hint; the right password from another device still works.
+10. Run `uv run --project backend python tasks.py smoke --api <api> --web <web>`: it opens a session
+    without a login, which must now fail (401) with the flag on, so skip this step then and rely on
+    the list above.

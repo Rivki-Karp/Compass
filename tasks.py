@@ -14,6 +14,9 @@ Usage:
     tasks.py demo E-001  # Hebrew net breakdown of a golden reference employee
     tasks.py calc      # interactive calculator: your own profile and scenarios
     tasks.py serve     # API on http://127.0.0.1:8000 (docs at /docs), auto-reload
+    tasks.py serve --accounts  # the same with accounts on (COMPASS_AUTH=1, data/accounts-local.db)
+    tasks.py setup-demo-accounts  # prompt for 3 passwords, save the demo accounts to backend/.env
+    tasks.py hash-password  # prompt twice (no echo), print the argon2id hash for COMPASS_SEED_USERS
     tasks.py demo-reset  # wipe demo mode's database (backend/data/demo.db), never app.db
     tasks.py build-web # build the UI (frontend/dist); `serve` then serves it at /
     tasks.py web       # dev: API :8000 + Vite http://localhost:5173 (Ctrl+C: both)
@@ -172,9 +175,30 @@ def _print_token_warnings() -> None:
         print(f"WARNING: {warning}", flush=True)
 
 
-def serve() -> None:
+def serve(*args: str) -> None:
+    """The API with auto-reload. `--accounts`: accounts and the payslip upload on for this process
+    only (COMPASS_AUTH=1, COMPASS_PAYSLIP=1, its own database), the UI rebuilt if it is stale."""
+    if args not in ((), ("--accounts",)):
+        sys.exit("serve: the only option is --accounts")
+    accounts = bool(args)
+    if accounts:
+        import os
+
+        from compass.api.settings import _env
+
+        if not _env(BACKEND / ".env").get("COMPASS_SEED_USERS"):
+            sys.exit("serve --accounts: COMPASS_SEED_USERS is missing, run setup-demo-accounts")
+        os.environ["COMPASS_AUTH"] = "1"
+        os.environ["COMPASS_PAYSLIP"] = "1"
+        os.environ["COMPASS_APP_DB"] = str(Path("data") / "accounts-local.db")
+        if _web_build_is_stale():
+            build_web()
+        else:
+            print("frontend/dist is up to date")
     from compass.api.settings import (
         Settings,
+        live_auth_errors,
+        live_auth_message,
         live_payslip_errors,
         live_payslip_message,
         live_token_errors,
@@ -187,7 +211,11 @@ def serve() -> None:
         sys.exit(live_token_message(errors))
     if errors := live_payslip_errors(settings):
         sys.exit(live_payslip_message(errors))
+    if errors := live_auth_errors(settings):
+        sys.exit(live_auth_message(errors))
     _print_token_warnings()
+    if accounts:
+        print("\nhttp://127.0.0.1:8000\naccounts: ON\n", flush=True)
     # One process: the agent's per-session workers and locks live in memory.
     run(
         sys.executable,
@@ -272,6 +300,65 @@ def run_in(cwd: Path, *args: str) -> None:
     result = subprocess.run(args, cwd=cwd)
     if result.returncode != 0:
         sys.exit(result.returncode)
+
+
+def hash_password() -> None:
+    """Prompt twice (getpass: no echo) and print only the argon2id hash, for COMPASS_SEED_USERS.
+    The password is never an argument, never printed and never written anywhere."""
+    from getpass import getpass
+
+    from compass.auth.passwords import MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH
+    from compass.auth.passwords import hash_password as hash_it
+
+    password = getpass("Password: ")
+    if not MIN_PASSWORD_LENGTH <= len(password) <= MAX_PASSWORD_LENGTH:
+        sys.exit(
+            f"hash-password: the password must be {MIN_PASSWORD_LENGTH} to "
+            f"{MAX_PASSWORD_LENGTH} characters"
+        )
+    if getpass("Again: ") != password:
+        sys.exit("hash-password: the two entries differ")
+    print(hash_it(password))
+
+
+DEMO_ACCOUNTS = (
+    ("employee", "employee@demo.compass", "דנה לוי"),
+    ("rep", "rep@demo.compass", "נציג הרכב"),
+    ("admin", "admin@demo.compass", "מנהלת המערכת"),
+)
+
+
+def setup_demo_accounts() -> None:
+    """Prompt (getpass, twice each) for the employee, rep and admin passwords and write or replace
+    the one COMPASS_SEED_USERS line in backend/.env, hashes only. Neither a password nor a hash is
+    ever printed. backend/.env is git-ignored."""
+    import json
+    from getpass import getpass
+
+    from compass.auth.passwords import MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH
+    from compass.auth.passwords import hash_password as hash_it
+
+    users = []
+    for role, email, name in DEMO_ACCOUNTS:
+        password = getpass(f"{role} password: ")
+        if not MIN_PASSWORD_LENGTH <= len(password) <= MAX_PASSWORD_LENGTH:
+            sys.exit(
+                f"setup-demo-accounts: the password must be {MIN_PASSWORD_LENGTH} to "
+                f"{MAX_PASSWORD_LENGTH} characters"
+            )
+        if getpass(f"{role} password again: ") != password:
+            sys.exit("setup-demo-accounts: the two entries differ")
+        users.append(
+            {"email": email, "name": name, "role": role, "password_hash": hash_it(password)}
+        )
+    # single quotes: python-dotenv keeps the value literally ($ in the hashes, the JSON's quotes)
+    line = "COMPASS_SEED_USERS='" + json.dumps(users, ensure_ascii=False) + "'"
+    path = BACKEND / ".env"
+    text = path.read_bytes().decode("utf-8") if path.is_file() else ""
+    newline = "\r\n" if "\r\n" in text else "\n"
+    lines = [x for x in text.splitlines() if not x.startswith("COMPASS_SEED_USERS=")]
+    path.write_bytes((newline.join([*lines, line]) + newline).encode("utf-8"))
+    print("3 demo accounts saved to backend\\.env")
 
 
 def demo_reset() -> None:
@@ -509,6 +596,8 @@ TASKS: dict[str, Callable[..., None]] = {
     "calc": calc,
     "serve": serve,
     "demo-reset": demo_reset,
+    "hash-password": hash_password,
+    "setup-demo-accounts": setup_demo_accounts,
     "build-web": build_web,
     "web": web,
     "openapi": openapi,
@@ -522,7 +611,7 @@ TASKS: dict[str, Callable[..., None]] = {
     "payslip-smoke": payslip_smoke,
     "smoke": smoke,
 }
-TAKES_ARGS: set[str] = {"demo", "eval", "smoke"}
+TAKES_ARGS: set[str] = {"demo", "eval", "serve", "smoke"}
 
 
 def main() -> None:
