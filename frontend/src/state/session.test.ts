@@ -133,6 +133,10 @@ describe("reduce: every event kind", () => {
         car_hint: null,
       }),
       ev("current_car_picked", { outcome: "no_car" }),
+      // remembered details: the card is Stage 2, nothing on screen yet
+      ev("profile_offer", { fields: [], saved_at: "2026-10-20T10:00:00Z", age_days: 1 }),
+      ev("profile_applied", { values: {}, kept_current: [], waiting_for_rep: [], dropped: [] }),
+      ev("profile_dismissed", { offer_seq: 1 }),
       ev("options_requested", { stated: {} }),
       ev("session_status", { status: "closed" }),
     ];

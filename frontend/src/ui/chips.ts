@@ -23,6 +23,10 @@ export const CHIP: Record<ChipSource, { label: string; className: string }> = {
     label: "לפי התלוש",
     className: "text-chip-payslip bg-chip-payslip-bg border-transparent",
   },
+  previous: {
+    label: "משיחה קודמת",
+    className: "text-chip-previous bg-chip-previous-bg border-transparent",
+  },
   pending_rep: {
     label: "ממתינה לנציג",
     className: "text-chip-pending bg-chip-pending-bg border-chip-pending-border border-dashed",

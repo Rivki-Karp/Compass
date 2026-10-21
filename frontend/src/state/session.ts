@@ -364,6 +364,9 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
     case "session_created":
     case "options_requested":
     case "payslip_failed":
+    case "profile_offer": // the card is Stage 2
+    case "profile_applied":
+    case "profile_dismissed":
     case "profile_updated":
     case "guard_check":
       return next; // kept in the turn's events (judges mode); nothing else to show

@@ -16,6 +16,9 @@ export const EVENT_TYPES = [
   "payslip_confirmed",
   "payslip_extracted",
   "payslip_failed",
+  "profile_applied",
+  "profile_dismissed",
+  "profile_offer",
   "profile_updated",
   "session_created",
   "session_status",
@@ -136,8 +139,9 @@ export interface ViewInput {
   label: string;
   value: number | string | null;
   unit: "ils" | "percent" | "points" | "count" | "text";
-  source: "employee_input" | "occupation" | "representative" | "catalog_default" | "pending_rep" | "payslip";
+  source: "employee_input" | "occupation" | "representative" | "catalog_default" | "pending_rep" | "payslip" | "previous";
   ticket_field: string | null;
+  previous_from: string | null;
 }
 
 export interface ViewLine {

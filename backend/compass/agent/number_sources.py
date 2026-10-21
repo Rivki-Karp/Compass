@@ -58,13 +58,14 @@ _IDENTIFIER_BEFORE = re.compile(r"[A-Za-z](?:-|[A-Za-z0-9]*[  ])?$")
 
 # The tools whose output is a computation. Any other tool only echoes data.
 COMPUTING_TOOLS = frozenset({"compare", "list_options"})
-_STATED = frozenset({"employee", "representative", "payslip"})
+_STATED = frozenset({"employee", "representative", "payslip", "previous"})
 _INPUT_KIND = {
     "employee_input": "employee",
     "occupation": "derived",
     "representative": "representative",
     "catalog_default": "catalog",
     "payslip": "payslip",
+    "previous": "previous",  # confirmed from an earlier conversation (COMPASS_PROFILE_MEMORY)
 }
 _KIND_CHIP = {kind: chip for chip, kind in _INPUT_KIND.items()}
 # What a lookup tool's number is when no stored view says more.

@@ -174,6 +174,7 @@ def add_admin_user_routes(
         sessions = store.owned_session_ids(user_id)
         for session_id in sessions:
             store.delete_session(session_id)
+        store.delete_profile(user_id)  # the saved details go with the account
         broker.wake(TICKETS, *sessions)
         log.info("user deleted: by=%s user=%s conversations=%d", actor.id, user_id, len(sessions))
         return Response(status_code=204)

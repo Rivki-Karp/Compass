@@ -36,6 +36,7 @@ LOGIN_ONLY = {
     "/api/auth/logout": "ends the caller's own login",
     "/api/auth/me": "the caller's own name and role",
     "/api/conversations": "the caller's own conversations",
+    "/api/profile": "deletes the caller's own saved details (COMPASS_PROFILE_MEMORY)",
 }
 
 
@@ -101,6 +102,8 @@ def test_every_route_is_guarded_as_its_class_requires(full_settings: Settings) -
         "/payslip",
         "/payslip/confirm",
         "/current-car",
+        "/profile/apply",
+        "/profile/dismiss",
     }
 
 

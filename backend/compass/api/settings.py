@@ -321,6 +321,10 @@ class Settings:
     # "מאיפה המספר הזה?" (COMPASS_NUMBER_SOURCES=1, off by default): each reply's verified numbers
     # carry their sources on the assistant_message event.
     number_sources: bool = False
+    # Remember the employee's details between conversations, with their confirmation
+    # (COMPASS_PROFILE_MEMORY=1, off by default). Needs accounts: with COMPASS_AUTH=0 it is inert
+    # (see `profile_memory_on`).
+    profile_memory: bool = False
     payslip_model: str = DEFAULT_PAYSLIP_MODEL
     payslip_fallback_model: str = DEFAULT_PAYSLIP_FALLBACK_MODEL
     payslip_max_bytes: int = DEFAULT_PAYSLIP_MAX_BYTES
@@ -340,6 +344,11 @@ class Settings:
     login_email_window_minutes: int = DEFAULT_LOGIN_EMAIL_WINDOW_MINUTES
     # The accounts re-created at every start (hashes only; never shown by repr)
     seed_users: tuple[SeedUser, ...] = field(default=(), repr=False)
+
+    @property
+    def profile_memory_on(self) -> bool:
+        """The remembered details are on only with accounts: there is no owner without them."""
+        return self.profile_memory and self.auth
 
     def __post_init__(self) -> None:
         # Demo mode has its own database (data/demo.db, wiped by `tasks.py demo-reset`); it
@@ -397,6 +406,7 @@ class Settings:
             cors_origins=_cors_origins(env.get("COMPASS_CORS_ORIGINS")),
             payslip=env.get("COMPASS_PAYSLIP") == "1",
             number_sources=env.get("COMPASS_NUMBER_SOURCES") == "1",
+            profile_memory=env.get("COMPASS_PROFILE_MEMORY") == "1",
             payslip_model=env.get("COMPASS_PAYSLIP_MODEL") or DEFAULT_PAYSLIP_MODEL,
             payslip_fallback_model=env.get("COMPASS_PAYSLIP_FALLBACK_MODEL")
             or DEFAULT_PAYSLIP_FALLBACK_MODEL,

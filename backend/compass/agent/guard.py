@@ -212,6 +212,12 @@ def allowed_for_session(store: Store, session_id: str) -> Allowed:
             allowed.add_json(content.get("values"), "payslip", where)
             allowed.add_json(content.get("car_hint"), "payslip", where)
             allowed.add_json(content.get("server_comparisons"), "server", where)
+        elif is_server_event(row, "profile_applied"):
+            # details the employee confirmed from an earlier conversation; an offer that was not
+            # confirmed is an event, never a message, so it is never a source
+            allowed.add_json(content.get("values"), "previous", where)
+            allowed.add_json(content.get("today_after"), "server", where)
+            allowed.add_json(content.get("server_comparisons"), "server", where)
         elif is_server_event(row, "car_picked"):
             # the car the employee picked from the catalog, and what the server recomputed
             allowed.add_json(content.get("today_after"), "server", where)

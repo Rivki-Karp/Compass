@@ -16,7 +16,7 @@ from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from compass.engine.decimal_math import to_display
 from compass.engine.models import DeltaLineName
@@ -63,7 +63,13 @@ from compass.tools.services import Services
 VIEW_VERSION = 1
 
 ChipSource = Literal[
-    "employee_input", "occupation", "representative", "catalog_default", "pending_rep", "payslip"
+    "employee_input",
+    "occupation",
+    "representative",
+    "catalog_default",
+    "pending_rep",
+    "payslip",
+    "previous",
 ]
 Unit = Literal["ils", "percent", "points", "count", "text"]
 
@@ -110,6 +116,10 @@ class ViewInput(_View):
     unit: Unit
     source: ChipSource
     ticket_field: str | None = None  # the ticket field it waits for / was answered on
+    # source "previous" only: when it was first confirmed, in the conversation it came from
+    # (an ISO time; the UI shows "משיחה קודמת · 20/10"). Left out of the JSON when there is none,
+    # so every view without remembered details is exactly what it was.
+    previous_from: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class ViewRule(_View):
@@ -181,6 +191,7 @@ _SLOT_SOURCE: dict[str, ChipSource] = {
     "payslip": "payslip",  # confirmed by the employee from their payslip: "לפי התלוש"
     "derived": "occupation",  # the group, derived from the occupation
     "representative": "representative",
+    "previous": "previous",  # confirmed by the employee from an earlier conversation
 }
 _PROFILE_INPUTS: tuple[tuple[str, Unit], ...] = (
     ("occupation", "text"),
@@ -210,7 +221,14 @@ def _profile_input(services: Services, tool: str, unit: Unit, slot: Slot) -> Vie
             value = group_letter(raw)  # "ב׳", like the pill
         else:
             value = str(raw)
-    return ViewInput(id=tool, label=field_label(tool), value=value, unit=unit, source=source)
+    return ViewInput(
+        id=tool,
+        label=field_label(tool),
+        value=value,
+        unit=unit,
+        source=source,
+        previous_from=slot.previous_from if slot.source == "previous" else None,
+    )
 
 
 def profile_inputs(services: Services, session_id: str) -> list[dict[str, Any]]:
@@ -257,6 +275,7 @@ def _scenario_inputs(
     today_label: str | None,
     today_source: ChipSource = "employee_input",
     today_pending: bool = False,
+    today_previous_from: str | None = None,
 ) -> list[ViewInput]:
     comparison = payload["comparison"]
     today, alt = comparison["today"], comparison["alternative"]
@@ -283,6 +302,7 @@ def _scenario_inputs(
                 value=name,
                 unit="text",
                 source=today_source,
+                previous_from=today_previous_from if today_source == "previous" else None,
             )
         )
         info = payload["today_participation"]
@@ -398,6 +418,7 @@ def build_view(
         today_label,
         today_source=_SLOT_SOURCE.get(today_stored.get("source") or "employee", "employee_input"),
         today_pending=car_slot is not None and car_slot.state == "pending_rep",
+        today_previous_from=today_stored.get("previous_from"),
     )
     present = {i.id for i in inputs}
 

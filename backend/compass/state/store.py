@@ -8,10 +8,12 @@ The store holds JSON only. Callers convert Decimals to strings before storing.
 """
 
 import json
+import re
 import sqlite3
 import uuid
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -20,11 +22,14 @@ from pydantic import BaseModel, ConfigDict
 
 SCHEMA_VERSION = 1
 SCHEMA_SQL = Path(__file__).with_name("schema.sql")
+# the profile_slots statement of the schema, for the one-time rebuild of an older file
+_PROFILE_SLOTS_DDL = re.compile(r"CREATE TABLE IF NOT EXISTS profile_slots \(.*?\n\);", re.DOTALL)
 
 SessionStatus = Literal["active", "waiting_for_rep", "closed"]
 Role = Literal["user", "assistant", "tool", "system_event"]
 SlotState = Literal["filled", "unknown", "pending_rep"]
-SlotSource = Literal["employee", "payslip", "representative", "derived"]
+# "previous": a value the employee confirmed from an earlier conversation (COMPASS_PROFILE_MEMORY)
+SlotSource = Literal["employee", "payslip", "representative", "derived", "previous"]
 TicketStatus = Literal["open", "answered"]
 
 # Event types (payload in parentheses):
@@ -68,6 +73,12 @@ EVENT_TYPES = frozenset(
         "payslip_failed",
         # the employee confirmed (part of) the candidate: what was applied, with its source
         "payslip_confirmed",
+        # Remembered details (COMPASS_PROFILE_MEMORY=1): the offer of the saved profile in a new
+        # conversation (a pending candidate, like the payslip's), what the employee made of it,
+        # or "start fresh" for this conversation only
+        "profile_offer",
+        "profile_applied",
+        "profile_dismissed",
     }
 )
 
@@ -90,12 +101,15 @@ class Slot(_Model):
     state: SlotState
     source: SlotSource
     updated_at: str
+    # source "previous" only: when the value was first confirmed, in the conversation it came from
+    previous_from: str | None = None
 
 
 class SlotUpdate(_Model):
     value: Any = None
     state: SlotState = "filled"
     source: SlotSource
+    previous_from: str | None = None
 
 
 class Event(_Model):
@@ -128,12 +142,38 @@ class Ticket(_Model):
     answered_at: str | None
 
 
-# An empty conversation (a condition on a `sessions` row): the employee has said nothing and
-# uploaded no payslip. The one definition the list and the clean-up share.
+# An empty conversation (a condition on a `sessions` row): the employee has said nothing, uploaded
+# no payslip and applied no remembered details (an offer of them is no activity). The one
+# definition the list and the clean-up share.
 _IS_EMPTY = (
     "NOT EXISTS (SELECT 1 FROM events e WHERE e.session_id = sessions.id "
-    "AND e.type IN ('user_message', 'payslip_extracted', 'payslip_failed'))"
+    "AND e.type IN ('user_message', 'payslip_extracted', 'payslip_failed', 'profile_applied'))"
 )
+
+# The details the saved profile may hold: slot -> the name the tools and the UI use. Everything
+# else (the group, a rep's answers about participation or a group exception, names, ids, files)
+# is never saved. Today's car is saved from the scenario, not from a slot (TODAY_CAR).
+REMEMBERED_SLOTS: dict[str, str] = {
+    "occupation": "occupation",
+    "base_salary": "base_salary",
+    "commissions": "commissions",
+    "bonus": "bonus",
+    "pension_pct": "pension_percent",
+    "study_fund_pct": "study_fund_percent",
+    "credit_points": "credit_points",
+}
+TODAY_CAR = "today_car"
+# Only what a person (or a rep, or their payslip) said and confirmed is saved: never a default,
+# a derived value, or one that came from the saved profile itself.
+SAVED_SOURCES = frozenset({"employee", "payslip", "representative"})
+
+
+@dataclass(frozen=True)
+class Memory:
+    """What the store needs to know to save a profile: a catalog car's model year (None: not a
+    catalog car)."""
+
+    catalog_year: Callable[[str], int | None]
 
 
 def _now() -> str:
@@ -148,6 +188,9 @@ class Store:
     def __init__(self, path: Path) -> None:
         self.path = path
         self.subscribers: list[Callable[[Event], None]] = []
+        # COMPASS_PROFILE_MEMORY (with accounts): given, every confirmed or settled detail of a
+        # session an account owns is also saved in that account's profile. None: nothing is.
+        self.memory: Memory | None = None
         path.parent.mkdir(parents=True, exist_ok=True)
         conn = self._connect()
         try:
@@ -160,6 +203,7 @@ class Store:
                     f"{path}: schema version {row[0]}, expected {SCHEMA_VERSION}; "
                     "delete the file to recreate it"
                 )
+            self._widen_slot_sources(conn)
             self._add_columns(conn)
             conn.execute("CREATE INDEX IF NOT EXISTS sessions_by_owner ON sessions (owner_user_id)")
         finally:
@@ -173,7 +217,33 @@ class Store:
         ("sessions", "owner_user_id", "TEXT"),
         # the login (hash of its token) that created the conversation; NULL: before this column
         ("sessions", "auth_session_id", "TEXT"),
+        # a slot from an earlier conversation: when it was first confirmed (profile memory)
+        ("profile_slots", "previous_from", "TEXT"),
     )
+
+    @staticmethod
+    def _widen_slot_sources(conn: sqlite3.Connection) -> None:
+        """A file made before source "previous" has a CHECK that refuses it, and SQLite cannot
+        change a CHECK in place: the table is rebuilt once, rows and all."""
+        row = conn.execute("SELECT sql FROM sqlite_master WHERE name = 'profile_slots'").fetchone()
+        if row is None or "'previous'" in row["sql"]:
+            return
+        have = {r["name"] for r in conn.execute("PRAGMA table_info(profile_slots)")}
+        keep = [c for c in ("session_id", "field", "value_json", "state", "source", "updated_at")]
+        keep += [c for c in ("previous_from",) if c in have]
+        columns = ", ".join(keep)
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute("ALTER TABLE profile_slots RENAME TO profile_slots_old")
+            conn.execute(_PROFILE_SLOTS_DDL.search(SCHEMA_SQL.read_text(encoding="utf-8")).group(0))  # type: ignore[union-attr]
+            conn.execute(
+                f"INSERT INTO profile_slots ({columns}) SELECT {columns} FROM profile_slots_old"
+            )
+            conn.execute("DROP TABLE profile_slots_old")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+        conn.execute("COMMIT")
 
     @classmethod
     def _add_columns(cls, conn: sqlite3.Connection) -> None:
@@ -267,11 +337,19 @@ class Store:
             value = update.value if update.state == "filled" else None
             conn.execute(
                 "INSERT INTO profile_slots (session_id, field, value_json, state, source, "
-                "updated_at) VALUES (?, ?, ?, ?, ?, ?) "
+                "updated_at, previous_from) VALUES (?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT (session_id, field) DO UPDATE SET value_json = excluded.value_json, "
                 "state = excluded.state, source = excluded.source, "
-                "updated_at = excluded.updated_at",
-                (session_id, field, _dump(value), update.state, update.source, now),
+                "updated_at = excluded.updated_at, previous_from = excluded.previous_from",
+                (
+                    session_id,
+                    field,
+                    _dump(value),
+                    update.state,
+                    update.source,
+                    now,
+                    update.previous_from,
+                ),
             )
 
     # --- sessions ---------------------------------------------------------------------------
@@ -449,8 +527,11 @@ class Store:
             self._upsert_slots(conn, session_id, updates)
             fields = {
                 field: {"state": u.state, "source": u.source, "value": u.value}
+                | ({"previous_from": u.previous_from} if u.previous_from else {})
                 for field, u in updates.items()
             }
+            if self.memory is not None:
+                self._remember_slots(conn, session_id, updates)
             self._event(conn, events, session_id, "profile_updated", {"fields": fields})
 
     def slots(self, session_id: str) -> dict[str, Slot]:
@@ -470,9 +551,118 @@ class Store:
                 state=r["state"],
                 source=r["source"],
                 updated_at=r["updated_at"],
+                previous_from=r["previous_from"],
             )
             for r in rows
         }
+
+    # --- the saved profile (COMPASS_PROFILE_MEMORY) -------------------------------------------
+
+    @staticmethod
+    def _owner_of(conn: sqlite3.Connection, session_id: str) -> str | None:
+        row = conn.execute(
+            "SELECT owner_user_id FROM sessions WHERE id = ?", (session_id,)
+        ).fetchone()
+        return None if row is None or row["owner_user_id"] is None else str(row["owner_user_id"])
+
+    @staticmethod
+    def _save_fields(
+        conn: sqlite3.Connection, user_id: str, new: Mapping[str, Mapping[str, Any]]
+    ) -> None:
+        """Upsert fields into the account's profile (inside the caller's transaction)."""
+        if not new:
+            return
+        row = conn.execute(
+            "SELECT fields_json FROM user_profiles WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        fields = {} if row is None else json.loads(row["fields_json"])
+        fields.update(new)
+        conn.execute(
+            "INSERT INTO user_profiles (user_id, fields_json, updated_at) VALUES (?, ?, ?) "
+            "ON CONFLICT (user_id) DO UPDATE SET fields_json = excluded.fields_json, "
+            "updated_at = excluded.updated_at",
+            (user_id, _dump(fields), _now()),
+        )
+
+    def _remember_slots(
+        self, conn: sqlite3.Connection, session_id: str, updates: Mapping[str, SlotUpdate]
+    ) -> None:
+        """Save the details that are now confirmed or settled: filled, said by the employee, their
+        payslip (confirmed) or a representative. Pending, unknown, derived (the group, always
+        re-derived from the occupation) and previous values are never saved, nor is any field
+        outside REMEMBERED_SLOTS (a rep's participation or group exception answer, say)."""
+        owner = self._owner_of(conn, session_id)
+        if owner is None:
+            return
+        now = _now()
+        self._save_fields(
+            conn,
+            owner,
+            {
+                REMEMBERED_SLOTS[field]: {
+                    "value": update.value,
+                    "source": update.source,
+                    "saved_at": now,
+                    "from_session": session_id,
+                }
+                for field, update in updates.items()
+                if field in REMEMBERED_SLOTS
+                and update.state == "filled"
+                and update.source in SAVED_SOURCES
+            },
+        )
+
+    def _remember_today(self, conn: sqlite3.Connection, session_id: str, payload: Any) -> None:
+        """Today's car, when the employee or a representative settled it as a catalog car (with
+        its model year). A car outside the catalog, no car, a maintenance amount and a car that
+        came from the saved profile are not saved."""
+        memory = self.memory
+        owner = self._owner_of(conn, session_id)
+        scenario = (payload or {}).get("scenario") or {}
+        car_id = scenario.get("car_id")
+        if (
+            memory is None
+            or owner is None
+            or payload.get("source") not in SAVED_SOURCES
+            or scenario.get("kind") not in ("company_car", "family_car")
+            or not isinstance(car_id, str)
+        ):
+            return
+        year = memory.catalog_year(car_id)
+        if year is None:
+            return
+        self._save_fields(
+            conn,
+            owner,
+            {
+                TODAY_CAR: {
+                    "value": car_id,
+                    "year": year,
+                    "source": payload["source"],
+                    "saved_at": _now(),
+                    "from_session": session_id,
+                }
+            },
+        )
+
+    def profile(self, user_id: str) -> dict[str, Any] | None:
+        """The account's saved profile {fields: {name: {value, source, saved_at, from_session,
+        ...}}, updated_at}, or None when nothing is saved."""
+        with self._read() as conn:
+            row = conn.execute(
+                "SELECT fields_json, updated_at FROM user_profiles WHERE user_id = ?", (user_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        fields = json.loads(row["fields_json"])
+        return {"fields": fields, "updated_at": row["updated_at"]} if fields else None
+
+    def delete_profile(self, user_id: str) -> bool:
+        """Delete the saved profile, scrubbed like a deleted conversation. False: none was saved."""
+        with self._write() as (conn, _events):
+            conn.execute("PRAGMA secure_delete = ON")
+            deleted = conn.execute("DELETE FROM user_profiles WHERE user_id = ?", (user_id,))
+        return deleted.rowcount > 0
 
     # --- scenarios --------------------------------------------------------------------------
 
@@ -480,6 +670,8 @@ class Store:
         with self._write() as (conn, events):
             self._require_session(conn, session_id)
             self._put_scenario(conn, session_id, "today", payload)
+            if self.memory is not None:
+                self._remember_today(conn, session_id, payload)
             self._event(conn, events, session_id, "current_situation_set", {"scenario": payload})
 
     @staticmethod
@@ -619,6 +811,10 @@ class Store:
             }
             filled |= {f: SlotUpdate(state="unknown", source="representative") for f in unknown}
             self._upsert_slots(conn, ticket.session_id, filled)
+            if self.memory is not None:
+                self._remember_slots(conn, ticket.session_id, filled)
+                if today is not None:
+                    self._remember_today(conn, ticket.session_id, today)
             if today is not None:
                 self._put_scenario(conn, ticket.session_id, "today", today)
                 self._event(
@@ -773,7 +969,10 @@ class Store:
                 "created_at": session["created_at"],
                 "updated_at": session["updated_at"],
                 "messages": [m.model_dump() for m in self._messages(conn, session_id)],
-                "slots": {f: s.model_dump() for f, s in self._slots(conn, session_id).items()},
+                "slots": {
+                    f: s.model_dump(exclude={"previous_from"} if s.previous_from is None else None)
+                    for f, s in self._slots(conn, session_id).items()
+                },
                 "scenarios": self._scenarios(conn, session_id),
                 "open_tickets": [t.model_dump() for t in self._tickets(conn, "open", session_id)],
                 "last_comparison": None if comparison is None else json.loads(comparison[0]),
