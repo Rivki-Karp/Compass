@@ -4,8 +4,20 @@ import { Button } from "../ui/Button";
 import { Icon } from "../ui/icons";
 import { BidiText } from "../ui/BidiText";
 import { ReplyText } from "../ui/ReplyText";
+import { displayMinus } from "../lib/format";
+import { placeSources } from "../lib/numberSources";
 
 const STILL_WORKING_MS = 8000; // the rep flow can take ~30 s
+const HINT_KEY = "compass.numberSourceHint.dismissed"; // once dismissed, per browser session
+export const NUMBER_SOURCE_HINT = "אפשר ללחוץ על מספר מסומן כדי לראות מאיפה הוא הגיע";
+
+function hintDismissed(): boolean {
+  try {
+    return sessionStorage.getItem(HINT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 /** Messages and the run indicator (brief §4.2, chat panel). */
 export function ChatPanel({
@@ -43,6 +55,26 @@ export function ChatPanel({
   const [draft, setDraft] = useState("");
   const list = useRef<HTMLOListElement>(null);
   const newChat = useRef<HTMLButtonElement>(null);
+  const [hintGone, setHintGone] = useState(hintDismissed);
+
+  // The first reply with a number the employee can really click gets the one-time hint.
+  const hintSeq = hintGone
+    ? undefined
+    : messages.find(
+        (m) =>
+          m.role !== "employee" &&
+          m.role !== "rep" &&
+          placeSources(m.text, displayMinus(m.text), m.numberSources).length > 0,
+      )?.seq;
+
+  function dismissHint() {
+    setHintGone(true);
+    try {
+      sessionStorage.setItem(HINT_KEY, "1");
+    } catch {
+      // no storage: it simply shows again after a reload
+    }
+  }
 
   // The input the employee was typing in goes away: keep keyboard focus on the way forward.
   useEffect(() => {
@@ -103,6 +135,7 @@ export function ChatPanel({
             key={message.seq}
             message={message}
             tools={message.turn !== null ? (turns[message.turn]?.tools ?? []) : []}
+            onDismissHint={message.seq === hintSeq ? dismissHint : undefined}
           />
         ))}
         {thinking ? <Thinking /> : null}
@@ -180,7 +213,15 @@ export function ChatPanel({
   );
 }
 
-function MessageItem({ message, tools }: { message: ChatMessage; tools: ToolActivity[] }) {
+function MessageItem({
+  message,
+  tools,
+  onDismissHint,
+}: {
+  message: ChatMessage;
+  tools: ToolActivity[];
+  onDismissHint?: (() => void) | undefined;
+}) {
   if (message.role === "employee") {
     return (
       <li className="flex justify-end">
@@ -231,6 +272,22 @@ function MessageItem({ message, tools }: { message: ChatMessage; tools: ToolActi
         <ReplyText text={message.text} numberSources={message.numberSources} />
       </div>
       {tools.length ? <ToolRow tools={tools} /> : null}
+      {onDismissHint ? (
+        <p
+          data-testid="number-source-hint"
+          className="flex max-w-[85%] items-center gap-1 text-[12px] text-muted"
+        >
+          <span>{NUMBER_SOURCE_HINT}</span>
+          <button
+            type="button"
+            aria-label="הסתרת הטיפ"
+            onClick={onDismissHint}
+            className="inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-muted hover:bg-line-soft"
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        </p>
+      ) : null}
     </li>
   );
 }

@@ -294,3 +294,77 @@ def test_chip_labels_match_the_ui_chips() -> None:
     ui = dict(re.findall(r'(\w+): \{\s*label: "([^"]+)"', CHIPS_TS.read_text(encoding="utf-8")))
     assert set(NUMBER_CHIP_LABELS) <= set(ui)
     assert {k: ui[k] for k in NUMBER_CHIP_LABELS} == NUMBER_CHIP_LABELS
+
+
+# --- a line that is exactly the input it was built from ----------------------------------------
+
+
+def _one(value: int, inputs: list[dict[str, Any]], lines: list[tuple[str, int]]) -> list[Any]:
+    from compass.state import Event
+
+    view = {
+        "display_diff": 2092,
+        "today_net": 9608,
+        "alternative_net": 11700,
+        "alternative_car_id": None,
+        "alternative_kind": "waiver",
+        "breakdown": [{"key": k, "label": k, "net_effect": v} for k, v in lines],
+        "inputs": inputs,
+        "computed_by": {"origin": "server"},
+    }
+    event = Event(
+        session_id="s",
+        seq=3,
+        type="comparison_ready",
+        payload={"view": view},
+        created_at="2026-10-21T10:00:00+00:00",
+    )
+    text = f"{value:,}"
+    span = {
+        "start": 0,
+        "end": len(text),
+        "raw": text,
+        "value": Decimal(value),
+        "signed": False,
+        "source": "list_options",
+        "origin": {},
+    }
+    return build_number_sources(text, [span], [event], 0)
+
+
+def _input(id_: str, value: int, source: str) -> dict[str, Any]:
+    return {"id": id_, "label": id_, "value": value, "unit": "ils", "source": source}
+
+
+def test_the_participation_line_is_its_catalog_default_input() -> None:
+    (found,) = _one(
+        150,
+        [_input("today_participation", 150, "catalog_default")],
+        [("participation", 150), ("income_tax", 297)],
+    )
+    assert (found["chip"], found["kind"], found["label"]) == (
+        "catalog_default",
+        "catalog",
+        "ברירת מחדל מהקטלוג",
+    )
+    assert found["slot"] == "today_participation" and found["ref"]["role"] == "line:participation"
+
+
+def test_the_maintenance_line_is_the_waiver_maintenance_input() -> None:
+    (found,) = _one(
+        1500, [_input("alternative_maintenance", 1500, "occupation")], [("maintenance", 1500)]
+    )
+    assert (found["chip"], found["slot"]) == ("occupation", "alternative_maintenance")
+
+
+def test_two_unrelated_things_that_match_stay_plain() -> None:
+    # a participation line that happens to equal the bonus: not the input it was built from
+    assert _one(150, [_input("bonus", 150, "employee_input")], [("participation", 150)]) == []
+    # a diff that equals an input is a diff and an input
+    assert _one(2092, [_input("bonus", 2092, "employee_input")], [("income_tax", 297)]) == []
+    # a line and two inputs of different kinds
+    inputs = [
+        _input("today_participation", 150, "catalog_default"),
+        _input("bonus", 150, "employee_input"),
+    ]
+    assert _one(150, inputs, [("participation", 150)]) == []

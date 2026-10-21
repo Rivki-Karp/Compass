@@ -8,6 +8,8 @@ import walkthroughLog from "../test/fixtures/walkthrough.json";
 import { displayMinus } from "../lib/format";
 import { NumberSourceProvider } from "./NumberSource";
 import { ReplyText } from "./ReplyText";
+import { ChatPanel, NUMBER_SOURCE_HINT } from "../employee/ChatPanel";
+import type { ChatMessage } from "../state/session";
 
 const VIEW = must(views(walkthroughLog)[0]);
 const VIEWS = { "21": VIEW };
@@ -123,6 +125,38 @@ describe("a reply's verified numbers", () => {
     ]);
   });
 
+  // The guard reads a sign only after a space or a bracket, so after "**" a "+2,092" is recorded
+  // from the digit: the span is "2,092". It must still be the button, sign and all.
+  it("a number inside **bold** is clickable, even with the sign the guard did not see", async () => {
+    const text = "ההפרש: **+2,092 ₪** בחודש, מ-11,700 ₪.";
+    const diff = source(text, "2,092", { what: "הפרש בנטו לחודש", ref: { comparison_seq: 21 } });
+    reply(text, [diff]);
+    const [button] = screen.getAllByTestId("number-source");
+    expect(button).toHaveTextContent("+2,092");
+    expect(button?.closest("strong")).not.toBeNull();
+    await userEvent.click(button as HTMLElement);
+    expect(screen.getByRole("dialog")).toHaveTextContent("הפרש בנטו לחודש");
+  });
+
+  it("a number inside **bold** with no sign, in a list item and at the start of a line", () => {
+    const text = "**2,092 ₪** בחודש\n- 11,700 ₪ לפני\n* **9,608 ₪** אחרי\n2. 2,690 ₪ מס\nשורה\n1,500 ₪ בתחילת שורה";
+    const shown = ["2,092", "11,700", "9,608", "2,690", "1,500"];
+    reply(
+      text,
+      shown.map((s) => source(text, s)),
+    );
+    expect(screen.getAllByTestId("number-source").map((b) => b.textContent)).toEqual(shown);
+  });
+
+  it("a bold signed number whose sign the guard did see still matches", () => {
+    const text = "**שינוי:** +2,092 ₪ ו-**−286 ₪**";
+    reply(text, [source(text, "+2,092"), source(text, "286")]);
+    expect(screen.getAllByTestId("number-source").map((b) => b.textContent)).toEqual([
+      "+2,092",
+      "−286",
+    ]);
+  });
+
   it("an offset that does not land on the number it names is dropped, never moved", () => {
     const wrong = { ...DIFF(REPLY), start: 3, end: 8 };
     const other = { ...DIFF(REPLY), value: "2915" };
@@ -226,5 +260,65 @@ describe("originText", () => {
     expect(originText("אושר על ידי נציג, {time}", null)).toBe("אושר על ידי נציג");
     expect(originText("לפי דבריך, בהודעה מ־{time}", null)).toBe("לפי דבריך");
     expect(originText("חושב בשרת", null)).toBe("חושב בשרת");
+  });
+});
+
+describe("the one-time hint", () => {
+  const chat = (messages: ChatMessage[]) =>
+    render(
+      <NumberSourceProvider views={VIEWS}>
+        <ChatPanel
+          messages={messages}
+          turns={[]}
+          thinking={false}
+          suggestions={[]}
+          failedText={null}
+          onSend={() => {}}
+        />
+      </NumberSourceProvider>,
+    );
+  const reply1: ChatMessage = {
+    seq: 2,
+    role: "assistant",
+    text: REPLY,
+    kind: "reply",
+    turn: null,
+    numberSources: [DIFF(REPLY)],
+  };
+  const plain: ChatMessage = { ...reply1, seq: 1, numberSources: undefined };
+  const reply2: ChatMessage = { ...reply1, seq: 4 };
+
+  afterEach(() => sessionStorage.clear());
+
+  it("shows once, under the first reply that has a clickable number, and not under the others", () => {
+    chat([plain, reply1, reply2]);
+    const hints = screen.getAllByTestId("number-source-hint");
+    expect(hints).toHaveLength(1);
+    expect(hints[0]).toHaveTextContent(NUMBER_SOURCE_HINT);
+    expect(hints[0]?.closest("li")).toBe(screen.getAllByTestId("number-source")[0]?.closest("li"));
+  });
+
+  it("does not show without a clickable number", () => {
+    chat([plain]);
+    expect(screen.queryByTestId("number-source-hint")).toBeNull();
+  });
+
+  it("is dismissed with its button and stays dismissed for the browser session", async () => {
+    const first = chat([reply1]);
+    await userEvent.click(screen.getByRole("button", { name: "הסתרת הטיפ" }));
+    expect(screen.queryByTestId("number-source-hint")).toBeNull();
+    first.unmount();
+    chat([reply1, reply2]);
+    expect(screen.queryByTestId("number-source-hint")).toBeNull();
+  });
+
+  it("a number has a solid royal underline on hover and focus", () => {
+    reply(REPLY, [DIFF(REPLY)]);
+    expect(screen.getByTestId("number-source")).toHaveClass(
+      "hover:decoration-solid",
+      "hover:decoration-royal",
+      "focus-visible:decoration-solid",
+      "focus-visible:decoration-royal",
+    );
   });
 });

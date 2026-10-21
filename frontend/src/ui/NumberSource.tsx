@@ -95,7 +95,7 @@ export function SourceNumber({ source, shown }: { source: PlacedSource; shown: s
       aria-haspopup="dialog"
       aria-expanded={open}
       onClick={(event) => api.toggle({ source, shown, anchor: event.currentTarget })}
-      className="cursor-pointer rounded-[3px] border-0 bg-transparent p-0 font-[inherit] text-[inherit] underline decoration-dotted decoration-1 underline-offset-4 hover:bg-provenance-bg"
+      className="cursor-pointer rounded-[3px] border-0 bg-transparent p-0 font-[inherit] text-[inherit] underline decoration-dotted decoration-1 underline-offset-4 hover:bg-provenance-bg hover:decoration-solid hover:decoration-royal focus-visible:decoration-solid focus-visible:decoration-royal"
     >
       {shown}
     </button>
