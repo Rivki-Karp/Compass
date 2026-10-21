@@ -51,12 +51,14 @@ def _normalize_date(text: str) -> str:
 
 
 def extract(text: str) -> list[dict[str, Any]]:
-    """Every number-like token: {"raw", "signed", and "value" (signed Decimal) or "date"}."""
+    """Every number-like token: {"raw", "signed", "start", "end" (offsets in `text`, covering the
+    token as written: sign, separators, %), and "value" (signed Decimal) or "date"}."""
     tokens: list[dict[str, Any]] = []
     for match in _TOKEN.finditer(text):
+        where = {"start": match.start(), "end": match.end()}
         if match.group("date"):
             raw = match.group("date")
-            tokens.append({"raw": raw, "date": _normalize_date(raw), "signed": False})
+            tokens.append({"raw": raw, "date": _normalize_date(raw), "signed": False, **where})
             continue
         number = match.group("num")
         value = Decimal(number.replace(",", "")).normalize()
@@ -64,7 +66,8 @@ def extract(text: str) -> list[dict[str, Any]]:
         if sign and sign != "+":
             value = -value
         raw = f"{sign}{number}{(match.group('pct') or '').strip()}"
-        tokens.append({"raw": raw, "value": value, "signed": bool(sign)})
+        where["start"] = match.start("sign") if sign else match.start("num")
+        tokens.append({"raw": raw, "value": value, "signed": bool(sign), **where})
     return tokens
 
 
@@ -75,34 +78,40 @@ class Allowed:
     def __init__(self) -> None:
         self.values: dict[Decimal, str] = {}
         self.dates: dict[str, str] = {}
+        # Record only (never read by source_of / permits): the row each value in `values` was
+        # first seen in, {"message_seq", "at", "tool_use_id"}.
+        self.origins: dict[Decimal, dict[str, Any]] = {}
 
-    def add_value(self, value: Decimal, source: str) -> None:
+    def add_value(self, value: Decimal, source: str, origin: dict[str, Any] | None = None) -> None:
         value = value.normalize()
         self.values.setdefault(value, source)
+        self.origins.setdefault(value, origin or {})
         if 0 < abs(value) < 1:  # a fraction: allow its percentage form too
-            self.values.setdefault((value * 100).normalize(), source)
+            percent = (value * 100).normalize()
+            self.values.setdefault(percent, source)
+            self.origins.setdefault(percent, origin or {})
 
-    def add_text(self, text: str, source: str) -> None:
+    def add_text(self, text: str, source: str, origin: dict[str, Any] | None = None) -> None:
         for token in extract(text):
             if "date" in token:
                 self.dates.setdefault(token["date"], source)
             else:
-                self.add_value(token["value"], source)
+                self.add_value(token["value"], source, origin)
 
-    def add_json(self, data: Any, source: str) -> None:
+    def add_json(self, data: Any, source: str, origin: dict[str, Any] | None = None) -> None:
         if isinstance(data, bool) or data is None:
             return
         if isinstance(data, int | float | Decimal):
-            self.add_value(Decimal(str(data)), source)
+            self.add_value(Decimal(str(data)), source, origin)
         elif isinstance(data, str):
-            self.add_text(data, source)
+            self.add_text(data, source, origin)
         elif isinstance(data, dict):
             for key, value in data.items():
-                self.add_text(str(key), source)
-                self.add_json(value, source)
+                self.add_text(str(key), source, origin)
+                self.add_json(value, source, origin)
         elif isinstance(data, list | tuple):
             for item in data:
-                self.add_json(item, source)
+                self.add_json(item, source, origin)
 
     def source_of(self, token: dict[str, Any]) -> str | None:
         """Where a token's value comes from ("harmless" for small counts, years and bare
@@ -124,6 +133,43 @@ class Allowed:
     def permits(self, token: dict[str, Any]) -> bool:
         return self.source_of(token) is not None
 
+    def origin_of(self, token: dict[str, Any]) -> dict[str, Any]:
+        """The row a number token was first seen in. Reports only: `source_of` decides, and this
+        follows the same lookup. {} for a date, a harmless number or an unknown one."""
+        if "date" in token:
+            return {}
+        value: Decimal = token["value"]
+        if value in self.values:
+            return self.origins.get(value, {})
+        if not token["signed"] and -value in self.values:
+            return self.origins.get(-value, {})
+        return {}
+
+
+def number_spans(tokens: list[dict[str, Any]], allowed: Allowed) -> list[dict[str, Any]]:
+    """What the guard knows about each number token it verified, for the sources behind the
+    clickable numbers (record only): offsets in the checked text, the signed value, the guard's
+    source ("harmless" included) and the row it came from. Dates are not numbers here."""
+    spans = []
+    for token in tokens:
+        if "date" in token:
+            continue
+        source = allowed.source_of(token)
+        if source is None:
+            continue
+        spans.append(
+            {
+                "start": token["start"],
+                "end": token["end"],
+                "raw": token["raw"],
+                "value": token["value"],
+                "signed": token["signed"],
+                "source": source,
+                "origin": allowed.origin_of(token),
+            }
+        )
+    return spans
+
 
 def check_text(text: str, allowed: Allowed) -> GuardVerdict:
     tokens = extract(text)
@@ -134,6 +180,7 @@ def check_text(text: str, allowed: Allowed) -> GuardVerdict:
         numbers=[t["raw"] for t in tokens],
         violations=violations,
         sources={raw: source for raw, source in sources.items() if source is not None},
+        spans=number_spans(tokens, allowed),
     )
 
 
@@ -141,29 +188,34 @@ def allowed_for_session(store: Store, session_id: str) -> Allowed:
     allowed = Allowed()
     for row in store.messages(session_id):
         content = row.content if isinstance(row.content, dict) else {}
+        where = {"message_seq": row.seq, "at": row.created_at}  # recorded, never decides
         if row.role == "user":
-            allowed.add_text(content.get("text", ""), "employee")
+            allowed.add_text(content.get("text", ""), "employee", where)
         elif row.role == "tool":
             for result in content.get("results", []):
-                allowed.add_json(result.get("full"), result.get("name") or "tool")
+                allowed.add_json(
+                    result.get("full"),
+                    result.get("name") or "tool",
+                    {**where, "tool_use_id": result.get("tool_use_id")},
+                )
         elif is_server_event(row, "rep_answer"):
             # the representative's words: values, notes, answers to free questions
             keys = ("answer_text", "values", "effective_from", *REP_QUESTION_KEYS)
-            allowed.add_json({k: content.get(k) for k in keys}, "representative")
-            allowed.add_json(content.get("profile_after"), "server")
-            allowed.add_json(content.get("today_after"), "server")
+            allowed.add_json({k: content.get(k) for k in keys}, "representative", where)
+            allowed.add_json(content.get("profile_after"), "server", where)
+            allowed.add_json(content.get("today_after"), "server", where)
             # what the model was shown of the server's settled comparisons, and nothing more
-            allowed.add_json(content.get("server_comparisons"), "server")
+            allowed.add_json(content.get("server_comparisons"), "server", where)
         elif is_server_event(row, "payslip_confirmed"):
             # values the employee confirmed from their payslip; an unconfirmed candidate is an
             # event, never a message, so it is never a source
-            allowed.add_json(content.get("values"), "payslip")
-            allowed.add_json(content.get("car_hint"), "payslip")
-            allowed.add_json(content.get("server_comparisons"), "server")
+            allowed.add_json(content.get("values"), "payslip", where)
+            allowed.add_json(content.get("car_hint"), "payslip", where)
+            allowed.add_json(content.get("server_comparisons"), "server", where)
         elif is_server_event(row, "car_picked"):
             # the car the employee picked from the catalog, and what the server recomputed
-            allowed.add_json(content.get("today_after"), "server")
-            allowed.add_json(content.get("server_comparisons"), "server")
+            allowed.add_json(content.get("today_after"), "server", where)
+            allowed.add_json(content.get("server_comparisons"), "server", where)
     return allowed
 
 

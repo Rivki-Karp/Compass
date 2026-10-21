@@ -137,6 +137,49 @@ COMPUTED_BY_LABELS: dict[str, str] = {
 }
 
 
+# "Where does this number come from?": the popover behind a verified number in a reply
+# (compass/agent/number_sources.py). A source chip's label per chip key; the first five are the
+# input chips the UI already shows (ui/chips.ts, pinned equal by a test), "rule" is a number the
+# rules engine computed (a comparison's diff, net or line, a group budget), "tool" a number from
+# a tool result that no comparison view shows.
+NUMBER_CHIP_LABELS: dict[str, str] = {
+    "employee_input": "לפי דבריך",
+    "occupation": "לפי העיסוק",
+    "representative": "אושר על ידי נציג",
+    "catalog_default": "ברירת מחדל מהקטלוג",
+    "payslip": "לפי התלוש",
+    "rule": "לפי הכללים",
+    "tool": "מתוצאת כלי",
+}
+
+# What a number in a comparison is (the popover's "value · what it is" line).
+NUMBER_ROLE_LABELS: dict[str, str] = {
+    "diff": "הפרש בנטו לחודש",
+    "today_net": "נטו בחודש, היום",
+    "alternative_net": "נטו בחודש, בחלופה",
+    "group_budget": "תקציב הקבוצה",
+}
+
+
+def line_role_label(label: str) -> str:
+    """A line of the difference (DELTA_LABELS) as a number's meaning: "מס הכנסה · השפעה על הנטו"."""
+    return f"{label} · השפעה על הנטו"
+
+
+# How a number was produced. "{time}" is filled by the client in the viewer's own time zone.
+ORIGIN_LABELS: dict[str, str] = {
+    "employee": "לפי דבריך, בהודעה מ־{time}",
+    "representative": "אושר על ידי נציג, {time}",
+    "payslip": "לפי התלוש, אושר ב־{time}",
+    "server": COMPUTED_BY_LABELS["server"],
+}
+TOOL_RUN_NOTE = "בשרת, בלי מודל"  # after "חושב בכלי compare ·"
+
+
+def tool_origin_label(tool: str) -> str:
+    return f"{COMPUTED_BY_LABELS['tool']} {tool} · {TOOL_RUN_NOTE}"
+
+
 DRIVE_LABELS: dict[str, str] = {
     "electric": "חשמלי",
     "plugin": "פלאג-אין",

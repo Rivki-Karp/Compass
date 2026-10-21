@@ -318,6 +318,9 @@ class Settings:
     trust_proxy: bool = False
     # Payslip upload: off by default; off = its endpoints answer 404 and nothing else changes.
     payslip: bool = False
+    # "מאיפה המספר הזה?" (COMPASS_NUMBER_SOURCES=1, off by default): each reply's verified numbers
+    # carry their sources on the assistant_message event.
+    number_sources: bool = False
     payslip_model: str = DEFAULT_PAYSLIP_MODEL
     payslip_fallback_model: str = DEFAULT_PAYSLIP_FALLBACK_MODEL
     payslip_max_bytes: int = DEFAULT_PAYSLIP_MAX_BYTES
@@ -393,6 +396,7 @@ class Settings:
             trust_proxy=env.get("COMPASS_TRUST_PROXY") == "1",
             cors_origins=_cors_origins(env.get("COMPASS_CORS_ORIGINS")),
             payslip=env.get("COMPASS_PAYSLIP") == "1",
+            number_sources=env.get("COMPASS_NUMBER_SOURCES") == "1",
             payslip_model=env.get("COMPASS_PAYSLIP_MODEL") or DEFAULT_PAYSLIP_MODEL,
             payslip_fallback_model=env.get("COMPASS_PAYSLIP_FALLBACK_MODEL")
             or DEFAULT_PAYSLIP_FALLBACK_MODEL,
