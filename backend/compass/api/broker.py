@@ -44,6 +44,10 @@ class Broker:
         for waiter in self._waiters.get(session_id, ()):
             waiter.set()
 
+    def has_stream(self, session_id: str) -> bool:
+        """Is an events stream open on this session right now?"""
+        return bool(self._waiters.get(session_id))
+
     def subscribe(self, session_id: str) -> asyncio.Event:
         waiter = asyncio.Event()
         self._waiters[session_id].add(waiter)

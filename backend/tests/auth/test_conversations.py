@@ -382,3 +382,39 @@ def test_the_empty_clean_up_is_the_delete_path(full_client: TestClient) -> None:
     assert empty.encode() not in b"".join(
         p.read_bytes() for p in store.path.parent.glob(store.path.name + "*") if p.is_file()
     )
+
+
+# --- two logins of one account (judges share an account) ---------------------------------------
+
+
+def test_a_logout_leaves_the_other_logins_empty_conversation(full_client: TestClient) -> None:
+    a, b = _login(full_client, "employee"), _login(full_client, "employee")
+    a_empty, b_empty = _new(full_client, a), _new(full_client, b)
+    assert full_client.post("/api/auth/logout", headers=a).status_code == 204
+    assert not _exists(full_client, b, a_empty)  # A's own empty chat went with A's login
+    assert _exists(full_client, b, b_empty)  # B's is intact
+
+
+def test_a_new_chat_leaves_the_other_logins_empty_conversation(full_client: TestClient) -> None:
+    a, b = _login(full_client, "employee"), _login(full_client, "employee")
+    a_old, b_empty = _new(full_client, a), _new(full_client, b)
+    a_new = _new(full_client, a)
+    assert not _exists(full_client, a, a_old)
+    assert _exists(full_client, b, b_empty) and _exists(full_client, a, a_new)
+
+
+def test_an_empty_conversation_with_an_open_stream_is_never_deleted(
+    full_settings: Settings,
+) -> None:
+    app = create_app(full_settings, agent=NullAgentRunner())
+    with live_server(app) as base, httpx.Client(base_url=base, timeout=10) as http:
+        a = _login(http, "employee")
+        watched = _new(http, a)  # type: ignore[arg-type]
+        with SSEReader(f"{base}/api/sessions/{watched}/events", headers=a):
+            fresh = _new(http, a)  # type: ignore[arg-type]
+            assert _exists(http, a, watched)  # (the new chat would have deleted it)
+            assert _exists(http, a, fresh)
+        # a logout closes its own stream first, so then the empty chat does go
+        assert http.post("/api/auth/logout", headers=a).status_code == 204
+        b = _login(http, "employee")
+        assert not _exists(http, b, watched) and not _exists(http, b, fresh)

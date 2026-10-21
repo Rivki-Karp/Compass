@@ -5,7 +5,8 @@
     DELETE /api/conversations/{session_id}    delete one, and all it holds
 
 An empty conversation (no employee message and no payslip upload) is never listed. Logging out, and
-starting a new conversation, delete the user's other empty ones, by the same path as DELETE.
+starting a new conversation, delete the empty ones of that same login (never another login's of
+the account, never one with an open events stream), by the same path as DELETE.
 
 Opening a conversation needs no route of its own: the snapshot and the event replay of
 /api/sessions/{id} (the same ownership rule) restore it exactly where it stopped, from any browser
@@ -17,6 +18,7 @@ records nothing about the content.
 """
 
 import logging
+import time
 from collections.abc import Callable
 from typing import Annotated, Any, Literal
 
@@ -24,10 +26,14 @@ from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 
 from compass.api.broker import TICKETS, Broker
+from compass.auth.codes import hash_secret
 from compass.state import Store
 from compass.state.accounts import User
 
 log = logging.getLogger("compass.conversations")
+
+# how long a logout waits for its own open streams to notice and close
+STREAM_CLOSE_SECONDS = 2.0
 
 NEW_CONVERSATION_HE = "שיחה חדשה"
 ALL_OPTIONS_HE = "כל החלופות"
@@ -97,10 +103,22 @@ def delete_conversation_of(store: Store, broker: Broker, session_id: str) -> boo
     return deleted
 
 
-def delete_empty_conversations(store: Store, broker: Broker, user_id: str) -> None:
-    """Delete the user's empty conversations (no employee message, no payslip upload)."""
-    for session_id in store.empty_session_ids(user_id):
-        delete_conversation_of(store, broker, session_id)
+def delete_empty_conversations(
+    store: Store, broker: Broker, user_id: str, token: str, *, closing: bool = False
+) -> None:
+    """Delete the empty conversations (no employee message, no payslip upload) that this login
+    created: never another login's of the same account, and never one with an open events stream.
+    `closing`: the login just ended, so its own streams are woken (they end when they see it) and
+    given a moment to close before they count."""
+    ids = store.empty_session_ids(user_id, hash_secret(token))
+    if closing:
+        broker.wake(*ids)
+        deadline = time.monotonic() + STREAM_CLOSE_SECONDS
+        while any(broker.has_stream(i) for i in ids) and time.monotonic() < deadline:
+            time.sleep(0.05)
+    for session_id in ids:
+        if not broker.has_stream(session_id):
+            delete_conversation_of(store, broker, session_id)
 
 
 def add_conversation_routes(

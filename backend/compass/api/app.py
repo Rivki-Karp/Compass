@@ -46,6 +46,7 @@ from compass.api.redact import public_message, public_payload
 from compass.api.settings import Settings, token_warnings
 from compass.api.spa import mount_spa
 from compass.api.stats import judges_stats
+from compass.auth.codes import hash_secret
 from compass.auth.limits import LoginGuard
 from compass.config import CATALOG_JSON, OCCUPATIONS_JSON
 from compass.engine.context import ContextError
@@ -363,12 +364,14 @@ def create_app(
     @api.post("/sessions", status_code=201, response_model=SessionCreated, tags=["sessions"])
     def create_session(
         owner: Annotated[User | None, Depends(session_creator)],
+        token: Annotated[str | None, Depends(stream_token)],
     ) -> SessionCreated:
-        # with accounts: needs a login, and the conversation belongs to that user, whose other
-        # empty conversations go (the new one replaces them)
-        if owner is not None:
-            delete_empty_conversations(store, broker, owner.id)
-        return SessionCreated(id=store.create_session(None if owner is None else owner.id))
+        # with accounts: needs a login, and the conversation belongs to that user; the other empty
+        # ones of this same login go (the new one replaces them)
+        if owner is None or token is None:
+            return SessionCreated(id=store.create_session(None))
+        delete_empty_conversations(store, broker, owner.id, token)
+        return SessionCreated(id=store.create_session(owner.id, hash_secret(token)))
 
     @api.get("/sessions/{session_id}", tags=["sessions"], dependencies=[Depends(session_access)])
     def get_session(session_id: str, admin: IsAdmin) -> dict[str, Any]:

@@ -171,6 +171,8 @@ class Store:
         ("tickets", "questions_json", "TEXT"),
         # the account that owns the conversation (COMPASS_AUTH=1); NULL: created with the flag off
         ("sessions", "owner_user_id", "TEXT"),
+        # the login (hash of its token) that created the conversation; NULL: before this column
+        ("sessions", "auth_session_id", "TEXT"),
     )
 
     @classmethod
@@ -274,16 +276,19 @@ class Store:
 
     # --- sessions ---------------------------------------------------------------------------
 
-    def create_session(self, owner_user_id: str | None = None) -> str:
+    def create_session(
+        self, owner_user_id: str | None = None, auth_session_id: str | None = None
+    ) -> str:
         """A new conversation. With COMPASS_AUTH=1 `owner_user_id` is the account it belongs to
-        (every route then checks it); None: created with accounts off, owned by nobody."""
+        (every route then checks it); None: created with accounts off, owned by nobody.
+        `auth_session_id` is the login that made it (only empty-conversation clean-up reads it)."""
         session_id = uuid.uuid4().hex
         now = _now()
         with self._write() as (conn, events):
             conn.execute(
-                "INSERT INTO sessions (id, created_at, updated_at, status, owner_user_id) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (session_id, now, now, "active", owner_user_id),
+                "INSERT INTO sessions (id, created_at, updated_at, status, owner_user_id, "
+                "auth_session_id) VALUES (?, ?, ?, ?, ?, ?)",
+                (session_id, now, now, "active", owner_user_id, auth_session_id),
             )
             self._event(conn, events, session_id, "session_created", {"status": "active"})
         return session_id
@@ -332,12 +337,14 @@ class Store:
             ).fetchall()
         return [r["id"] for r in rows]
 
-    def empty_session_ids(self, owner_user_id: str) -> list[str]:
-        """The account's empty conversations: no employee message and no payslip upload."""
+    def empty_session_ids(self, owner_user_id: str, auth_session_id: str) -> list[str]:
+        """The empty conversations (no employee message, no payslip upload) that this login of
+        the account created. Another login's, and any from before the column, are not included."""
         with self._read() as conn:
             rows = conn.execute(
-                f"SELECT id FROM sessions WHERE owner_user_id = ? AND {_IS_EMPTY}",
-                (owner_user_id,),
+                f"SELECT id FROM sessions WHERE owner_user_id = ? AND auth_session_id = ? "
+                f"AND {_IS_EMPTY}",
+                (owner_user_id, auth_session_id),
             ).fetchall()
         return [r["id"] for r in rows]
 

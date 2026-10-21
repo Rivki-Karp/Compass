@@ -238,10 +238,10 @@ def add_auth_routes(
         token: Annotated[str, Depends(auth.bearer)],
         user: Annotated[User, Depends(auth.current_user)],
     ) -> Response:
-        """End this login session (the token stops working at once). The user's empty
-        conversations (no message, no payslip upload) are deleted with it."""
+        """End this login session (the token stops working at once). The empty
+        conversations (no message, no payslip upload) this login created are deleted with it."""
         accounts.revoke_token(token)
-        delete_empty_conversations(store, broker, user.id)
+        delete_empty_conversations(store, broker, user.id, token, closing=True)
         log.info("logout: user=%s", user.id)
         return Response(status_code=204)
 
