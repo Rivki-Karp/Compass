@@ -228,7 +228,7 @@ function MessageItem({ message, tools }: { message: ChatMessage; tools: ToolActi
   return (
     <li className="flex flex-col items-start gap-1.5">
       <div className="max-w-[85%] rounded-[14px] rounded-es-[4px] border border-bubble-border bg-ground px-4 py-2.5 text-ink">
-        <ReplyText text={message.text} />
+        <ReplyText text={message.text} numberSources={message.numberSources} />
       </div>
       {tools.length ? <ToolRow tools={tools} /> : null}
     </li>

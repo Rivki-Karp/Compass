@@ -8,6 +8,7 @@
 import type {
   CarPicker,
   ComparisonView,
+  NumberSource,
   PayloadByType,
   SessionEvent,
   Ticket,
@@ -19,6 +20,8 @@ export interface ChatMessage {
   text: string;
   kind: PayloadByType["assistant_message"]["kind"] | null;
   turn: number | null; // index into turns (assistant messages)
+  /** The verified numbers of a reply and their sources (COMPASS_NUMBER_SOURCES=1), else absent. */
+  numberSources?: NumberSource[];
   /** A "rep" message: the answers to free questions ("תשובת הנציג"), the notes otherwise. */
   rep?: RepMessage;
 }
@@ -96,6 +99,10 @@ export interface SessionState {
   comparisons: Record<string, ComparisonState>;
   /** The alternatives the server put on screen at once (comparison_set_ready), best first. */
   optionKeys: string[];
+  /** Every comparison view as stored, by its event: "{seq}" (comparison_ready) and
+   * "{seq}:{car id or kind}" (an option of comparison_set_ready). A number's popover shows the
+   * components of the view it was computed from, which may no longer be the latest. */
+  views: Record<string, ComparisonView>;
   openTickets: Ticket[];
   lastError: string | null; // agent_error kind of the latest failed run
   /** Events since the last run finished, outside any run; the next run takes them as `before`. */
@@ -122,6 +129,7 @@ export const initialSession: SessionState = {
   comparison: null,
   comparisons: {},
   optionKeys: [],
+  views: {},
   openTickets: [],
   lastError: null,
   payslip: null,
@@ -218,6 +226,9 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
             text: event.payload.text,
             kind: event.payload.kind,
             turn: turn ? turn.index : null,
+            ...(event.payload.number_sources?.length
+              ? { numberSources: event.payload.number_sources }
+              : {}),
           },
         ],
       };
@@ -272,19 +283,27 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
     case "comparison_ready": {
       const comparison = nextComparison(next, event.seq, event.payload.view, event.payload.origin);
       const key = alternativeKey(comparison.view);
-      return { ...next, comparison, comparisons: { ...next.comparisons, [key]: comparison } };
+      return {
+        ...next,
+        comparison,
+        comparisons: { ...next.comparisons, [key]: comparison },
+        views: { ...next.views, [event.seq]: event.payload.view },
+      };
     }
 
     case "comparison_set_ready": {
       // every option at once: each alternative's latest view, the hero left as it is
       const comparisons = { ...next.comparisons };
       const optionKeys: string[] = [];
+      const views = { ...next.views };
       for (const option of event.payload.options) {
+        views[`${event.seq}:${option.view.alternative_car_id ?? option.view.alternative_kind}`] =
+          option.view;
         const key = alternativeKey(option.view);
         comparisons[key] = nextComparison({ comparisons }, event.seq, option.view, "server");
         optionKeys.push(key);
       }
-      return { ...next, comparisons, optionKeys };
+      return { ...next, comparisons, optionKeys, views };
     }
 
     case "ticket_opened":

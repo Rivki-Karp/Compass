@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { api, apiFetch } from "../api/client";
 import type { JudgesStats } from "../api/types";
 import { ChatPanel } from "../employee/ChatPanel";
+import { NumberSourceProvider } from "../ui/NumberSource";
 import { CurrentCarPicker } from "../employee/CurrentCarPicker";
 import { type EffectsMemory, EffectsMemoryContext } from "../employee/effects";
 import { EmptyComparison } from "../employee/EmptyComparison";
@@ -244,6 +245,7 @@ export function EmployeePage({ conversationId }: { conversationId?: string } = {
                 {sidebar}
               </div>
             ) : null}
+            <NumberSourceProvider views={state.views}>
             <ChatPanel
               messages={state.messages}
               turns={state.turns}
@@ -260,6 +262,7 @@ export function EmployeePage({ conversationId }: { conversationId?: string } = {
                 payslip.open && offerVisible(state) ? <PayslipOffer onUpload={payslip.open} /> : null
               }
             />
+            </NumberSourceProvider>
             <div className="flex min-w-0 flex-[999_1_640px] flex-col gap-6">
               {selector}
               {comparison ? (
