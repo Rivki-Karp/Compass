@@ -11,11 +11,20 @@ OPENING_MESSAGE = PROMPTS_DIR / "opening_he.md"
 PAYSLIP_SECTION = PROMPTS_DIR / "system_payslip_he.md"
 
 
-def load_system_prompt(path: Path = SYSTEM_PROMPT, *, payslip: bool = False) -> str:
+# Another short section, added only when COMPASS_PROFILE_MEMORY=1 (with accounts); off, the prompt
+# is byte for byte what it was (tests/agent/test_prompt_profile.py).
+PROFILE_SECTION = PROMPTS_DIR / "system_profile_he.md"
+
+
+def load_system_prompt(
+    path: Path = SYSTEM_PROMPT, *, payslip: bool = False, profile: bool = False
+) -> str:
     prompt = path.read_text(encoding="utf-8").strip()
-    if not payslip:
-        return prompt
-    return prompt + "\n\n" + PAYSLIP_SECTION.read_text(encoding="utf-8").strip()
+    if payslip:
+        prompt += "\n\n" + PAYSLIP_SECTION.read_text(encoding="utf-8").strip()
+    if profile:
+        prompt += "\n\n" + PROFILE_SECTION.read_text(encoding="utf-8").strip()
+    return prompt
 
 
 def opening_message(path: Path = OPENING_MESSAGE) -> str:

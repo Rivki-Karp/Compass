@@ -1,0 +1,34 @@
+name: profile_dismissed
+description: 'Remembered details (flag on): a saved profile, dismissed ("start fresh"); the agent asks as usual and no saved value appears in any reply'
+saved:
+  profile:
+    occupation_query: מנהלת מוצר
+    base_salary: 18500
+    commissions: 0
+    bonus: 0
+    pension_percent: 6
+    study_fund_percent: 2.5
+    credit_points: 2.75
+  today:
+    today: {kind: company_car, car_id: CAR-09, participation: 300}
+turns:
+- profile: {action: dismiss}
+- employee: אני רוצה לבדוק מה יקרה לנטו אם אעבור ל-BYD Atto 3
+checks:
+- slot:
+    field: base_salary
+    absent: true
+- slot:
+    field: occupation
+    absent: true
+- tool_not_called:
+    name: compare
+- reply:
+    turn: 1
+    matches:
+    - 'שכר|משכורת|עיסוק|תפקיד'
+    not_matches:
+    - '18,?500'
+    - 'מנהל'
+    - 'קורולה|COROLLA'
+    - 'משיחה קודמת|בפעם הקודמת'

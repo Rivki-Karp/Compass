@@ -1,5 +1,5 @@
 """uv run python tasks.py eval [--only a,b] [--repeat N] [--effort low|medium] [--out PATH]
-                            [--payslip] [--prompt PATH]
+                            [--payslip] [--profile] [--prompt PATH]
 
 Runs the scenarios against the real model (needs ANTHROPIC_API_KEY in .env), each in a fresh
 temporary session store, and writes the report. Refuses to start a run that could take the
@@ -39,6 +39,9 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--out", type=Path, default=REPORT)
     parser.add_argument("--cap", type=float, default=CAP_USD, help="total spend cap, USD")
     parser.add_argument("--payslip", action="store_true", help="run with COMPASS_PAYSLIP=1")
+    parser.add_argument(
+        "--profile", action="store_true", help="run with COMPASS_PROFILE_MEMORY=1 (and accounts)"
+    )
     parser.add_argument("--prompt", type=Path, default=None, help="a system prompt file")
     return parser.parse_args(argv)
 
@@ -56,9 +59,12 @@ def run_one(
     llm = AnthropicClient(settings.anthropic_api_key, settings.model, effort=effort)
     runner = build_claude_runner(settings, services, llm=llm, background=False)
     if prompt is not None:
-        runner.system_prompt = load_system_prompt(prompt, payslip=settings.payslip)
+        runner.system_prompt = load_system_prompt(
+            prompt, payslip=settings.payslip, profile=settings.profile_memory_on
+        )
     harness = Harness(services, runner, make_guard(services.store), settings.model)
     harness.payslip = settings.payslip
+    harness.profile = settings.profile_memory_on
     return harness.run(scenario)
 
 
@@ -81,6 +87,10 @@ def main(argv: list[str]) -> int:
         scenarios = [s for s in scenarios if not s.payslip_off]
     else:  # flag off: the payslip scenarios cannot run
         scenarios = [s for s in scenarios if not s.needs_payslip]
+    if args.profile:
+        settings = dataclasses.replace(settings, profile_memory=True, auth=True)
+    else:  # flag off: the scenarios about remembered details cannot run
+        scenarios = [s for s in scenarios if not s.needs_profile]
     ledger = Ledger(cap_usd=args.cap)
     spent_before = ledger.spent()
     runs: list[RunResult] = []

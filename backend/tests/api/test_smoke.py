@@ -97,6 +97,8 @@ def test_render_blueprint() -> None:
         "COMPASS_PAYSLIP_TIMEOUT_S": "20",
         # "מאיפה המספר הזה?": ON in production (the code's default stays 0)
         "COMPASS_NUMBER_SOURCES": "1",
+        # remembered details, with the employee's confirmation: ON in production (needs accounts)
+        "COMPASS_PROFILE_MEMORY": "1",
         # accounts: ON in production (the code's default stays 0: see the auth settings tests)
         "COMPASS_AUTH": "1",
     }

@@ -10,12 +10,20 @@ from compass.payslip.confirm import confirm
 from compass.payslip.extractor import ScriptedExtractor
 from compass.payslip.service import PayslipService
 from compass.payslip.upload import PayslipRejected
+from compass.profile_memory import (
+    Choice,
+    apply_profile,
+    dismiss_profile,
+    offer_new_conversation,
+    pending_offer,
+)
+from compass.state.store import Memory
 from compass.tools.profile import TOOL_OF, to_tool_value
 from compass.tools.questions import OTHER_OCCUPATION, is_free, ticket_questions
 from compass.tools.services import Services
 from compass.tools.tickets import QuestionAnswer, TicketAnswerError, answer_ticket
 from evals.checks import Call, CheckResult, Comparison, Reply, Trace, evaluate
-from evals.scenario import FALLBACK_HE, PayslipTurn, RepAnswer, Scenario
+from evals.scenario import FALLBACK_HE, PayslipTurn, ProfileTurn, RepAnswer, Scenario
 
 
 @dataclass
@@ -59,9 +67,10 @@ class Harness:
         self.services, self.store, self.runner = services, services.store, runner
         self.guard, self.model = guard, model
         self.payslip = False  # the upload is on (evals --payslip): payslip turns, the prompt
+        self.profile = False  # remembered details are on (evals --profile)
 
     def run(self, scenario: Scenario) -> RunResult:
-        session_id = self.store.create_session()
+        session_id = self._start(scenario)
         result = RunResult(scenario.name, [], Trace(payslip_enabled=self.payslip), session_id)
         bounds: list[int] = []  # the last event seq at the end of each turn
         for turn in scenario.turns:
@@ -69,6 +78,8 @@ class Harness:
                 self._employee(session_id, turn.employee, result)
             elif turn.payslip is not None:
                 self._payslip(session_id, turn.payslip, result)
+            elif turn.profile is not None:
+                self._profile(session_id, turn.profile, result)
             else:
                 assert turn.rep is not None
                 self._rep(session_id, turn.rep, result)
@@ -85,6 +96,53 @@ class Harness:
         result.results = evaluate(result.trace, scenario.checks)
         result.cost_usd = requests_cost_usd(result.requests, self.model) or 0.0
         return result
+
+    # --- remembered details -------------------------------------------------------------
+
+    OWNER = "eval-user"
+
+    def _start(self, scenario: Scenario) -> str:
+        """A fresh session. With `saved`: first an earlier conversation of the same account says
+        its details through the real tools (the store saves what is confirmed), then this one is
+        created and offered the profile, as POST /sessions does."""
+        if scenario.saved is None:
+            return self.store.create_session()
+        self.store.memory = Memory(
+            catalog_year=lambda car_id: (
+                car.registration_year if (car := self.services.ctx.catalog.get(car_id)) else None
+            )
+        )
+        earlier = self.store.create_session(self.OWNER, "eval-login-1")
+        tools = self.runner.tool_runner
+        for tool, key in (("save_profile", "profile"), ("set_current_situation", "today")):
+            if scenario.saved.get(key) is not None:
+                done = tools.run(earlier, tool, scenario.saved[key])
+                assert done["ok"], done
+        session_id = self.store.create_session(self.OWNER, "eval-login-2")
+        offer_new_conversation(self.services, session_id, self.OWNER)
+        return session_id
+
+    def _profile(self, session_id: str, turn: ProfileTurn, result: RunResult) -> None:
+        """What POST /profile/apply (keep everything offered) or /profile/dismiss does; the agent
+        is told only when something was applied, as the route does."""
+        if not self.profile:
+            result.trace.problems.append("profile turn: run with --profile (the flag is off)")
+            return
+        pending = pending_offer(self.services, session_id)
+        if pending is None:
+            result.trace.problems.append("profile turn: no offer is pending")
+            return
+        if turn.action == "dismiss":
+            dismiss_profile(self.services, session_id)
+            return
+        choices = [Choice(f["name"], "keep") for f in pending[1]["fields"]]
+        applied = apply_profile(self.services, session_id, choices)
+        data = {
+            **applied.to_dict(),
+            "today_after": applied.today_after,
+            "comparisons": applied.comparisons,
+        }
+        self._timed(result, lambda: self.runner.on_profile_applied(session_id, data), session_id)
 
     # --- turns --------------------------------------------------------------------------
 

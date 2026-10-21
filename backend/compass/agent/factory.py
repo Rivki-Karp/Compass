@@ -27,7 +27,7 @@ def build_claude_runner(
     return ClaudeAgentRunner(
         services,
         llm,
-        load_system_prompt(payslip=settings.payslip),
+        load_system_prompt(payslip=settings.payslip, profile=settings.profile_memory_on),
         tool_runner=tool_runner,
         max_tool_rounds=settings.max_tool_rounds,
         max_session_turns=settings.max_session_turns,

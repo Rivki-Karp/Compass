@@ -61,16 +61,26 @@ class PayslipTurn(_Model):
     confirm: dict[str, Any] = Field(default_factory=dict)
 
 
+class ProfileTurn(_Model):
+    """The employee answers the offer of the saved profile (flag on): `apply` keeps everything
+    offered, `dismiss` starts fresh. Needs `saved` on the scenario."""
+
+    action: Literal["apply", "dismiss"]
+
+
 class Turn(_Model):
     employee: str | None = None
     rep: RepAnswer | None = None
     payslip: PayslipTurn | None = None
+    profile: ProfileTurn | None = None
 
     @model_validator(mode="after")
     def _one_kind(self) -> "Turn":
-        if sum(x is not None for x in (self.employee, self.rep, self.payslip)) != 1:
+        kinds = (self.employee, self.rep, self.payslip, self.profile)
+        if sum(x is not None for x in kinds) != 1:
             raise ValueError(
-                "a turn is either `employee: <text>`, `rep: {...}` or `payslip: {read, confirm}`"
+                "a turn is either `employee: <text>`, `rep: {...}`, `payslip: {read, confirm}` "
+                "or `profile: {action}`"
             )
         return self
 
@@ -87,6 +97,14 @@ class Scenario(_Model):
     payslip_on: bool = False
     # about the upload being OFF (the default): skipped when the run has it on (evals --payslip)
     payslip_off: bool = False
+    # Remembered details (evals --profile): an earlier conversation of the same account said
+    # `saved.profile` (save_profile's input) and `saved.today` (set_current_situation's); this
+    # one starts with the offer of them. Skipped when the run has the flag off.
+    saved: dict[str, Any] | None = None
+
+    @property
+    def needs_profile(self) -> bool:
+        return self.saved is not None or any(turn.profile is not None for turn in self.turns)
 
     @property
     def needs_payslip(self) -> bool:

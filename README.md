@@ -150,11 +150,11 @@ E-001 to its expected chip and origin label.
 
 Per-scenario figures are averages over the repeats.
 
-**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-21): pytest **1291** · vitest **302** · Playwright **35**. CI runs all of them on every push.
+**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-21): pytest **1295** · vitest **302** · Playwright **35**. CI runs all of them on every push.
 
 **Cost per conversation:** **$0.0334**, the last report's run cost over its 22 scenario runs.
 
-**Total spend on evals:** **$13.21** of the $30.00 cap, over every eval run so far: 435 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
+**Total spend on evals:** **$13.69** of the $30.00 cap, over every eval run so far: 447 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
 
 <!-- results:end -->
 
@@ -269,6 +269,54 @@ and the request shape; `tasks.py payslip-smoke` sends the synthetic payslips in
 `backend/tests/fixtures/payslips/` (made by `backend/scripts/make_payslip_fixtures.py`) to the
 real models, including one with a prompt injection. Both cost real money and are run by hand,
 never in CI.
+
+## זיכרון פרטים, באישור (feature flag `COMPASS_PROFILE_MEMORY`: off in the code, on in production)
+
+With `COMPASS_PROFILE_MEMORY=0` (the default) nothing here exists: the events, the UI and the
+prompt are byte for byte what they were. It needs `COMPASS_AUTH=1`; with accounts off it is inert.
+
+**What it does.** Details an employee confirmed in one conversation are offered on a card at the
+top of their next one: "יש לי פרטים מהשיחה מ־20/10". Nothing is used until they press a button:
+**להשתמש בהם** (use what is shown), **לעדכן** (correct numbers, then confirm), or **להתחיל מחדש**
+(ignore them for this conversation; nothing is deleted). Each row can be removed, and
+"מחיקת הפרטים השמורים" deletes the saved details for good, after asking.
+
+**The principles.**
+
+1. *Nothing is used silently.* The offer is a pending candidate, like the payslip's: an event, not
+   a message. Until it is confirmed the agent does not see it and the number guard does not
+   accept it (a test quotes an offered value and the draft is rejected).
+2. *Every reused value says where it came from.* The chip **"משיחה קודמת · 20/10"** shows in the
+   inputs card, the waterfall's provenance and the "where does this number come from?" popover.
+3. *Anything new wins.* Precedence: `representative` > `payslip` / `employee` (this conversation)
+   > `previous` > the catalog default. Keeping a value never replaces something said in this
+   conversation, an edit replaces what the employee or a payslip said but never a representative's,
+   and a field a representative is answering is left alone. Anything new afterwards replaces a
+   value from a previous conversation.
+4. *Only personal facts are saved:* the occupation, base salary, commissions, bonus, pension %,
+   study fund %, credit points and today's car (a catalog id with its model year). Never a
+   representative's answer about a car's participation or a group exception, a payslip file, a
+   name, an id or a bank detail. Pending, unknown, derived and catalog-default values are not
+   saved, and "לא יודע" removes nothing.
+5. *The group is never stored.* It is derived again from the occupation, so a rules change applies
+   (an occupation or a car the rules no longer hold is not offered).
+
+**Privacy.** The profile belongs to the account: only its owner can apply, dismiss or delete it
+(the same ownership rule as every session route, `404` for anyone else), the representative and
+the admin never see it, deleting the account deletes it, and the employee can delete it at any
+time. Over 30 days old, the card adds "ייתכן שהפרטים השתנו".
+
+**The shared demo account.** Judges may share `employee@demo.compass`, so whoever logs in sees the
+offer of what the last person confirmed. That is acceptable because the account is shared on
+purpose, and the card always shows the date and "להתחיל מחדש". On the free plan the database is
+wiped on every deploy, so the saved details go with it.
+
+**API.** `POST /api/sessions/{id}/profile/apply {fields: [{name, action: keep|edit|drop, value?}]}`,
+`POST /api/sessions/{id}/profile/dismiss`, `DELETE /api/profile`; the offer is the `profile_offer`
+event (`fields`, `saved_at`, `age_days`, `stale`, `stale_note`), then `profile_applied` or
+`profile_dismissed`. Applying goes through the same slot path as every other value, recomputes
+what is on screen with no model call, and tells the agent as data (`profile_notification`). The
+prompt section `system_profile_he.md` is added only with the flag on.
 
 ## Accounts (feature flag `COMPASS_AUTH`: off by default)
 
