@@ -89,6 +89,8 @@ class _Match:
     # who computed it, from the view itself: "tool" (the model's compare), "server" (the same
     # code run by the server, no model) or "option_set" (list_options); None: not computed
     computed_by: str | None = None
+    # a value from an earlier conversation: when it was first confirmed (an ISO time)
+    at: str | None = None
 
     @property
     def meaning(self) -> tuple[str, str | None, str | None]:
@@ -211,6 +213,7 @@ def _input_matches(
                     alternative=None,
                     seq=seq,
                     event_type=event_type,
+                    at=item.get("previous_from"),
                 )
             )
     return found
@@ -349,6 +352,9 @@ def _origin(
         budget = context.budget or {}
         source = "rule"
         label = rule_origin_label(budget.get("group"), bool(budget.get("from_occupation")))
+    elif chip == "previous":  # "משיחה קודמת, {date}": the day it was first confirmed
+        when = match.at if match is not None else None
+        source, label, at = kind, ORIGIN_LABELS["previous" if when else "previous_untimed"], when
     elif kind == guard_source and kind in ORIGIN_LABELS:  # the message itself: its time
         source, label, at = kind, ORIGIN_LABELS[kind], row.get("at")
     else:

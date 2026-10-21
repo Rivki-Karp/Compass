@@ -10,6 +10,7 @@
  */
 
 import type { NumberSource } from "../api/types";
+import { formatDayMonth } from "./format";
 
 export type PlacedSource = NumberSource;
 
@@ -59,6 +60,10 @@ export function within(sources: readonly PlacedSource[], from: number, to: numbe
 
 /** "{time}" in a label, in the viewer's own time zone; without a time the clause goes. */
 export function originText(label: string, at: string | null): string {
+  if (label.includes("{date}")) {
+    const day = at ? formatDayMonth(at) : "";
+    return day ? label.replace("{date}", day) : label.replace(/,?\s*\{date\}/, "");
+  }
   if (!label.includes("{time}")) return label;
   const when = at ? new Date(at) : null;
   if (when && !Number.isNaN(when.getTime())) {

@@ -41,7 +41,7 @@ export function InputsCard({ view }: { view: ComparisonView }) {
                   )}
                 </span>
               </span>
-              <SourceChip source={input.source} />
+              <SourceChip source={input.source} date={input.previous_from} />
             </li>
           );
         })}

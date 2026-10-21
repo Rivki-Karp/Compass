@@ -19,6 +19,7 @@ import { EngineRoom } from "../judges/EngineRoom";
 import { HowItWorks, StatsGrid } from "../judges/Summary";
 import { offerVisible } from "../payslip/payslip";
 import { PayslipOffer } from "../payslip/PayslipOffer";
+import { ProfileOffer } from "../profile/ProfileOffer";
 import { usePayslip } from "../payslip/usePayslip";
 import { useTurnSelection } from "../judges/useTurnSelection";
 import { demoSuggestions, GENERAL_SUGGESTIONS } from "../employee/suggestions";
@@ -260,7 +261,14 @@ export function EmployeePage({ conversationId }: { conversationId?: string } = {
               attach={payslip.attach}
               tray={tray}
               intro={
-                payslip.open && offerVisible(state) ? <PayslipOffer onUpload={payslip.open} /> : null
+                <>
+                  {state.profile && session.sessionId ? (
+                    <ProfileOffer sessionId={session.sessionId} pending={state.profile} />
+                  ) : null}
+                  {payslip.open && offerVisible(state) ? (
+                    <PayslipOffer onUpload={payslip.open} />
+                  ) : null}
+                </>
               }
             />
             </NumberSourceProvider>

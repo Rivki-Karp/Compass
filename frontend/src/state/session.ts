@@ -109,9 +109,17 @@ export interface SessionState {
   between: SessionEvent[];
   /** A payslip read and waiting for the employee to confirm it (COMPASS_PAYSLIP=1), else null. */
   payslip: PendingPayslip | null;
+  /** The offer of the saved profile, until the employee answers it, else null. */
+  profile: PendingProfile | null;
   /** The catalog picker the server offered for today's car, until it is answered (the car is
    * set, the employee picks, or a representative is asked), else null. */
   carPicker: CarPicker | null;
+}
+
+/** The saved details offered in this conversation and not yet answered (COMPASS_PROFILE_MEMORY). */
+export interface PendingProfile {
+  seq: number;
+  offer: PayloadByType["profile_offer"];
 }
 
 export interface PendingPayslip {
@@ -133,6 +141,7 @@ export const initialSession: SessionState = {
   openTickets: [],
   lastError: null,
   payslip: null,
+  profile: null,
   carPicker: null,
   between: [],
 };
@@ -361,12 +370,16 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
     case "current_situation_set":
       return { ...next, carPicker: null }; // today is known, however it got set
 
+    case "profile_offer":
+      return { ...next, profile: { seq: event.seq, offer: event.payload } };
+
+    case "profile_applied":
+    case "profile_dismissed":
+      return { ...next, profile: null };
+
     case "session_created":
     case "options_requested":
     case "payslip_failed":
-    case "profile_offer": // the card is Stage 2
-    case "profile_applied":
-    case "profile_dismissed":
     case "profile_updated":
     case "guard_check":
       return next; // kept in the turn's events (judges mode); nothing else to show

@@ -174,6 +174,8 @@ ORIGIN_LABELS: dict[str, str] = {
     "employee": "לפי דבריך, בהודעה מ־{time}",
     "representative": "אושר על ידי נציג, {time}",
     "payslip": "לפי התלוש, אושר ב־{time}",
+    "previous": "משיחה קודמת, {date}",
+    "previous_untimed": "משיחה קודמת",
     "server": COMPUTED_BY_LABELS["server"],
 }
 # The same without a time (the value reached the reply through a tool or the stored view).

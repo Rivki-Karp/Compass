@@ -31,6 +31,14 @@ const TYPED_MINUS = /(^|[\s(])\u200E?-(?=\d)/g;
  * A reply's text for display only (round 4, item 3): a typed minus becomes U+2212, as every
  * amount the UI formats itself has. The number guard checks the server's original text.
  */
+/** A moment as DD/MM in the viewer's own time zone ("20/10"), for "משיחה קודמת · 20/10". */
+export function formatDayMonth(iso: string): string {
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) return "";
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${two(when.getDate())}/${two(when.getMonth() + 1)}`;
+}
+
 export function displayMinus(text: string): string {
   return text.replace(TYPED_MINUS, `$1${MINUS}`);
 }

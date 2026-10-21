@@ -753,5 +753,5 @@ def test_a_number_from_a_previous_conversation_says_so(world: World) -> None:
         "previous",
         "משיחה קודמת",
     )
-    assert source["slot"] == "base_salary" and source["origin"]["label"] == "משיחה קודמת"
+    assert source["slot"] == "base_salary" and source["origin"]["label"] == "משיחה קודמת, {date}"
     assert audit(text, sources) == []
