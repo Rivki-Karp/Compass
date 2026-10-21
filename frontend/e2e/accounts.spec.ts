@@ -10,6 +10,7 @@
  *   5  delete a conversation
  *   6  the rep logs in and answers a ticket; the employee's card settles
  *   7  a disabled user is logged out on the next request
+ *   8  an empty conversation is not listed, "שיחה חדשה" stays in it, and logout deletes it
  */
 
 import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
@@ -281,4 +282,45 @@ test("7. a disabled user is logged out on the next request", async ({ browser })
     headers: { Authorization: `Bearer ${adminToken}` },
     data: { status: "active" },
   });
+});
+
+test("8. an empty conversation is not listed; new chat stays in it; logout deletes it", async ({
+  browser,
+}) => {
+  const page = await visitor(browser);
+  await home(page, "employee");
+  const list = page.getByRole("complementary", { name: "השיחות שלי" });
+  const first = conversationId(page);
+  await expect(list.locator(`a[href="/c/${first}"]`)).toHaveCount(0); // empty: not listed
+
+  // "שיחה חדשה" inside an empty conversation stays in it and creates nothing
+  const created: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().endsWith("/api/sessions")) created.push(r.url());
+  });
+  await page.getByRole("link", { name: "שיחה חדשה", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/c/${first}$`));
+  expect(created).toEqual([]);
+
+  // one message: it is a conversation now, and it is listed
+  await page.locator('[aria-label="הצעות"]').getByRole("button").first().click();
+  await expect(page.getByText("מחשב…")).toHaveCount(0, { timeout: 60_000 });
+  await expect(list.locator(`a[href="/c/${first}"]`)).toHaveCount(1);
+
+  // a new one is made now (its address differs) and is not listed either
+  await page.getByRole("link", { name: "שיחה חדשה", exact: true }).click();
+  await expect(page).not.toHaveURL(new RegExp(`/c/${first}$`));
+  await expect(page.getByText(`שלום ${ACCOUNTS.employee.name}, מה בודקים היום?`)).toBeVisible();
+  const empty = conversationId(page);
+  await expect(list.locator(`a[href="/c/${empty}"]`)).toHaveCount(0);
+
+  // logout deletes the empty one; the one with a message survives
+  await page.getByRole("button", { name: "יציאה" }).click();
+  await expect(page.getByRole("form", { name: "כניסה לעובדים" })).toBeVisible();
+  const bearer = await token(page.request, "employee");
+  const status = async (id: string) =>
+    (await page.request.get(`/api/sessions/${id}`, { headers: { Authorization: `Bearer ${bearer}` } }))
+      .status();
+  expect(await status(empty)).toBe(404);
+  expect(await status(first)).toBe(200);
 });

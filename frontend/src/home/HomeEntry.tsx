@@ -4,9 +4,9 @@ import { api } from "../api/client";
 import { Button } from "../ui/Button";
 
 /**
- * `/` and `/new` for a logged-in user: open a conversation. The newest one is reused when it is
- * still empty (no message yet), so "שיחה חדשה" does not pile up empty rows; otherwise a new one is
- * made. Either way the address becomes /c/:id, which is what resuming and sharing the link use.
+ * `/` and `/new` for a logged-in user: open a new conversation (the server deletes the user's other
+ * empty ones, so they do not pile up; "שיחה חדשה" inside an empty conversation never gets here).
+ * The address becomes /c/:id, which is what resuming and sharing the link use.
  */
 export function HomeEntry() {
   const navigate = useNavigate();
@@ -19,14 +19,6 @@ export function HomeEntry() {
     started.current = attempt;
     void (async () => {
       try {
-        const [newest] = await api.conversations();
-        if (newest && newest.status === "none") {
-          const snapshot = await api.snapshot(newest.id);
-          if (snapshot.messages.length === 0) {
-            navigate(`/c/${newest.id}`, { replace: true });
-            return;
-          }
-        }
         const { id } = await api.createSession();
         navigate(`/c/${id}`, { replace: true });
       } catch {

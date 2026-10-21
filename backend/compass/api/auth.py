@@ -28,6 +28,8 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 
+from compass.api.broker import Broker
+from compass.api.conversations import delete_empty_conversations
 from compass.api.ratelimit import RateLimiter, client_ip
 from compass.api.settings import Settings
 from compass.auth.codes import normalize_code
@@ -41,6 +43,7 @@ from compass.auth.passwords import (
     verify_password,
 )
 from compass.auth.seed import MAX_NAME_LENGTH
+from compass.state import Store
 from compass.state.accounts import Accounts, User
 
 log = logging.getLogger("compass.auth")
@@ -158,7 +161,9 @@ def _acceptable(email: str, name: str) -> bool:
     return "@" in email and 1 <= len(name) <= MAX_NAME_LENGTH
 
 
-def add_auth_routes(api: APIRouter, settings: Settings, auth: Auth, guard: LoginGuard) -> None:
+def add_auth_routes(
+    api: APIRouter, settings: Settings, auth: Auth, guard: LoginGuard, store: Store, broker: Broker
+) -> None:
     accounts = auth.accounts
     register_limiter = RateLimiter(settings.login_per_ip_per_minute)
     dummy_hash()  # computed now, not inside the first login for an invented email
@@ -233,8 +238,10 @@ def add_auth_routes(api: APIRouter, settings: Settings, auth: Auth, guard: Login
         token: Annotated[str, Depends(auth.bearer)],
         user: Annotated[User, Depends(auth.current_user)],
     ) -> Response:
-        """End this login session (the token stops working at once)."""
+        """End this login session (the token stops working at once). The user's empty
+        conversations (no message, no payslip upload) are deleted with it."""
         accounts.revoke_token(token)
+        delete_empty_conversations(store, broker, user.id)
         log.info("logout: user=%s", user.id)
         return Response(status_code=204)
 

@@ -4,6 +4,9 @@
                                               {id, title, updated_at, status, diff}
     DELETE /api/conversations/{session_id}    delete one, and all it holds
 
+An empty conversation (no employee message and no payslip upload) is never listed. Logging out, and
+starting a new conversation, delete the user's other empty ones, by the same path as DELETE.
+
 Opening a conversation needs no route of its own: the snapshot and the event replay of
 /api/sessions/{id} (the same ownership rule) restore it exactly where it stopped, from any browser
 that is logged in as the owner.
@@ -85,6 +88,21 @@ def summarize(row: dict[str, Any]) -> ConversationEntry:
     )
 
 
+def delete_conversation_of(store: Store, broker: Broker, session_id: str) -> bool:
+    """The one delete path: the conversation and all it holds; an open stream ends, the
+    representative's inbox drops its tickets."""
+    deleted = store.delete_session(session_id)
+    if deleted:
+        broker.wake(session_id, TICKETS)
+    return deleted
+
+
+def delete_empty_conversations(store: Store, broker: Broker, user_id: str) -> None:
+    """Delete the user's empty conversations (no employee message, no payslip upload)."""
+    for session_id in store.empty_session_ids(user_id):
+        delete_conversation_of(store, broker, session_id)
+
+
 def add_conversation_routes(
     api: APIRouter,
     store: Store,
@@ -96,8 +114,9 @@ def add_conversation_routes(
     def list_conversations(
         user: Annotated[User, Depends(current_user)],
     ) -> list[ConversationEntry]:
-        """The logged-in user's own conversations, newest first. An empty one is titled
-        "שיחה חדשה"; the title comes from the state, never from the model."""
+        """The logged-in user's own conversations, newest first. An empty one (no employee message,
+        no payslip upload) is not listed. One with no comparison yet is titled "שיחה חדשה"; the
+        title comes from the state, never from the model."""
         return [summarize(row) for row in store.conversation_rows(user.id)]
 
     @api.delete(
@@ -111,7 +130,6 @@ def add_conversation_routes(
     ) -> Response:
         """Delete a conversation: its messages, events, profile, scenarios and tickets (the
         representative's inbox loses them). Owner only; nothing about its content is recorded."""
-        if store.delete_session(session_id):
-            broker.wake(session_id, TICKETS)  # an open stream ends; the inbox drops its tickets
+        if delete_conversation_of(store, broker, session_id):
             log.info("conversation deleted: user=%s", None if user is None else user.id)
         return Response(status_code=204)

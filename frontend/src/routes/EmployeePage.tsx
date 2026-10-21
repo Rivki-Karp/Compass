@@ -27,7 +27,7 @@ import { expireSession } from "../auth/authStore";
 import { clearToken, getToken, setToken } from "../lib/tokens";
 import { useHealth } from "../lib/useHealth";
 import { useInView } from "../lib/useInView";
-import { limitReached } from "../state/session";
+import { isEmptyConversation, limitReached } from "../state/session";
 import { useSession } from "../state/useSession";
 import { AccountBar } from "../home/AccountBar";
 import { ConversationSidebar } from "../home/ConversationSidebar";
@@ -174,6 +174,7 @@ export function EmployeePage({ conversationId }: { conversationId?: string } = {
       items={conversations.items}
       failed={conversations.failed}
       currentId={conversationId}
+      currentEmpty={session.connection === "open" && isEmptyConversation(state)}
       onDelete={deleteConversation}
       onNavigate={() => setDrawer(false)}
     />

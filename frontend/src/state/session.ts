@@ -150,6 +150,18 @@ export function limitReached(state: SessionState): boolean {
   return replies[replies.length - 1]?.kind === "limit";
 }
 
+/** An empty conversation, as the server counts it: nothing said, no payslip uploaded (nor any
+ * comparison). Only meaningful once the replay has started (lastSeq > 0). */
+export function isEmptyConversation(state: SessionState): boolean {
+  return (
+    state.lastSeq > 0 &&
+    state.messages.length === 0 &&
+    state.comparison === null &&
+    state.payslip === null &&
+    !state.between.some((e) => e.type.startsWith("payslip_"))
+  );
+}
+
 /** The representative's free-text note in a ticket answer (answer.text), if any. */
 export function repNote(answer: unknown): string | null {
   if (typeof answer !== "object" || answer === null) return null;

@@ -39,7 +39,7 @@ from compass.api.agent import AgentRunner
 from compass.api.auth import Auth, add_auth_routes, mark_guard
 from compass.api.broker import TICKETS, Broker
 from compass.api.car import add_car_routes
-from compass.api.conversations import add_conversation_routes
+from compass.api.conversations import add_conversation_routes, delete_empty_conversations
 from compass.api.payslip import add_payslip_routes
 from compass.api.ratelimit import RateLimiter, client_ip
 from compass.api.redact import public_message, public_payload
@@ -364,7 +364,10 @@ def create_app(
     def create_session(
         owner: Annotated[User | None, Depends(session_creator)],
     ) -> SessionCreated:
-        # with accounts: needs a login, and the conversation belongs to that user
+        # with accounts: needs a login, and the conversation belongs to that user, whose other
+        # empty conversations go (the new one replaces them)
+        if owner is not None:
+            delete_empty_conversations(store, broker, owner.id)
         return SessionCreated(id=store.create_session(None if owner is None else owner.id))
 
     @api.get("/sessions/{session_id}", tags=["sessions"], dependencies=[Depends(session_access)])
@@ -475,7 +478,7 @@ def create_app(
 
     # /api/auth/* (COMPASS_AUTH=1; off: the routes do not exist)
     if auth is not None:
-        add_auth_routes(api, settings, auth, app.state.login_guard)
+        add_auth_routes(api, settings, auth, app.state.login_guard, store, broker)
 
     # /api/conversations and /api/admin/users, /api/admin/invites (COMPASS_AUTH=1; off: absent)
     if auth is not None:

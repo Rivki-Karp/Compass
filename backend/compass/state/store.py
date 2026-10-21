@@ -128,6 +128,14 @@ class Ticket(_Model):
     answered_at: str | None
 
 
+# An empty conversation (a condition on a `sessions` row): the employee has said nothing and
+# uploaded no payslip. The one definition the list and the clean-up share.
+_IS_EMPTY = (
+    "NOT EXISTS (SELECT 1 FROM events e WHERE e.session_id = sessions.id "
+    "AND e.type IN ('user_message', 'payslip_extracted', 'payslip_failed'))"
+)
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds")
 
@@ -293,7 +301,7 @@ class Store:
         with self._read() as conn:
             sessions = conn.execute(
                 "SELECT id, status, updated_at FROM sessions WHERE owner_user_id = ? "
-                "ORDER BY updated_at DESC, created_at DESC, id",
+                f"AND NOT {_IS_EMPTY} ORDER BY updated_at DESC, created_at DESC, id",
                 (owner_user_id,),
             ).fetchall()
             rows = []
@@ -321,6 +329,15 @@ class Store:
         with self._read() as conn:
             rows = conn.execute(
                 "SELECT id FROM sessions WHERE owner_user_id = ?", (owner_user_id,)
+            ).fetchall()
+        return [r["id"] for r in rows]
+
+    def empty_session_ids(self, owner_user_id: str) -> list[str]:
+        """The account's empty conversations: no employee message and no payslip upload."""
+        with self._read() as conn:
+            rows = conn.execute(
+                f"SELECT id FROM sessions WHERE owner_user_id = ? AND {_IS_EMPTY}",
+                (owner_user_id,),
             ).fetchall()
         return [r["id"] for r in rows]
 
