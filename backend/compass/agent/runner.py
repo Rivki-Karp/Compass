@@ -552,10 +552,12 @@ class ClaudeAgentRunner:
         """The sources of the numbers in the text that is sent (the verdict is of that very
         text). Never raises: a bug here costs the clickable numbers, not the reply."""
         try:
-            from compass.agent.number_sources import build_number_sources  # guard imports us
+            # imported here: the guard imports this module
+            from compass.agent.number_sources import build_number_sources, session_context
 
             events = self.store.events_after(session_id)
-            return build_number_sources(text, verdict.spans, events, start_seq)
+            context = session_context(self.services, session_id)
+            return build_number_sources(text, verdict.spans, events, start_seq, context)
         except Exception:
             log.exception("could not build number sources for session %s", session_id)
             return None

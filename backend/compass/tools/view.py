@@ -213,6 +213,16 @@ def _profile_input(services: Services, tool: str, unit: Unit, slot: Slot) -> Vie
     return ViewInput(id=tool, label=field_label(tool), value=value, unit=unit, source=source)
 
 
+def profile_inputs(services: Services, session_id: str) -> list[dict[str, Any]]:
+    """The profile inputs as the view shows them now (the same builder, no comparison needed)."""
+    slots = services.store.slots(session_id)
+    return [
+        _profile_input(services, tool, unit, slots[SLOT_OF[tool]]).model_dump(mode="json")
+        for tool, unit in _PROFILE_INPUTS
+        if SLOT_OF[tool] in slots and slots[SLOT_OF[tool]].state != "unknown"
+    ]
+
+
 def _car_name(services: Services, car_id: str) -> str:
     car = services.ctx.catalog.get(car_id)
     return car_id if car is None else car.commercial_name

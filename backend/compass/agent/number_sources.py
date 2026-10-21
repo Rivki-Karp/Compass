@@ -9,16 +9,22 @@ rides on the `assistant_message` event:
 
     kind    tool | server | employee | representative | payslip | rule | catalog | derived
     chip    the source chip's key (labels.NUMBER_CHIP_LABELS), label its Hebrew text
-    what    what the number is ("הפרש בנטו לחודש"), only when a stored comparison view says so
+    what    what the number is ("הפרש בנטו לחודש"), only when a stored view or the rules say so
     origin  how it was produced {source, tool, label, at}; `label` may hold "{time}" for `at`
     slot    the view input it is ("base_salary"), when it is one
-    ref     where to look: {message_seq, tool_use_id, comparison_seq, role}; the components of a
-            diff are the stored view's `breakdown` (the waterfall's own data), never recomputed
+    ref     where to look: {message_seq, tool_use_id, comparison_seq | option_set_seq, role,
+            alternative}; the components of a diff are the stored view's `breakdown` (the
+            waterfall's own data), never recomputed
 
-A number is looked up in the stored comparison views (the `comparison_ready` events), never
-derived. When it matches nothing there, or matches two different things, only the guard's own
-record is shown. Plain text, no span: harmless numbers (1-9, years), numbers inside an identifier
-("MG4", "CAR-10", "ATTO 3") and dates.
+The label never claims more than is known. The chip says what the value IS: "computed" for a
+comparison's diff, net or line (and any other output of compare / list_options), "rule" only for
+a value straight from the company rules (a group's budget), the input chips for what the
+employee, a representative, a payslip, the occupation or the catalog gave. How it was produced
+follows from that: only a tool that computes is "חושב בכלי X". A value is looked up in the
+stored comparison views (comparison_ready, comparison_set_ready), the profile inputs and the
+rules, never derived. A value that is two different kinds of thing stays plain text, and so do
+harmless numbers (1-9, years), numbers inside an identifier ("MG4", "CAR-10", "ATTO 3") and
+dates.
 """
 
 import logging
@@ -29,21 +35,30 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from compass.agent.guard import HARMLESS_INTEGERS, HARMLESS_YEARS
+from compass.engine.decimal_math import to_display
 from compass.labels import (
     DELTA_LABELS,
     NUMBER_CHIP_LABELS,
     NUMBER_ROLE_LABELS,
+    OPTION_SET_ORIGIN_LABEL,
     ORIGIN_LABELS,
+    ORIGIN_LABELS_UNTIMED,
     line_role_label,
+    rule_origin_label,
     tool_origin_label,
 )
 from compass.state import Event
+from compass.tools.services import Services
+from compass.tools.view import profile_inputs
 
 log = logging.getLogger(__name__)
 
 # A number glued to a Latin name or id: "MG4", "C40", "CAR-10", "ATTO 3", "COROLLA CROSS 2025".
 _IDENTIFIER_BEFORE = re.compile(r"[A-Za-z](?:-|[A-Za-z0-9]*[  ])?$")
 
+# The tools whose output is a computation. Any other tool only echoes data.
+COMPUTING_TOOLS = frozenset({"compare", "list_options"})
+_STATED = frozenset({"employee", "representative", "payslip"})
 _INPUT_KIND = {
     "employee_input": "employee",
     "occupation": "derived",
@@ -51,30 +66,57 @@ _INPUT_KIND = {
     "catalog_default": "catalog",
     "payslip": "payslip",
 }
-_KIND_CHIP = {
-    "employee": "employee_input",
-    "derived": "occupation",
-    "representative": "representative",
-    "catalog": "catalog_default",
-    "payslip": "payslip",
+_KIND_CHIP = {kind: chip for chip, kind in _INPUT_KIND.items()}
+# What a lookup tool's number is when no stored view says more.
+_LOOKUP_KIND = {
+    "search_catalog": "catalog",
+    "lookup_vehicle": "catalog",
+    "lookup_occupation": "derived",
 }
-# The sources a first-seen value can have that make a "computed" role (a diff, a net) a lie.
-_STATED = frozenset({"employee", "representative", "payslip"})
-_VIEW_UNITS_WITH_NUMBERS = frozenset({"ils", "percent", "points", "count"})
+_UNITS_WITH_NUMBERS = frozenset({"ils", "percent", "points", "count"})
 
 
 @dataclass(frozen=True)
 class _Match:
+    chip: str  # computed | rule | an input chip
     role: str  # diff | today_net | alternative_net | line:<key> | group_budget | input:<id>
     what: str
     slot: str | None
-    alt_kind: str | None  # the alternative a role belongs to; None for roles shared by all
-    chip: str | None  # an input's chip (the waterfall's own); None for computed roles
-    seq: int  # the comparison_ready event it was found in
+    alternative: str | None  # the car or kind a role belongs to; None for roles shared by all
+    seq: int  # the event it was found in (0: the profile as it is now, or the rules)
+    event_type: str  # comparison_ready | comparison_set_ready | slots | rules
+    # who computed it, from the view itself: "tool" (the model's compare), "server" (the same
+    # code run by the server, no model) or "option_set" (list_options); None: not computed
+    computed_by: str | None = None
 
     @property
-    def meaning(self) -> tuple[str, str | None]:
-        return (self.role, self.alt_kind)
+    def meaning(self) -> tuple[str, str | None, str | None]:
+        return (self.role, self.alternative, self.slot)
+
+
+@dataclass(frozen=True)
+class Context:
+    """What the stored events don't hold: the profile as it is now and the rules' own numbers,
+    read by the runner from the same places the view reads them."""
+
+    inputs: Sequence[Mapping[str, Any]] = ()
+    # a group's budget as the UI shows it: {"value": 3700, "group": "ב", "from_occupation": True}
+    budget: Mapping[str, Any] | None = None
+
+
+def session_context(services: Services, session_id: str) -> Context:
+    slots = services.store.slots(session_id)
+    group = slots.get("group")
+    budget = None
+    if group is not None and group.state == "filled":
+        amount = services.ctx.rules.budgets.get(group.value)
+        if amount is not None:
+            budget = {
+                "value": to_display(amount, services.ctx.rules),
+                "group": group.value,
+                "from_occupation": group.source == "derived",
+            }
+    return Context(inputs=profile_inputs(services, session_id), budget=budget)
 
 
 def _decimal(value: Any) -> Decimal | None:
@@ -94,75 +136,143 @@ def _equal(token_value: Decimal, signed: bool, candidate: Any) -> bool:
     return number == token_value if signed else abs(number) == abs(token_value)
 
 
-def _matches(event: Event, span: Mapping[str, Any], percent: bool) -> list[_Match]:
+def _view_matches(
+    view: Mapping[str, Any], seq: int, event_type: str, span: Mapping[str, Any], percent: bool
+) -> list[_Match]:
     """Where this number appears in one stored comparison view."""
-    view = event.payload.get("view")
-    if not isinstance(view, Mapping):
-        return []
     value: Decimal = span["value"]
     signed: bool = span["signed"]
-    alt = event.payload.get("alternative_kind")
+    alt = view.get("alternative_car_id") or view.get("alternative_kind")
+    by = (view.get("computed_by") or {}).get("origin", "server")
+    computed_by = "option_set" if event_type == "comparison_set_ready" else by
     found: list[_Match] = []
 
-    def add(role: str, what: str, candidate: Any, **extra: Any) -> None:
+    def add(chip: str, role: str, what: str, candidate: Any, **extra: Any) -> None:
         if _equal(value, signed, candidate):
             found.append(
                 _Match(
+                    chip=chip,
                     role=role,
                     what=what,
                     slot=extra.get("slot"),
-                    alt_kind=extra.get("alt_kind"),
-                    chip=extra.get("chip"),
-                    seq=event.seq,
+                    alternative=extra.get("alternative"),
+                    seq=seq,
+                    event_type=event_type,
+                    computed_by=computed_by if chip == "computed" else None,
                 )
             )
 
-    if not percent:  # money: the nets, the diff, its lines, the group's budget
-        add("diff", NUMBER_ROLE_LABELS["diff"], view.get("display_diff"), alt_kind=alt)
-        add(
-            "alternative_net",
-            NUMBER_ROLE_LABELS["alternative_net"],
-            view.get("alternative_net"),
-            alt_kind=alt,
-        )
-        add("today_net", NUMBER_ROLE_LABELS["today_net"], view.get("today_net"))
-        add("group_budget", NUMBER_ROLE_LABELS["group_budget"], view.get("group_budget"))
+    if not percent:  # money: the nets, the diff, its lines
+        for role, field, shared in (
+            ("diff", "display_diff", False),
+            ("alternative_net", "alternative_net", False),
+            ("today_net", "today_net", True),
+        ):
+            add(
+                "computed",
+                role,
+                NUMBER_ROLE_LABELS[role],
+                view.get(field),
+                alternative=None if shared else alt,
+            )
         for line in view.get("breakdown") or []:
             label = DELTA_LABELS.get(line.get("key"), line.get("label", ""))
             role = f"line:{line.get('key')}"
-            add(role, line_role_label(label), line.get("net_effect"), alt_kind=alt)
-    for item in view.get("inputs") or []:
-        unit = item.get("unit")
-        if unit not in _VIEW_UNITS_WITH_NUMBERS or item.get("source") == "pending_rep":
-            continue
-        if percent and unit != "percent":
-            continue
-        add(
-            f"input:{item['id']}",
-            item["label"],
-            item.get("value"),
-            slot=item["id"],
-            chip=item.get("source"),
-        )
+            add("computed", role, line_role_label(label), line.get("net_effect"), alternative=alt)
+    found += _input_matches(view.get("inputs") or [], seq, event_type, span, percent)
     # A diff is the sum of its lines: when both match, the number is the diff.
     if any(m.role == "diff" for m in found):
         found = [m for m in found if not m.role.startswith("line:")]
     return found
 
 
-def _resolve(
-    comparisons: Sequence[Event], span: Mapping[str, Any], percent: bool, run_after: int
-) -> _Match | None:
-    """The one thing this number is in the stored views, or None (no match, or ambiguous).
-    The comparisons of this run are tried first, then the whole session; the newest wins."""
-    for scope in ([e for e in comparisons if e.seq > run_after], list(comparisons)):
-        found = [m for event in scope for m in _matches(event, span, percent)]
-        if not found:
+def _input_matches(
+    inputs: Sequence[Mapping[str, Any]],
+    seq: int,
+    event_type: str,
+    span: Mapping[str, Any],
+    percent: bool,
+) -> list[_Match]:
+    found = []
+    for item in inputs:
+        unit = item.get("unit")
+        if unit not in _UNITS_WITH_NUMBERS or item.get("source") not in _INPUT_KIND:
+            continue  # text, or still pending a representative: nothing to claim
+        if percent and unit != "percent":
             continue
-        if len({m.meaning + (m.slot,) for m in found}) != 1:
-            return None
-        return max(found, key=lambda m: m.seq)
-    return None
+        if _equal(span["value"], span["signed"], item.get("value")):
+            found.append(
+                _Match(
+                    chip=item["source"],
+                    role=f"input:{item['id']}",
+                    what=item["label"],
+                    slot=item["id"],
+                    alternative=None,
+                    seq=seq,
+                    event_type=event_type,
+                )
+            )
+    return found
+
+
+def _all_matches(
+    events: Sequence[Event],
+    context: Context,
+    span: Mapping[str, Any],
+    percent: bool,
+    run_after: int,
+) -> list[_Match]:
+    """Every place the number is in the stored views of this run, else of the whole session
+    (the profile inputs and the rules are the same either way)."""
+
+    def from_events(scope: Sequence[Event]) -> list[_Match]:
+        found: list[_Match] = []
+        for event in scope:
+            if event.type == "comparison_ready":
+                view = event.payload.get("view")
+                if isinstance(view, Mapping):
+                    found += _view_matches(view, event.seq, event.type, span, percent)
+            elif event.type == "comparison_set_ready":
+                for option in event.payload.get("options") or []:
+                    view = option.get("view")
+                    if isinstance(view, Mapping):
+                        found += _view_matches(view, event.seq, event.type, span, percent)
+        return found
+
+    relevant = [e for e in events if e.type in ("comparison_ready", "comparison_set_ready")]
+    found = from_events([e for e in relevant if e.seq > run_after]) or from_events(relevant)
+    found += _input_matches(context.inputs, 0, "slots", span, percent)
+    budget = context.budget
+    if (
+        budget is not None
+        and not percent
+        and _equal(span["value"], span["signed"], budget["value"])
+    ):
+        found.append(
+            _Match(
+                chip="rule",
+                role="group_budget",
+                what=NUMBER_ROLE_LABELS["group_budget"],
+                slot=None,
+                alternative=None,
+                seq=0,
+                event_type="rules",
+            )
+        )
+    return found
+
+
+def _pick(found: Sequence[_Match]) -> tuple[str, _Match | None] | None:
+    """(chip, the one thing it is or None if several) - or None when the number is two different
+    kinds of thing (a computed net that is also a budget): it then says nothing."""
+    chips = {m.chip for m in found}
+    if len(chips) != 1:
+        return None
+    if len({m.meaning for m in found}) != 1:
+        return chips.pop(), None  # one kind of thing, not sure which: no "what", no ref
+    # the model's own compare is the record, then the newest
+    best = max(found, key=lambda m: (m.event_type == "comparison_ready", m.seq))
+    return best.chip, best
 
 
 def _in_identifier(text: str, start: int) -> bool:
@@ -183,67 +293,113 @@ def _plain(text: str, span: Mapping[str, Any]) -> bool:
     return _in_identifier(text, span["start"])
 
 
-def _origin(span: Mapping[str, Any]) -> dict[str, Any]:
-    source: str = span["source"]
-    row: Mapping[str, Any] = span["origin"] or {}
-    if source in ORIGIN_LABELS:  # employee, representative, payslip, server
-        label, tool = ORIGIN_LABELS[source], None
-    else:  # the guard names a tool result by the tool
-        source, tool = "tool", span["source"]
-        label = tool_origin_label(tool)
-    return {"source": source, "tool": tool, "label": label, "at": row.get("at")}
-
-
-def _record(text: str, span: Mapping[str, Any], match: _Match | None) -> dict[str, Any]:
+def _origin(
+    span: Mapping[str, Any], kind: str, chip: str, match: _Match | None, context: Context
+) -> dict[str, Any]:
+    """How the value was produced, from what it is: only a computing tool is "חושב בכלי X"."""
     guard_source: str = span["source"]
-    value: Decimal = span["value"]
-    origin = _origin(span)
-    kind: str
-    chip: str
-    stated_only = guard_source in _STATED
-    if match is not None and match.chip is not None:  # one of the waterfall's inputs
-        kind = _INPUT_KIND[match.chip]
-        chip = _KIND_CHIP[kind]
-    elif match is not None and not stated_only:  # computed by the engine
-        kind = "rule" if match.role == "group_budget" else origin["source"]
-        chip = "rule"
+    row: Mapping[str, Any] = span["origin"] or {}
+    tool: str | None = None
+    at = None
+    if chip == "computed":
+        # the view says who computed it; else the guard's tool, which here always computes
+        by = match.computed_by if match is not None else None
+        by = by or {"compare": "tool", "list_options": "option_set"}.get(guard_source, "server")
+        if by == "tool":
+            source, tool, label = "tool", "compare", tool_origin_label("compare")
+        elif by == "option_set":
+            source, tool, label = "server", "list_options", OPTION_SET_ORIGIN_LABEL
+        else:
+            source, label = "server", ORIGIN_LABELS["server"]
+    elif chip == "rule":
+        budget = context.budget or {}
+        source = "rule"
+        label = rule_origin_label(budget.get("group"), bool(budget.get("from_occupation")))
+    elif kind == guard_source and kind in ORIGIN_LABELS:  # the message itself: its time
+        source, label, at = kind, ORIGIN_LABELS[kind], row.get("at")
     else:
-        match = None  # the first-seen source says someone stated it: no role is claimed
-        kind = origin["source"]
-        chip = _KIND_CHIP.get(kind, "tool")
+        source, label = kind, ORIGIN_LABELS_UNTIMED[kind]
+    return {"source": source, "tool": tool, "label": label, "at": at}
+
+
+def _record(
+    span: Mapping[str, Any], kind: str, chip: str, match: _Match | None, context: Context
+) -> dict[str, Any]:
     row: Mapping[str, Any] = span["origin"] or {}
     ref: dict[str, Any] = {
         "message_seq": row.get("message_seq"),
         "tool_use_id": row.get("tool_use_id"),
-        "comparison_seq": None if match is None else match.seq,
         "role": None if match is None else match.role,
     }
+    if match is not None and match.event_type == "comparison_ready":
+        ref["comparison_seq"] = match.seq
+    elif match is not None and match.event_type == "comparison_set_ready":
+        ref["option_set_seq"], ref["alternative"] = match.seq, match.alternative
     return {
         "start": span["start"],
         "end": span["end"],
-        "value": format(value, "f"),
+        "value": format(span["value"], "f"),
         "kind": kind,
         "label": NUMBER_CHIP_LABELS[chip],
         "chip": chip,
         "what": None if match is None else match.what,
-        "origin": origin,
+        "origin": _origin(span, kind, chip, match, context),
         "slot": None if match is None else match.slot,
         "ref": {k: v for k, v in ref.items() if v is not None},
     }
 
 
+def _classify(
+    span: Mapping[str, Any], found: Sequence[_Match]
+) -> tuple[str, str, _Match | None] | None:
+    """(kind, chip, the match) of a verified number, or None to leave it as plain text."""
+    guard_source: str = span["source"]
+    if guard_source in _STATED:
+        # someone said it: only the waterfall's own input can say more (the same chip it shows)
+        inputs = [m for m in found if m.chip in _INPUT_KIND]
+        picked = _pick(inputs) if inputs else None
+        if picked is not None and picked[1] is not None:
+            chip, match = picked
+            return _INPUT_KIND[chip], chip, match
+        return guard_source, _KIND_CHIP[guard_source], None
+    picked = _pick(found) if found else None
+    if found and picked is None:
+        return None  # two kinds of thing: say nothing rather than guess
+    if picked is not None:
+        chip, match = picked
+        if chip in ("computed", "rule"):
+            by = match.computed_by if match is not None else None
+            kind = "rule" if chip == "rule" else ("tool" if by == "tool" else "server")
+            return kind, chip, match
+        return _INPUT_KIND[chip], chip, match
+    # nothing stored says what it is: the tool that first held it
+    if guard_source in COMPUTING_TOOLS:
+        return ("tool" if guard_source == "compare" else "server"), "computed", None
+    if guard_source in _LOOKUP_KIND:
+        kind = _LOOKUP_KIND[guard_source]
+        return kind, _KIND_CHIP[kind], None
+    return None  # save_profile and the like only echo data: no claim
+
+
 def build_number_sources(
-    text: str, spans: Sequence[Mapping[str, Any]], events: Sequence[Event], run_after: int
+    text: str,
+    spans: Sequence[Mapping[str, Any]],
+    events: Sequence[Event],
+    run_after: int,
+    context: Context | None = None,
 ) -> list[dict[str, Any]]:
     """The public `number_sources` of a sent reply. `text` is the exact text that was checked
     and sent, `spans` the guard's record of it, `events` the session's events, `run_after` the
     event seq this run started after (its comparisons are preferred)."""
-    comparisons = [e for e in events if e.type == "comparison_ready"]
+    context = context or Context()
     out = []
     for span in spans:
         if _plain(text, span):
             continue
         percent = span["raw"].endswith("%")
-        match = _resolve(comparisons, span, percent, run_after)
-        out.append(_record(text, span, match))
+        found = _all_matches(events, context, span, percent, run_after)
+        classified = _classify(span, found)
+        if classified is not None:
+            kind, chip, match = classified
+            out.append(_record(span, kind, chip, match, context))
     return out

@@ -41,6 +41,12 @@
   --color-chip-pending-border: #c98a1b;
   --color-chip-payslip: #1d6b4f; /* confirmed from the employee's payslip */
   --color-chip-payslip-bg: #e6f4ee;
+  /* a number the server computed (navy on light steel) / one straight from the company rules
+     (teal on light teal): the "where does this number come from" popover */
+  --color-chip-computed: #1b3a5c;
+  --color-chip-computed-bg: #e4ecf4;
+  --color-chip-rule: #0b5c58;
+  --color-chip-rule-bg: #e0f2f0;
 
   /* surfaces used by a few components */
   --color-bubble-border: #e3eaf3;

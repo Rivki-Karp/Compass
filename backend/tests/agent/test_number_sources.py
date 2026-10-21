@@ -78,8 +78,8 @@ def test_the_event_carries_the_sources_of_the_sent_text(services: Services) -> N
 
     diff = found["+2,914"]
     comparison = [e for e in events if e.type == "comparison_ready"][-1]
-    assert (diff["value"], diff["kind"], diff["chip"]) == ("2914", "tool", "rule")
-    assert diff["label"] == "לפי הכללים" and diff["what"] == "הפרש בנטו לחודש"
+    assert (diff["value"], diff["kind"], diff["chip"]) == ("2914", "tool", "computed")
+    assert diff["label"] == "חושב בשרת" and diff["what"] == "הפרש בנטו לחודש"
     assert diff["origin"]["tool"] == "compare"
     assert diff["origin"]["label"] == "חושב בכלי compare · בשרת, בלי מודל"
     assert diff["ref"]["comparison_seq"] == comparison.seq and diff["ref"]["role"] == "diff"
@@ -171,7 +171,8 @@ def test_harmless_numbers_and_identifiers_stay_plain(services: Services) -> None
     records = build_number_sources(text, verdict.spans, [], 0)
     assert [text[r["start"] : r["end"]] for r in records] == ["14,000"]
     assert records[0]["value"] == "14000"  # never "1.4E+4"
-    assert records[0]["kind"] == "tool" and records[0]["chip"] == "tool"
+    # compare's own output that no view shows: still computed, and it says no more than that
+    assert records[0]["kind"] == "tool" and records[0]["chip"] == "computed"
     assert records[0]["what"] is None and "comparison_seq" not in records[0]["ref"]
 
 
@@ -281,6 +282,7 @@ def test_two_different_things_with_one_value_are_not_guessed(services: Services)
     allowed.add_value(Decimal(13914), "compare", {"message_seq": 2})
     text = "13,914 ₪"
     records = build_number_sources(text, check_text(text, allowed).spans, [forged], 0)
+    assert records[0]["chip"] == "computed"  # either way it is a computed net
     assert records[0]["what"] is None and "role" not in records[0]["ref"]
 
 
@@ -290,6 +292,5 @@ def test_two_different_things_with_one_value_are_not_guessed(services: Services)
 def test_chip_labels_match_the_ui_chips() -> None:
     """The popover's chips are the UI's (ui/chips.ts); the server owns the words, this pins them."""
     ui = dict(re.findall(r'(\w+): \{\s*label: "([^"]+)"', CHIPS_TS.read_text(encoding="utf-8")))
-    shared = {"employee_input", "occupation", "representative", "catalog_default", "payslip"}
-    assert shared <= set(ui)
-    assert {k: NUMBER_CHIP_LABELS[k] for k in shared} == {k: ui[k] for k in shared}
+    assert set(NUMBER_CHIP_LABELS) <= set(ui)
+    assert {k: ui[k] for k in NUMBER_CHIP_LABELS} == NUMBER_CHIP_LABELS
