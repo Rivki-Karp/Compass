@@ -49,7 +49,7 @@ from compass.labels import (
 )
 from compass.state import Event
 from compass.tools.services import Services
-from compass.tools.view import profile_inputs
+from compass.tools.view import PROVENANCE, profile_inputs
 
 log = logging.getLogger(__name__)
 
@@ -275,6 +275,39 @@ def _pick(found: Sequence[_Match]) -> tuple[str, _Match | None] | None:
     return best.chip, best
 
 
+def _line_is_its_input(found: Sequence[_Match]) -> tuple[str, _Match] | None:
+    """A number that is both a line of the difference and the very input that line is built from
+    (the same slot, the same value: the participation line and the participation input, the
+    maintenance line and the waiver maintenance): it is that line, wearing the input's chip.
+    Anything else that matches twice is not this and stays plain."""
+    lines = [m for m in found if m.role.startswith("line:")]
+    inputs = [m for m in found if m.role.startswith("input:")]
+    if not lines or not inputs or len(lines) + len(inputs) != len(found):
+        return None
+    if len({m.chip for m in inputs}) != 1:
+        return None
+
+    def built_from(line: _Match) -> tuple[str, ...]:
+        key = line.role.removeprefix("line:")
+        return next((ids for name, (ids, _rules) in PROVENANCE.items() if name == key), ())
+
+    for line in lines:
+        if not any(i.slot in built_from(line) for i in inputs):
+            return None
+    best = max(lines, key=lambda m: (m.event_type == "comparison_ready", m.seq))
+    chip = inputs[0].chip
+    slot = next(i.slot for i in inputs if i.slot in built_from(best))
+    return chip, _Match(
+        chip=chip,
+        role=best.role,
+        what=best.what,
+        slot=slot,
+        alternative=best.alternative,
+        seq=best.seq,
+        event_type=best.event_type,
+    )
+
+
 def _in_identifier(text: str, start: int) -> bool:
     return _IDENTIFIER_BEFORE.search(text[max(0, start - 40) : start]) is not None
 
@@ -364,7 +397,13 @@ def _classify(
         return guard_source, _KIND_CHIP[guard_source], None
     picked = _pick(found) if found else None
     if found and picked is None:
-        return None  # two kinds of thing: say nothing rather than guess
+        # two kinds of thing: say nothing rather than guess - except a line that is exactly the
+        # input it was built from, which is that input
+        echoed = _line_is_its_input(found)
+        if echoed is None:
+            return None
+        chip, match = echoed
+        return _INPUT_KIND[chip], chip, match
     if picked is not None:
         chip, match = picked
         if chip in ("computed", "rule"):
