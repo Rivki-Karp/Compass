@@ -37,7 +37,14 @@ export function BidiText({
             </bdi>
           );
         }
-        const source = sources.find((s) => s.start === start);
+        // The server (the guard) reads a sign only after a space or a bracket, so in "**+2,092**"
+        // or "_+2,092" its span starts at the digit, while this piece, split on its own, starts
+        // at the "+": the same number, one sign apart. Same end, start at most one sign earlier.
+        const end = start + run.length;
+        const signed = /^[+\-−]/.test(run);
+        const source = sources.find(
+          (s) => s.end === end && (s.start === start || (signed && s.start === start + 1)),
+        );
         return (
           <bdi key={i}>
             {source ? <SourceNumber source={source} shown={part.number} /> : part.number}
