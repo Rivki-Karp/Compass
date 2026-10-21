@@ -62,6 +62,10 @@ services:
         value: "3"
       - key: COMPASS_PAYSLIP_TIMEOUT_S
         value: "20"
+      # "מאיפה המספר הזה?": a click on a verified number in a reply shows where it came from.
+      # ON in production. The code's default stays 0 (settings.py); this line is the only switch.
+      - key: COMPASS_NUMBER_SOURCES
+        value: "1"
       # Accounts (login, invite codes, per-user conversations): ON in production.
       # The free plan has no disk: users and history are wiped on every deploy, and the accounts in
       # COMPASS_SEED_USERS (a JSON list of hashes, never passwords: tasks.py hash-password) are

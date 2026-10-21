@@ -381,6 +381,41 @@ def _classify(
     return None  # save_profile and the like only echo data: no claim
 
 
+def audit(text: str, sources: Sequence[Mapping[str, Any]]) -> list[str]:
+    """What is wrong with a reply's recorded sources (empty: nothing). Used by the evals on real
+    model replies: every span is in bounds, does not overlap another, and its slice parses back
+    to its value; a computed number is "חושב בשרת", only compare is ever "חושב בכלי", and only a
+    value of kind "rule" wears the rules' chip."""
+    problems: list[str] = []
+    end_of_last = 0
+    for source in sorted(sources, key=lambda s: s["start"]):
+        start, end = source["start"], source["end"]
+        shown = text[start:end]
+        where = f"{shown!r}@{start}"
+        if not 0 <= start < end <= len(text) or start < end_of_last:
+            problems.append(f"{where}: out of bounds or overlapping")
+            continue
+        end_of_last = end
+        plain = shown.replace("−", "-").replace(",", "").replace("%", "").replace(" ", "")
+        try:
+            parses = Decimal(plain) == Decimal(source["value"])
+        except InvalidOperation:
+            parses = False
+        if not parses:
+            problems.append(f"{where}: does not parse back to {source['value']}")
+        if source["chip"] == "computed" and (
+            source["kind"] not in ("tool", "server") or source["label"] != "חושב בשרת"
+        ):
+            problems.append(f"{where}: a computed number with the wrong kind or label")
+        if source["origin"]["label"].startswith("חושב בכלי") and (
+            source["chip"] != "computed" or source["origin"]["tool"] != "compare"
+        ):
+            problems.append(f"{where}: claims a tool computed it")
+        if (source["chip"] == "rule") != (source["kind"] == "rule"):
+            problems.append(f"{where}: the rules' chip and kind disagree")
+    return problems
+
+
 def build_number_sources(
     text: str,
     spans: Sequence[Mapping[str, Any]],
