@@ -62,7 +62,13 @@ export default defineConfig({
       url: `http://127.0.0.1:${PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 180_000,
-      env: { ...SERVER_ENV, COMPASS_DEMO_DB: DEMO_DB, COMPASS_PAYSLIP: "0" },
+      env: {
+        ...SERVER_ENV,
+        COMPASS_DEMO_DB: DEMO_DB,
+        COMPASS_PAYSLIP: "0",
+        // "מאיפה המספר הזה?": on here; the payslip server below runs with it off
+        COMPASS_NUMBER_SOURCES: "1",
+      },
     },
     {
       command: `cd ../backend && uv run python -m uvicorn compass.api.main:app --workers 1 --port ${PAYSLIP_PORT}`,
@@ -70,7 +76,7 @@ export default defineConfig({
       url: `http://127.0.0.1:${PAYSLIP_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 180_000,
-      env: { ...SERVER_ENV, COMPASS_DEMO_DB: PAYSLIP_DB, COMPASS_PAYSLIP: "1" },
+      env: { ...SERVER_ENV, COMPASS_DEMO_DB: PAYSLIP_DB, COMPASS_PAYSLIP: "1", COMPASS_NUMBER_SOURCES: "0" },
     },
     {
       command: `cd ../backend && uv run python -m uvicorn compass.api.main:app --workers 1 --port ${AUTH_PORT}`,

@@ -43,6 +43,10 @@ def _new(client: TestClient, headers: dict[str, str]) -> str:
     return client.post("/api/sessions", headers=headers).json()["id"]
 
 
+def _say(client: TestClient, sid: str, headers: dict[str, str], text: str = "שלום") -> None:
+    client.post(f"/api/sessions/{sid}/messages", headers=headers, json={"text": text})
+
+
 def _profile(client: TestClient, sid: str, headers: dict[str, str]) -> None:
     client.post(f"/api/sessions/{sid}/messages", headers=headers, json={"text": "ומה עם ATTO 3?"})
     _tool(client, sid, headers, "save_profile", NOA)
@@ -59,6 +63,7 @@ def test_the_list_needs_a_login_and_is_the_users_own(full_client: TestClient) ->
     assert full_client.get("/api/conversations").status_code == 401
     a, b = _login(full_client, "employee"), _login(full_client, "other")
     mine = _new(full_client, a)
+    _say(full_client, mine, a)
     assert [c["id"] for c in _listing(full_client, a)] == [mine]
     assert _listing(full_client, b) == []
     # a rep and an admin have conversations of their own, and see nobody else's
@@ -66,9 +71,10 @@ def test_the_list_needs_a_login_and_is_the_users_own(full_client: TestClient) ->
         assert _listing(full_client, _login(full_client, who)) == []
 
 
-def test_an_empty_conversation_is_new(full_client: TestClient) -> None:
+def test_a_conversation_with_a_message_and_no_comparison_is_new(full_client: TestClient) -> None:
     headers = _login(full_client, "employee")
     sid = _new(full_client, headers)
+    _say(full_client, sid, headers)
     (entry,) = _listing(full_client, headers)
     assert entry["id"] == sid and entry["title"] == "שיחה חדשה"
     assert (entry["status"], entry["diff"]) == ("none", None)
@@ -143,9 +149,13 @@ def test_every_option_is_titled_by_the_group(full_client: TestClient) -> None:
 
 def test_the_newest_conversation_is_first(full_client: TestClient) -> None:
     headers = _login(full_client, "employee")
-    first, second, third = (_new(full_client, headers) for _ in range(3))
+    ids = []
+    for _ in range(3):  # (each must have a message, or the next new conversation deletes it)
+        ids.append(_new(full_client, headers))
+        _say(full_client, ids[-1], headers)
+    first, second, third = ids
     time.sleep(0.01)
-    full_client.post(f"/api/sessions/{first}/messages", headers=headers, json={"text": "שלום"})
+    _say(full_client, first, headers)
     assert [c["id"] for c in _listing(full_client, headers)] == [first, third, second]
 
 
@@ -303,3 +313,108 @@ def test_deleting_wakes_the_rep_inbox_and_ends_the_conversations_stream(
             while not (inbox.events[-1]["data"]["tickets"] == [] and not stream._thread.is_alive()):
                 assert time.monotonic() < deadline, "the inbox or the stream did not notice"
                 time.sleep(0.05)
+
+
+# --- empty conversations -----------------------------------------------------------------------
+
+
+def _exists(client: TestClient, headers: dict[str, str], sid: str) -> bool:
+    return client.get(f"/api/sessions/{sid}", headers=headers).status_code == 200
+
+
+def test_an_empty_conversation_is_not_listed(full_client: TestClient) -> None:
+    headers = _login(full_client, "employee")
+    empty = _new(full_client, headers)
+    assert _listing(full_client, headers) == []
+    assert _exists(full_client, headers, empty)  # still there, and still opens by its address
+    _say(full_client, empty, headers)
+    assert [c["id"] for c in _listing(full_client, headers)] == [empty]
+
+
+def test_a_payslip_upload_makes_a_conversation_not_empty(full_client: TestClient) -> None:
+    headers = _login(full_client, "employee")
+    store = full_client.app.state.services.store  # type: ignore[attr-defined]
+    extracted = _new(full_client, headers)
+    store.append_event(extracted, "payslip_extracted", {"fields": {}, "dropped_keys": 0})
+    cleared = _new(full_client, headers)  # empty: the next new conversation deletes it
+    failed = _new(full_client, headers)
+    assert not _exists(full_client, headers, cleared)
+    assert [c["id"] for c in _listing(full_client, headers)] == [extracted]
+    store.append_event(failed, "payslip_failed", {"code": "payslip_unavailable"})
+    assert {c["id"] for c in _listing(full_client, headers)} == {extracted, failed}
+
+
+def test_logout_deletes_the_users_empty_conversations_only(full_client: TestClient) -> None:
+    mine, theirs = _login(full_client, "employee"), _login(full_client, "other")
+    kept = _new(full_client, mine)
+    _say(full_client, kept, mine)
+    empty = _new(full_client, mine)
+    others_empty = _new(full_client, theirs)
+    assert full_client.post("/api/auth/logout", headers=mine).status_code == 204
+
+    again = _login(full_client, "employee")
+    assert _exists(full_client, again, kept)  # a conversation with a message survives
+    assert not _exists(full_client, again, empty)
+    assert _exists(full_client, theirs, others_empty)  # another user's empty one is not touched
+
+
+def test_a_new_conversation_deletes_the_other_empty_ones(full_client: TestClient) -> None:
+    headers, theirs = _login(full_client, "employee"), _login(full_client, "other")
+    kept = _new(full_client, headers)
+    _say(full_client, kept, headers)
+    empty = _new(full_client, headers)
+    others_empty = _new(full_client, theirs)
+    fresh = _new(full_client, headers)
+    assert not _exists(full_client, headers, empty)
+    assert _exists(full_client, headers, kept) and _exists(full_client, headers, fresh)
+    assert _exists(full_client, theirs, others_empty)
+    assert [c["id"] for c in _listing(full_client, headers)] == [kept]  # the new one is empty
+
+
+def test_the_empty_clean_up_is_the_delete_path(full_client: TestClient) -> None:
+    headers = _login(full_client, "employee")
+    store = full_client.app.state.services.store  # type: ignore[attr-defined]
+    empty = _new(full_client, headers)
+    full_client.post("/api/auth/logout", headers=headers)
+    with store._read() as conn:
+        for table in ("events", "messages", "sessions"):
+            assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
+    assert empty.encode() not in b"".join(
+        p.read_bytes() for p in store.path.parent.glob(store.path.name + "*") if p.is_file()
+    )
+
+
+# --- two logins of one account (judges share an account) ---------------------------------------
+
+
+def test_a_logout_leaves_the_other_logins_empty_conversation(full_client: TestClient) -> None:
+    a, b = _login(full_client, "employee"), _login(full_client, "employee")
+    a_empty, b_empty = _new(full_client, a), _new(full_client, b)
+    assert full_client.post("/api/auth/logout", headers=a).status_code == 204
+    assert not _exists(full_client, b, a_empty)  # A's own empty chat went with A's login
+    assert _exists(full_client, b, b_empty)  # B's is intact
+
+
+def test_a_new_chat_leaves_the_other_logins_empty_conversation(full_client: TestClient) -> None:
+    a, b = _login(full_client, "employee"), _login(full_client, "employee")
+    a_old, b_empty = _new(full_client, a), _new(full_client, b)
+    a_new = _new(full_client, a)
+    assert not _exists(full_client, a, a_old)
+    assert _exists(full_client, b, b_empty) and _exists(full_client, a, a_new)
+
+
+def test_an_empty_conversation_with_an_open_stream_is_never_deleted(
+    full_settings: Settings,
+) -> None:
+    app = create_app(full_settings, agent=NullAgentRunner())
+    with live_server(app) as base, httpx.Client(base_url=base, timeout=10) as http:
+        a = _login(http, "employee")
+        watched = _new(http, a)  # type: ignore[arg-type]
+        with SSEReader(f"{base}/api/sessions/{watched}/events", headers=a):
+            fresh = _new(http, a)  # type: ignore[arg-type]
+            assert _exists(http, a, watched)  # (the new chat would have deleted it)
+            assert _exists(http, a, fresh)
+        # a logout closes its own stream first, so then the empty chat does go
+        assert http.post("/api/auth/logout", headers=a).status_code == 204
+        b = _login(http, "employee")
+        assert not _exists(http, b, watched) and not _exists(http, b, fresh)

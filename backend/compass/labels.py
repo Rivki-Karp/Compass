@@ -137,6 +137,69 @@ COMPUTED_BY_LABELS: dict[str, str] = {
 }
 
 
+# "Where does this number come from?": the popover behind a verified number in a reply
+# (compass/agent/number_sources.py). A source chip's label per chip key. The first five are the
+# input chips the UI already shows (ui/chips.ts, pinned equal by a test). "computed" is a number
+# a tool or the server computed (a comparison's diff, net or line); "rule" only a value that is
+# straight from the company rules data (a group's budget). Never the other way round.
+NUMBER_CHIP_LABELS: dict[str, str] = {
+    "employee_input": "לפי דבריך",
+    "occupation": "לפי העיסוק",
+    "representative": "אושר על ידי נציג",
+    "catalog_default": "ברירת מחדל מהקטלוג",
+    "payslip": "לפי התלוש",
+    "computed": "חושב בשרת",
+    "rule": "לפי הכללים",
+}
+
+# What a number in a comparison is (the popover's "value · what it is" line).
+NUMBER_ROLE_LABELS: dict[str, str] = {
+    "diff": "הפרש בנטו לחודש",
+    "today_net": "נטו בחודש, היום",
+    "alternative_net": "נטו בחודש, בחלופה",
+    "group_budget": "תקציב הקבוצה",
+}
+
+
+def line_role_label(label: str) -> str:
+    """A line of the difference (DELTA_LABELS) as a number's meaning: "מס הכנסה · השפעה על הנטו"."""
+    return f"{label} · השפעה על הנטו"
+
+
+# How a number was produced. "{time}" is filled by the client in the viewer's own time zone.
+# Only a tool that computes is ever "חושב בכלי": a value that was stated, derived, from the
+# catalog or from the rules says so, whichever tool echoed it.
+ORIGIN_LABELS: dict[str, str] = {
+    "employee": "לפי דבריך, בהודעה מ־{time}",
+    "representative": "אושר על ידי נציג, {time}",
+    "payslip": "לפי התלוש, אושר ב־{time}",
+    "server": COMPUTED_BY_LABELS["server"],
+}
+# The same without a time (the value reached the reply through a tool or the stored view).
+ORIGIN_LABELS_UNTIMED: dict[str, str] = {
+    "employee": "לפי דבריך",
+    "representative": "אושר על ידי נציג",
+    "payslip": "לפי התלוש",
+    "catalog": "מהקטלוג",
+    "derived": "לפי העיסוק",
+}
+RULE_ORIGIN_LABEL = "לפי כללי החברה"
+OPTION_SET_ORIGIN_LABEL = "חושב בשרת · רשימת החלופות"  # list_options: the server's option set
+TOOL_RUN_NOTE = "בשרת, בלי מודל"  # after "חושב בכלי compare ·"
+
+
+def tool_origin_label(tool: str) -> str:
+    return f"{COMPUTED_BY_LABELS['tool']} {tool} · {TOOL_RUN_NOTE}"
+
+
+def rule_origin_label(group: str | None, from_occupation: bool) -> str:
+    """ "לפי כללי החברה", with the group a budget is for ("· קבוצה ב׳ לפי העיסוק")."""
+    if group is None:
+        return RULE_ORIGIN_LABEL
+    where = f"קבוצה {group_letter(group)}" + (" לפי העיסוק" if from_occupation else "")
+    return f"{RULE_ORIGIN_LABEL} · {where}"
+
+
 DRIVE_LABELS: dict[str, str] = {
     "electric": "חשמלי",
     "plugin": "פלאג-אין",

@@ -95,6 +95,8 @@ def test_render_blueprint() -> None:
         "COMPASS_PAYSLIP_MAX_PAGES": "3",
         "COMPASS_PAYSLIP_PER_SESSION": "3",
         "COMPASS_PAYSLIP_TIMEOUT_S": "20",
+        # "מאיפה המספר הזה?": ON in production (the code's default stays 0)
+        "COMPASS_NUMBER_SOURCES": "1",
         # accounts: ON in production (the code's default stays 0: see the auth settings tests)
         "COMPASS_AUTH": "1",
     }

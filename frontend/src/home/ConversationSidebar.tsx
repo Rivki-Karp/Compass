@@ -38,12 +38,15 @@ export function ConversationSidebar({
   items,
   failed,
   currentId,
+  currentEmpty = false,
   onDelete,
   onNavigate,
 }: {
   items: ConversationEntry[] | null;
   failed: boolean;
   currentId: string;
+  /** The open conversation is empty (it is not in the list): "שיחה חדשה" stays in it. */
+  currentEmpty?: boolean;
   onDelete: (id: string) => Promise<void>;
   /** Called when a link is followed (the phone drawer closes). */
   onNavigate?: () => void;
@@ -73,7 +76,10 @@ export function ConversationSidebar({
     >
       <Link
         to="/new"
-        onClick={onNavigate}
+        onClick={(event) => {
+          if (currentEmpty) event.preventDefault(); // already in a new conversation
+          onNavigate?.();
+        }}
         className="inline-flex min-h-12 items-center justify-center gap-2 rounded-tile bg-royal text-[15px] font-semibold text-white hover:bg-royal-hover"
       >
         <svg

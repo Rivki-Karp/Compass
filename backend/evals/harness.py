@@ -204,7 +204,7 @@ class Harness:
             elif event.type == "comparison_set_ready":
                 trace.option_sets.append(p)
             elif event.type == "assistant_message":
-                trace.replies.append(Reply(turn, p["text"], p["kind"]))
+                trace.replies.append(Reply(turn, p["text"], p["kind"], p.get("number_sources")))
             elif event.type == "user_message":
                 trace.employee_messages.append((turn, p["content"]["text"]))
             elif event.type == "guard_check":

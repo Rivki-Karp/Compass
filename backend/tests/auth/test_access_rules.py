@@ -263,9 +263,10 @@ def test_payslip_uploads_are_counted_per_user_per_day(full_settings: Settings) -
     with TestClient(create_app(settings, agent=NullAgentRunner())) as client:
         a, b = _login(client, "employee"), _login(client, "other")
         first = client.post("/api/sessions", headers=a).json()["id"]
+        assert [_upload(client, first, a).status_code for _ in range(2)] == [201, 201]
+        # (the first has an upload, so starting the second does not delete it as an empty one)
         second = client.post("/api/sessions", headers=a).json()["id"]
         theirs = client.post("/api/sessions", headers=b).json()["id"]
-        assert [_upload(client, first, a).status_code for _ in range(2)] == [201, 201]
         assert _upload(client, second, a).status_code == 201  # a new conversation, same allowance
         capped = _upload(client, second, a)
         assert capped.status_code == 429 and capped.json()["detail"] == "payslip_per_user_day"

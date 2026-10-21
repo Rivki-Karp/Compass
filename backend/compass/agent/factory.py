@@ -36,6 +36,7 @@ def build_claude_runner(
         daily_spend_cap_usd=None if settings.llm == "scripted" else settings.daily_spend_cap_usd,
         guard=make_guard(services.store),
         template=make_template(services.store),
+        number_sources=settings.number_sources,
         background=background,
     )
 

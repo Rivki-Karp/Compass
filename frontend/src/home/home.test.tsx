@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminPage } from "../admin/AdminPage";
 import { AppRoutes } from "../App";
@@ -64,6 +64,10 @@ describe("when", () => {
   });
 });
 
+function Location() {
+  return <p data-testid="path">{useLocation().pathname}</p>;
+}
+
 describe("the conversation list", () => {
   function renderSidebar(onDelete = vi.fn().mockResolvedValue(undefined)) {
     render(
@@ -86,6 +90,30 @@ describe("the conversation list", () => {
     expect(within(nav).getByRole("link", { name: /ויתור על הרכב/ })).toHaveTextContent("+2,914");
     expect(within(nav).getByRole("link", { name: /כל החלופות/ })).toHaveTextContent("ממתינה לנציג");
     expect(screen.getByText("רק את/ה רואה את השיחות האלה.")).toBeInTheDocument();
+  });
+
+  it("stays in the open conversation when it is empty, and goes to /new otherwise", async () => {
+    const user = userEvent.setup();
+    for (const currentEmpty of [true, false]) {
+      let closed = false;
+      const { unmount } = render(
+        <MemoryRouter>
+          <ConversationSidebar
+            items={ENTRIES}
+            failed={false}
+            currentId="e"
+            currentEmpty={currentEmpty}
+            onDelete={vi.fn()}
+            onNavigate={() => (closed = true)}
+          />
+          <Location />
+        </MemoryRouter>,
+      );
+      await user.click(screen.getByRole("link", { name: "שיחה חדשה" }));
+      expect(screen.getByTestId("path")).toHaveTextContent(currentEmpty ? "/" : "/new");
+      expect(closed).toBe(true); // (the phone drawer closes either way)
+      unmount();
+    }
   });
 
   it("deletes only after a confirmation, and cancel deletes nothing", async () => {

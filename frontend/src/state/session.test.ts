@@ -4,7 +4,7 @@ import { EVENT_TYPES } from "../api/generated";
 import e001Log from "../test/fixtures/e001.json";
 import walkthroughLog from "../test/fixtures/walkthrough.json";
 import { must } from "../test/views";
-import { initialSession, reduce, type SessionState } from "./session";
+import { initialSession, isEmptyConversation, reduce, type SessionState } from "./session";
 
 // Real event logs from a demo-mode run (backend/scripts/web_fixtures.py).
 const walkthrough = walkthroughLog as unknown as SessionEvent[];
@@ -246,5 +246,31 @@ describe("each alternative settles on its own", () => {
       }) as unknown as SessionEvent;
     expect(replay([opened, answered(2, true)]).openTickets).toHaveLength(1);
     expect(replay([opened, answered(2, true), answered(3, false)]).openTickets).toHaveLength(0);
+  });
+});
+
+describe("isEmptyConversation", () => {
+  const created = walkthrough.filter((e) => e.type === "session_created");
+  const upload = (type: "payslip_extracted" | "payslip_failed") =>
+    ({
+      seq: 2,
+      type,
+      created_at: "2026-10-21T08:00:00+00:00",
+      payload:
+        type === "payslip_failed" ? { code: "payslip_unavailable" } : { fields: {}, dropped_keys: 0 },
+    }) as unknown as SessionEvent;
+
+  it("is empty only once the replay has started, while nothing was said", () => {
+    expect(isEmptyConversation(initialSession)).toBe(false); // (nothing replayed yet: unknown)
+    expect(isEmptyConversation(replay(created))).toBe(true);
+  });
+
+  it("is not empty after a message, a comparison or a payslip upload", () => {
+    expect(isEmptyConversation(replay(walkthrough))).toBe(false);
+    expect(isEmptyConversation(replay(upTo(walkthrough, (e) => e.type === "user_message")))).toBe(
+      false,
+    );
+    expect(isEmptyConversation(replay([...created, upload("payslip_extracted")]))).toBe(false);
+    expect(isEmptyConversation(replay([...created, upload("payslip_failed")]))).toBe(false);
   });
 });

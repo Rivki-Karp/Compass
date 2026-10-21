@@ -51,6 +51,8 @@ from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from compass.agent.number_sources import audit
+
 # A word a reply may use only after the employee used it first (flag off: the agent never brings
 # up a payslip, there is no upload; if the employee does, the data can simply be typed in).
 ONLY_AFTER_EMPLOYEE_HE = {"payslip": "תלוש"}
@@ -117,6 +119,8 @@ class Reply:
     turn: int
     text: str
     kind: str  # reply | template | error
+    # COMPASS_NUMBER_SOURCES=1: the sources recorded for this reply; None: the flag is off
+    number_sources: list[dict[str, Any]] | None = None
 
 
 @dataclass
@@ -440,7 +444,7 @@ def global_checks(trace: Trace) -> list[CheckResult]:
         and word in r.text
         and not any(word in text for turn, text in trace.employee_messages if turn <= r.turn)
     ]
-    return [
+    checks = [
         CheckResult(
             "[global] script ran as written", not trace.problems, "; ".join(trace.problems)
         ),
@@ -457,3 +461,12 @@ def global_checks(trace: Trace) -> list[CheckResult]:
             "; ".join(unprompted),
         ),
     ]
+    carrying = [r for r in shown if r.number_sources is not None]
+    if carrying:  # the flag is on: the recorded sources describe what was shown
+        wrong = [f"t{r.turn} {p}" for r in carrying for p in audit(r.text, r.number_sources or [])]
+        checks.append(
+            CheckResult(
+                "[global] number sources describe the sent text", not wrong, "; ".join(wrong)
+            )
+        )
+    return checks

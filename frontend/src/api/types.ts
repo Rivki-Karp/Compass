@@ -38,6 +38,8 @@ export type {
 } from "./generated";
 
 export type ChipSource = ComparisonView["inputs"][number]["source"];
+/** A number in a reply: an input chip, or what the server computed / the rules gave. */
+export type NumberChip = ChipSource | "computed" | "rule";
 export type Unit = ComparisonView["inputs"][number]["unit"];
 export type Direction = ComparisonView["direction"];
 
@@ -54,7 +56,11 @@ export interface Ticket {
   question: string;
   context: Record<string, unknown>;
   blocking_fields: string[];
-  quick_answers: { id: string; label: string; values: Record<string, unknown> }[];
+  quick_answers: {
+    id: string;
+    label: string;
+    values: Record<string, unknown>;
+  }[];
   status: "open" | "answered";
   answer: unknown;
   created_at: string;
@@ -75,6 +81,34 @@ export interface GuardCheckPayload {
   rejected_draft?: string;
 }
 
+/** One verified number of a sent reply and where it came from (COMPASS_NUMBER_SOURCES=1). All
+ * words are the server's; `chip` is the key of the look (ui/chips.ts NUMBER_CHIP). */
+export interface NumberSource {
+  start: number; // offsets in the reply's `text`, covering the number as written
+  end: number;
+  value: string; // a Decimal string, signed
+  kind:
+    "tool" | "server" | "employee" | "representative" | "payslip" | "rule" | "catalog" | "derived";
+  label: string; // the chip's text
+  chip: NumberChip;
+  what: string | null; // "הפרש בנטו לחודש"
+  origin: {
+    source: string;
+    tool: string | null;
+    label: string; // may hold "{time}", filled from `at` in the viewer's time zone
+    at: string | null;
+  };
+  slot: string | null;
+  ref: {
+    message_seq?: number;
+    tool_use_id?: string;
+    comparison_seq?: number;
+    option_set_seq?: number;
+    alternative?: string;
+    role?: string;
+  };
+}
+
 export interface PayloadByType {
   session_created: { status: string };
   session_status: { status: "active" | "waiting_for_rep" | "closed" };
@@ -85,6 +119,7 @@ export interface PayloadByType {
     // "limit": the session safety limit's fixed reply (no model call); the UI offers a new chat
     kind: "reply" | "template" | "error" | "limit";
     comparison_ref: number | null;
+    number_sources?: NumberSource[]; // only with COMPASS_NUMBER_SOURCES=1, on a checked reply
   };
   profile_updated: {
     fields: Record<string, { state: string; source: string; value: unknown }>;
@@ -136,7 +171,10 @@ export interface PayloadByType {
   // list_options was asked: pending until a comparison_set_ready answers it
   options_requested: { stated: Record<string, string> };
   current_car_offered: CarPicker;
-  current_car_picked: { outcome: "car" | "no_car" | "not_in_list" | "check_year"; car_id?: string };
+  current_car_picked: {
+    outcome: "car" | "no_car" | "not_in_list" | "check_year";
+    car_id?: string;
+  };
   agent_finished: {
     outcome: "reply" | "template" | "error" | "limit";
     // admin only

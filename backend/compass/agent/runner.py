@@ -73,6 +73,9 @@ class GuardVerdict:
     # number as written -> where it comes from (a tool name, "employee", "representative",
     # "harmless"); only the permitted ones
     sources: dict[str, str] = field(default_factory=dict)
+    # Record only: each verified number's offsets in the checked text, value, source and the row
+    # it was first seen in (guard.number_spans). Never part of the guard_check event.
+    spans: list[dict[str, Any]] = field(default_factory=list)
 
 
 # (text, session_id) -> verdict.  Stage 3 plugs in the real guard.
@@ -116,6 +119,7 @@ class ClaudeAgentRunner:
         daily_spend_cap_usd: float | None = None,
         guard: Guard = _no_guard,
         template: TemplateFallback = _no_template,
+        number_sources: bool = False,
         background: bool = True,
     ) -> None:
         self.services = services
@@ -130,6 +134,7 @@ class ClaudeAgentRunner:
         self.daily_spend_cap_usd = daily_spend_cap_usd
         self.guard = guard
         self.template = template
+        self.number_sources = number_sources  # COMPASS_NUMBER_SOURCES: sources on each reply
         self.background = background
         self._lock = threading.Lock()
         self._queues: dict[str, queue.Queue[Job]] = {}
@@ -478,7 +483,7 @@ class ClaudeAgentRunner:
         outcome.guard.append(verdict)
         if verdict.passed:
             self._guard_event(session_id, verdict, "accept")
-            return self._reply(session_id, response, start_seq, outcome, "reply")
+            return self._reply(session_id, response, start_seq, outcome, "reply", verdict)
 
         # Discard the draft (never shown, never in the transcript); ask for one rewrite.
         self._guard_event(session_id, verdict, "retry", draft=response.text)
@@ -495,7 +500,7 @@ class ClaudeAgentRunner:
         outcome.guard.append(second)
         if retry.text and second.passed:
             self._guard_event(session_id, second, "accept_after_retry")
-            return self._reply(session_id, retry, start_seq, outcome, "reply")
+            return self._reply(session_id, retry, start_seq, outcome, "reply", second)
         self._guard_event(session_id, second, "template")
         text = self.template(session_id)
         fabricated = LLMResponse(content=[{"type": "text", "text": text}], stop_reason="end_turn")
@@ -522,22 +527,40 @@ class ClaudeAgentRunner:
         start_seq: int,
         outcome: RunOutcome,
         kind: Literal["reply", "template"],
+        verdict: GuardVerdict | None = None,
     ) -> RunOutcome:
         seq = self._store_assistant(
             session_id, response, fabricated="guard_template" if kind == "template" else None
         )
-        self.store.append_event(
-            session_id,
-            "assistant_message",
-            {
-                "message_seq": seq,
-                "text": response.text,
-                "kind": kind,
-                "comparison_ref": self._comparison_ref(session_id, start_seq),
-            },
-        )
+        payload: dict[str, Any] = {
+            "message_seq": seq,
+            "text": response.text,
+            "kind": kind,
+            "comparison_ref": self._comparison_ref(session_id, start_seq),
+        }
+        if self.number_sources and verdict is not None:  # a checked reply, never the template
+            sources = self._number_sources(session_id, response.text, verdict, start_seq)
+            if sources is not None:
+                payload["number_sources"] = sources
+        self.store.append_event(session_id, "assistant_message", payload)
         outcome.text, outcome.kind, outcome.message_seq = response.text, kind, seq
         return outcome
+
+    def _number_sources(
+        self, session_id: str, text: str, verdict: GuardVerdict, start_seq: int
+    ) -> list[dict[str, Any]] | None:
+        """The sources of the numbers in the text that is sent (the verdict is of that very
+        text). Never raises: a bug here costs the clickable numbers, not the reply."""
+        try:
+            # imported here: the guard imports this module
+            from compass.agent.number_sources import build_number_sources, session_context
+
+            events = self.store.events_after(session_id)
+            context = session_context(self.services, session_id)
+            return build_number_sources(text, verdict.spans, events, start_seq, context)
+        except Exception:
+            log.exception("could not build number sources for session %s", session_id)
+            return None
 
     def _comparison_ref(self, session_id: str, start_seq: int) -> int | None:
         events = self.store.events_after(session_id, start_seq)
