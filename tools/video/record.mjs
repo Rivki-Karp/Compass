@@ -24,6 +24,7 @@ const RECORD = MODE === "record";
 const OUT = path.join(HERE, "out");
 const RAW = path.join(OUT, "raw");
 fs.mkdirSync(RAW, { recursive: true });
+fs.rmSync(path.join(OUT, "debug"), { recursive: true, force: true });
 
 const WEB = (process.env.COMPASS_VIDEO_WEB ?? "https://compass-web-hcpz.onrender.com").replace(/\/$/, "");
 const API = (process.env.COMPASS_VIDEO_API ?? "https://compass-api-tft8.onrender.com").replace(/\/$/, "");
@@ -40,23 +41,46 @@ const MODEL_WAIT_MS = 180_000;
 const SECRETS = new Set(Object.values(ACCOUNTS).map((a) => a.pw).filter(Boolean));
 
 // the fixed script texts. No money number is hardcoded anywhere: the numbers are the live system's.
-const ALL_OPTIONS_TEXT = "אני מפתחת תוכנה, יש לי היום קורולה. תציג לי את כל החלופות";
+const ALL_OPTIONS_TEXT = "אני מפתחת תוכנה, יש לי היום קורולה רגילה 2026. תציג לי את כל החלופות";
 const MG4_TEXT = "תשווה לי ל־MG4. אני לא יודעת מה ההשתתפות העצמית בו, תבדוק מול נציג";
 // scene 7's conversation, created by the admin BEFORE the recording (judges mode works only on
 // the admin's own sessions)
 const ADMIN_PREP_TEXT =
-  "מה יקרה לנטו אם אוותר על הרכב? אני מפתחת תוכנה, שכר בסיס 14,000, אין עמלות ובונוסים, פנסיה 6%, השתלמות 2.5%, 2.75 נקודות זיכוי, יש לי היום קורולה";
+  "מה יקרה לנטו אם אוותר על הרכב? אני מפתחת תוכנה, שכר בסיס 14,000, אין עמלות ואין בונוסים, פנסיה 6%, השתלמות 2.5%, 2.75 נקודות זיכוי, אין ילדים, יש לי היום קורולה רגילה 2026";
 // today's car in the catalog picker when the model does not recognise it: COROLLA, group ב'
 const PICKER_MODEL = "COROLLA";
 const PICKER_GROUP = "ב";
-// small fixed list for when the live model asks one more question (never improvised beyond it)
+// The fixed answers for when the live model asks one more question: matched by KEYWORD in the
+// question being asked (several topics asked -> one answer each, in the order they are asked).
 const CANNED = [
-  [/ילדים/, "אין לי ילדים"],
-  [/קרוס|דגם|גרסה/, "קורולה רגילה, לא קרוס"],
-  [/שנת|שנה/, "הדגם הנוכחי, מהקטלוג"],
-  [/שכר|ברוטו|משכורת|תלוש/, "השכר הוא כפי שבתלוש"],
-  [/.*/, "כן, תמשיכי בבקשה עם מה שיש"],
+  { keys: /קורולה|איזו/, answer: "קורולה רגילה 2026" },
+  { keys: /עמלות|בונוס/, answer: "אין עמלות ואין בונוסים" },
+  { keys: /ילדים/, answer: "אין לי ילדים" },
+  { keys: /פנסיה/, answer: "6%" },
+  { keys: /השתלמות/, answer: "2.5%" },
+  { keys: /נקודות זיכוי/, answer: "2.75" },
+  { keys: /השתתפות/, answer: "לא יודעת, תבדוק מול נציג" },
 ];
+const CANNED_OTHER = "לא יודעת";
+
+/** The part of a reply that asks: after "צריך לדעת" / "כדי להמשיך", else the lines with a "?", else
+ *  the tail. The recap at the start of a reply ("רשמתי: …") is not a question. */
+function questionPart(text) {
+  const marker = [...text.matchAll(/צריך לדעת|כדי להמשיך|כדי שאוכל|חסר לי|חסרים/g)].at(-1);
+  if (marker) return text.slice(marker.index);
+  const asking = text.split("\n").filter((line) => line.includes("?"));
+  return asking.length ? asking.join("\n") : text.slice(-250);
+}
+
+function answerFor(question) {
+  const part = questionPart(question);
+  const hits = CANNED.map((c) => ({ at: part.search(c.keys), answer: c.answer }))
+    .filter((h) => h.at >= 0)
+    .sort((x, y) => x.at - y.at)
+    .map((h) => h.answer);
+  const unique = [...new Set(hits)];
+  return unique.length ? unique.join(". ") : CANNED_OTHER;
+}
 
 // ---------------------------------------------------------------------------------- logging
 
@@ -207,8 +231,9 @@ async function answerExtras(page, done, max = 2) {
   for (let i = 0; i < max; i += 1) {
     if (await done()) return;
     const question = ((await lastMessage(page).innerText().catch(() => "")) ?? "").trim();
-    const reply = CANNED.find(([pattern]) => pattern.test(question))?.[1] ?? CANNED.at(-1)[1];
-    report.improvised.push({ question: question.slice(0, 120), answer: reply });
+    const reply = answerFor(question);
+    report.improvised.push({ question, answer: reply });
+    log(`improvised Q: ${question.replace(/\s+/g, " ")}\n           A: ${reply}`);
     await sendChat(page, reply);
     report.modelTurns += 1;
     await waitIdle(page);
@@ -358,6 +383,14 @@ scene(2, "payslip", [1], async () => {
   const hasDerived = await derived.isVisible().catch(() => false);
   if (hasDerived) await derived.scrollIntoViewIfNeeded();
   await pause(page, 1_300);
+  // a line the payslip does not have ("לא נמצא בתלוש — אין?"): the employee taps "אין"
+  for (const label of ["עמלות", "בונוס"]) {
+    const none = card.getByRole("listitem").filter({ hasText: label }).getByRole("button", { name: "אין", exact: true });
+    if (await none.count()) {
+      await clickVisibly(page, none);
+      await pause(page, 300);
+    }
+  }
   await clickVisibly(page, card.getByRole("button", { name: "אישור ושמירה" }));
   await expect(page.getByText("הנתונים נשמרו לפי התלוש.")).toBeVisible();
   await pause(page, 500);
@@ -378,7 +411,7 @@ scene(3, "all alternatives", [1], async () => {
   const grid = page.locator("#options-title");
   const picker = page.locator("#car-picker-title");
   let pickedFromCatalog = false;
-  for (let round = 0; round < 3; round += 1) {
+  for (let round = 0; round < 5; round += 1) {
     if (await picker.count()) {
       // the car was not recognised: today's car from the catalog picker, COROLLA of group ב'
       end = segment(3, 0, "employee");
@@ -587,6 +620,36 @@ scene(9, "admin invites, employee registers", [], async () => {
 
 const SCENE_TIMEOUT_MS = 6 * 60_000;
 
+const DEBUG = path.join(OUT, "debug");
+
+/** The error without terminal colours: its first line and the locator it names. */
+function cleanMessage(error) {
+  const text = String(error?.message ?? error).replace(/\u001b\[[0-9;]*m/g, "");
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const locator = lines.find((l) => l.startsWith("Locator:"));
+  return [lines[0], locator].filter(Boolean).join(" | ").slice(0, 400);
+}
+
+/** On a failure: a screenshot of every open page and the text of the last reply, into out/debug/. */
+async function saveDebug(label) {
+  fs.mkdirSync(DEBUG, { recursive: true });
+  const saved = [];
+  for (const [name, entry] of Object.entries(contexts)) {
+    try {
+      const base = path.join(DEBUG, `${label}-${name}`);
+      await entry.page.screenshot({ path: `${base}.png` });
+      const last = await lastMessage(entry.page).innerText({ timeout: 3_000 }).catch(() => "(no message on this page)");
+      const hero_ = await hero(entry.page).innerText({ timeout: 2_000 }).catch(() => "(no result card)");
+      fs.writeFileSync(`${base}-last-reply.txt`, redact(`last message:\n${last}\n\nresult card:\n${hero_}\n`), "utf8");
+      saved.push(`${base}.png`);
+    } catch {
+      /* the page is gone */
+    }
+  }
+  if (saved.length) log(`debug   ${label}: ${saved.map((p) => path.relative(REPO, p)).join(", ")} (+ -last-reply.txt)`);
+  return saved.map((p) => path.relative(REPO, p));
+}
+
 async function runScene(item, failed) {
   const blocked = item.deps.find((d) => failed.has(d));
   const row = { n: item.n, name: item.name, status: "PASS", seconds: 0, note: "" };
@@ -603,7 +666,8 @@ async function runScene(item, failed) {
     ]);
   } catch (error) {
     row.status = "FAIL";
-    row.note = String(error?.message ?? error).split("\n")[0].slice(0, 300);
+    row.note = cleanMessage(error);
+    row.debug = await saveDebug(`scene-${String(item.n).padStart(2, "0")}`);
   }
   row.seconds = +((Date.now() - started) / 1000).toFixed(1);
   return row;
@@ -645,7 +709,8 @@ async function main() {
       await prepAdminConversation(); // not recorded
       log("prep    the admin's conversation is ready (not recorded)");
     } catch (error) {
-      log(`prep    FAIL  the admin's conversation: ${String(error?.message ?? error).split("\n")[0].slice(0, 200)} (scene 7 will fail)`);
+      log(`prep    FAIL  the admin's conversation: ${cleanMessage(error)} (scene 7 will fail)`);
+      await saveDebug("prep");
     }
     await newContext("employee");
     for (const item of scenes) {
@@ -680,7 +745,7 @@ function finish(allPass) {
   }
   log("");
   log(allPass ? "RESULT: ALL SCENES PASS" : "RESULT: NOT ALL SCENES PASS");
-  if (report.improvised.length) log(`improvised answers: ${JSON.stringify(report.improvised)}`);
+  if (report.improvised.length) log(`improvised answers: ${report.improvised.length} (each logged in full above)`);
   log(`model turns started: ${report.modelTurns} (no live spend ledger is visible from outside)`);
   return allPass;
 }

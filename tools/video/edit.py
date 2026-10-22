@@ -11,6 +11,7 @@ to be at most 60.0 s and 50 MB.
 import glob
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -35,7 +36,9 @@ TARGETS = {0: 3, 1: 2, 2: 7, 3: 4, 4: 5, 5: 8, 6: 6, 7: 5, 8: 6, 9: 8, 10: 3}
 SPLIT_SCENES = {5, 9}  # two panes, side by side
 
 
-def find_tool(name: str) -> str:
+def find_tool(name: str, required: bool = True) -> str | None:
+    """PATH first, then winget's Gyan.FFmpeg, then the imageio-ffmpeg binary vendored under
+    tools/video/.vendor (ffmpeg only; it ships no ffprobe)."""
     found = shutil.which(name)
     if found:
         return found
@@ -44,6 +47,18 @@ def find_tool(name: str) -> str:
     hits = sorted(glob.glob(pattern, recursive=True))
     if hits:
         return hits[0]
+    if name == "ffmpeg":
+        vendor = str(HERE / ".vendor")
+        if vendor not in sys.path:
+            sys.path.insert(0, vendor)
+        try:
+            import imageio_ffmpeg
+
+            return imageio_ffmpeg.get_ffmpeg_exe()
+        except ImportError:
+            pass
+    if not required:
+        return None
     sys.exit(
         f"record-video: {name} was not found. Install it with `winget install Gyan.FFmpeg`, "
         "then open a NEW terminal (the PATH changes only for new ones) and run this again."
@@ -58,8 +73,16 @@ def run(args: list[str]) -> None:
 
 
 def duration_of(path: Path) -> float:
+    probe = find_tool("ffprobe", required=False)
+    if probe is None:  # no ffprobe: read "Duration: hh:mm:ss.xx" from `ffmpeg -i`
+        text = subprocess.run([find_tool("ffmpeg"), "-hide_banner", "-i", str(path)], capture_output=True, text=True).stderr
+        found = re.search(r"Duration: (\d+):(\d+):(\d+\.\d+)", text)
+        if found is None:
+            sys.exit(f"record-video: cannot read the duration of {path.name}")
+        h, m, s = found.groups()
+        return int(h) * 3600 + int(m) * 60 + float(s)
     out = subprocess.run(
-        [find_tool("ffprobe"), "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
+        [probe, "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
         capture_output=True,
         text=True,
         check=True,

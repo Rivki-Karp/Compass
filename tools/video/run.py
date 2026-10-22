@@ -51,7 +51,6 @@ def main(args: list[str]) -> int:
 
     if not dry:
         edit.find_tool("ffmpeg")  # exits with the install hint when it is missing
-        edit.find_tool("ffprobe")
     env = passwords()
     if dry:
         return node_run(["--mode", "dry"], env)
