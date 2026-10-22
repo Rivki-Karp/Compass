@@ -1,5 +1,7 @@
 """Runs the demo video against the LIVE site. Started by `tasks.py record-video [--dry-run]`.
 
+    --cleanup-admin   lists admin@demo.compass's own conversations (left by earlier dry runs) and
+                      deletes them after you type "yes"; nothing else is touched
     --dry-run   no recording: every scene runs once; prints PASS / FAIL per scene
     (none)      records (at most 3 takes), then edits the first cut (edit.py)
 
@@ -42,9 +44,47 @@ def node_run(args: list[str], env: dict[str, str]) -> int:
     return subprocess.run([node, str(HERE / "record.mjs"), *args], env=child_env).returncode
 
 
+def cleanup_admin() -> int:
+    """List the admin's own conversations, then delete them on an explicit "yes". The password is
+    asked for (hidden) unless it is in the environment; it is never printed."""
+    import json
+    import urllib.request
+
+    api = os.environ.get("COMPASS_VIDEO_API", "https://compass-api-tft8.onrender.com").rstrip("/")
+    password = os.environ.get("COMPASS_VIDEO_ADMIN_PASSWORD") or getpass("admin password (hidden): ")
+
+    def call(method: str, route: str, token: str | None = None, body: dict | None = None):
+        headers = {"content-type": "application/json"} if body else {}
+        if token:
+            headers["authorization"] = f"Bearer {token}"
+        data = json.dumps(body).encode() if body else None
+        request = urllib.request.Request(f"{api}/api{route}", data=data, method=method, headers=headers)
+        with urllib.request.urlopen(request, timeout=90) as response:
+            raw = response.read()
+            return json.loads(raw) if raw else None
+
+    token = call("POST", "/auth/login", body={"email": "admin@demo.compass", "password": password})["token"]
+    rows = call("GET", "/conversations", token) or []
+    if not rows:
+        print("admin@demo.compass has no conversations; nothing to delete")
+        return 0
+    print(f"admin@demo.compass's conversations ({len(rows)}):")
+    for row in rows:
+        print(f"  {row['id']}  {row['updated_at']}  [{row['status']}]  {row['title']}")
+    if input('Type "yes" to delete exactly these: ').strip() != "yes":
+        print("nothing deleted")
+        return 1
+    for row in rows:
+        call("DELETE", f"/conversations/{row['id']}", token)
+        print(f"deleted {row['id']}")
+    return 0
+
+
 def main(args: list[str]) -> int:
+    if args == ["--cleanup-admin"]:
+        return cleanup_admin()
     if any(a not in ("--dry-run",) for a in args):
-        sys.exit("record-video: the only option is --dry-run")
+        sys.exit("record-video: the options are --dry-run and --cleanup-admin")
     dry = "--dry-run" in args
     sys.path.insert(0, str(HERE))
     import edit  # the ffmpeg side: checked BEFORE a live recording is spent
