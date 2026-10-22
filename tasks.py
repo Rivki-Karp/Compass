@@ -29,6 +29,7 @@ Usage:
     tasks.py ts-types  # write frontend/src/api/generated.ts (commit it with view changes)
     tasks.py test-counts  # write backend/tests/counts.json (judges mode; pytest checks it)
     tasks.py record-demo  # the backup video -> docs/video/*.webm (demo mode, no key)
+    tasks.py record-video [--dry-run]  # the 60 s demo video from the LIVE site (tools/video/)
     tasks.py readme    # regenerate README.md's results block (pytest checks it)
     tasks.py smoke --api https://compass-api-tft8.onrender.com \
                    --web https://compass-web-hcpz.onrender.com
@@ -391,6 +392,13 @@ def record_demo() -> None:
     run(sys.executable, str(BACKEND / "scripts" / "record_demo.py"))
 
 
+def record_video(*args: str) -> None:
+    """The demo video against the live site (tools/video/run.py). --dry-run: no recording, PASS or
+    FAIL per scene. Without it: records and edits the first cut into tools/video/out/. Missing
+    passwords are asked for with hidden input; they are kept in memory only."""
+    run(sys.executable, str(REPO_ROOT / "tools" / "video" / "run.py"), *args)
+
+
 def chat() -> None:
     run(sys.executable, "-m", "compass.agent.chat")
 
@@ -604,6 +612,7 @@ TASKS: dict[str, Callable[..., None]] = {
     "ts-types": ts_types,
     "test-counts": test_counts,
     "record-demo": record_demo,
+    "record-video": record_video,
     "readme": readme,
     "chat": chat,
     "eval": evals,
@@ -611,7 +620,7 @@ TASKS: dict[str, Callable[..., None]] = {
     "payslip-smoke": payslip_smoke,
     "smoke": smoke,
 }
-TAKES_ARGS: set[str] = {"demo", "eval", "serve", "smoke"}
+TAKES_ARGS: set[str] = {"demo", "eval", "record-video", "serve", "smoke"}
 
 
 def main() -> None:
