@@ -46,7 +46,7 @@ const MG4_TEXT = "תשווה לי ל־MG4. אני לא יודעת מה ההשת�
 // scene 7's conversation, created by the admin BEFORE the recording (judges mode works only on
 // the admin's own sessions)
 const ADMIN_PREP_TEXT =
-  "מה יקרה לנטו אם אוותר על הרכב? אני מפתחת תוכנה, שכר בסיס 14,000, אין עמלות ואין בונוסים, פנסיה 6%, השתלמות 2.5%, 2.75 נקודות זיכוי, אין ילדים, יש לי היום קורולה רגילה 2026";
+  "מה יקרה לנטו אם אוותר על הרכב? אני מפתחת תוכנה, שכר בסיס 14,000, אין עמלות ואין בונוסים, פנסיה 6%, השתלמות 2.5%, 2.75 נקודות זיכוי, אין ילדים, יש לי היום קורולה רגילה 2026 בהשתתפות ברירת המחדל של הקטלוג";
 // today's car in the catalog picker when the model does not recognise it: COROLLA, group ב'
 const PICKER_MODEL = "COROLLA";
 const PICKER_GROUP = "ב";
@@ -72,12 +72,15 @@ function questionPart(text) {
   return asking.length ? asking.join("\n") : text.slice(-250);
 }
 
-function answerFor(question) {
+function answerFor(question, overrides = []) {
   const part = questionPart(question);
-  const hits = CANNED.map((c) => ({ at: part.search(c.keys), answer: c.answer }))
+  const standard = CANNED.filter((c) => !overrides.some((o) => o.replaces === c.keys.source));
+  const hits = [...overrides, ...standard]
+    .map((c) => ({ at: part.search(c.keys), answer: c.answer }))
     .filter((h) => h.at >= 0)
     .sort((x, y) => x.at - y.at)
     .map((h) => h.answer);
+  // an override (first in the list) that matched replaces the standard answer for its topic
   const unique = [...new Set(hits)];
   return unique.length ? unique.join(". ") : CANNED_OTHER;
 }
@@ -227,11 +230,11 @@ async function sendChat(page, text) {
 }
 
 /** If the model asks one more question, answer from the fixed list (at most twice). */
-async function answerExtras(page, done, max = 2) {
+async function answerExtras(page, done, max = 2, overrides = []) {
   for (let i = 0; i < max; i += 1) {
     if (await done()) return;
     const question = ((await lastMessage(page).innerText().catch(() => "")) ?? "").trim();
-    const reply = answerFor(question);
+    const reply = answerFor(question, overrides);
     report.improvised.push({ question, answer: reply });
     log(`improvised Q: ${question.replace(/\s+/g, " ")}\n           A: ${reply}`);
     await sendChat(page, reply);
@@ -304,25 +307,51 @@ async function deleteGuest() {
 
 /** Before the recording, not recorded: the admin opens one conversation with ONE message and waits
  *  for the comparison. Scene 7 then shows it in judges mode. */
+// In the prep a question about the participation is a confirmation of the catalog's default; the
+// standard answer ("ask a representative") would open a ticket and leave the card pending.
+const PREP_OVERRIDES = [{ keys: /השתתפות|הרכב שלך/, replaces: "השתתפות", answer: "כן, זה הרכב שלי וההשתתפות היא ברירת המחדל של הקטלוג" }];
+let adminConversationsBefore = null;
+
+async function adminConversationIds() {
+  const list = await api("GET", "/conversations", { token: tokens.admin });
+  return (list.json ?? []).map((c) => c.id);
+}
+
 async function prepAdminConversation() {
+  // a clean admin: no saved details (the memory card would offer them) and a note of what exists
+  const cleared = await api("DELETE", "/profile", { token: tokens.admin });
+  log(`prep    admin's saved details cleared (HTTP ${cleared.status})`);
+  adminConversationsBefore = new Set(await adminConversationIds());
   const prep = await newContext("adminprep", { video: false });
   await logInThroughForm(prep, "admin");
   await prep.goto(WEB + "/new");
+  await prep.waitForURL(/\/c\/[^/]+$/); // the redirect to the new conversation
   await expect(prep.locator("#chat-input")).toBeVisible();
   adminPrepSession = new URL(prep.url()).pathname.split("/").pop();
   await sendChat(prep, ADMIN_PREP_TEXT);
   report.modelTurns += 1;
   await waitIdle(prep);
-  await expect(hero(prep)).toBeVisible(); // ONE message only: nothing is answered here
+  // the one message should be enough; at most 2 keyword-matched answers if the bot still asks
+  await answerExtras(prep, async () => (await hero(prep).count()) > 0, 2, PREP_OVERRIDES);
+  await expect(hero(prep)).toBeVisible();
   await contexts.adminprep.context.close();
   delete contexts.adminprep;
   return adminPrepSession;
 }
 
+/** Deletes the admin conversations this run created (the prep one, and any left by a failed prep). */
 async function deleteAdminPrep() {
-  if (!adminPrepSession || !tokens.admin) return false;
-  const r = await api("DELETE", `/conversations/${encodeURIComponent(adminPrepSession)}`, { token: tokens.admin });
-  return r.status === 204;
+  if (!tokens.admin || !adminConversationsBefore) return false;
+  const created = (await adminConversationIds()).filter((id) => !adminConversationsBefore.has(id));
+  if (adminPrepSession && !created.includes(adminPrepSession) && !adminConversationsBefore.has(adminPrepSession)) {
+    created.push(adminPrepSession);
+  }
+  let deleted = 0;
+  for (const id of created) {
+    const r = await api("DELETE", `/conversations/${encodeURIComponent(id)}`, { token: tokens.admin });
+    if (r.status === 204) deleted += 1;
+  }
+  return deleted > 0 ? deleted : false;
 }
 
 /** The recorded admin context, logged in (the login is not part of the cut). */
@@ -498,7 +527,13 @@ scene(5, "rep, split screen", [4], async () => {
   await pause(rep, 400);
   endRep();
   await expect(hero(employee)).toContainText("סופי");
-  await expect(hero(employee)).toContainText("אושר על ידי נציג");
+  // the chip is on the participation row, not in the result card
+  await expect(employee.locator('[data-input="alternative_participation"]')).toContainText("אושר על ידי נציג");
+  const stillOpen = await api("GET", "/tickets?status=open", { token: tokens.rep });
+  const listed = (stillOpen.json ?? []).some((t) => t.id === ticket.id);
+  const note5 = `after the answer the ticket is ${listed ? "STILL OPEN in the API" : "no longer open in the API"}`;
+  report.notes.push(`scene 5: ${note5}`);
+  log(`scene 5 ${note5}; the rep page lists ${await rep.locator('a[href^="?ticket="]').count()} ticket(s)`);
   await pause(employee, 1_000);
   endEmployee();
   await waitIdle(employee);
@@ -724,7 +759,7 @@ async function main() {
   } finally {
     const cleaned = await deleteGuest().catch(() => false);
     const prepDeleted = await deleteAdminPrep().catch(() => false);
-    report.cleanup = `${cleaned === false ? "no guest to delete" : "video-guest deleted (account and conversations)"}; ${prepDeleted ? "admin's prep conversation deleted" : "no admin prep conversation to delete"}`;
+    report.cleanup = `${cleaned === false ? "no guest to delete" : "video-guest deleted (account and conversations)"}; ${prepDeleted ? `${prepDeleted} admin conversation(s) from this run deleted` : "no admin conversation to delete"}`;
     log(`cleanup: ${report.cleanup}`);
     const files = await saveVideos().catch(() => ({}));
     report.rawFiles = files;
