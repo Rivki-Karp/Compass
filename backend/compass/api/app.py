@@ -337,6 +337,15 @@ def create_app(
         # the representative's routes: rep only. The admin never sees an employee's data, so for
         # anyone else logged in the routes do not exist (404)
         rep_only = Depends(auth.require_role("rep", hidden=True))
+        if settings.judges_unlock_on:
+            # its own counts and locks: a wrong admin password never touches a login's
+            app.state.judges_guard = LoginGuard(
+                settings.login_per_ip_per_minute,
+                settings.login_max_failures,
+                settings.login_lock_minutes * 60,
+                settings.login_email_ceiling,
+                settings.login_email_window_minutes * 60,
+            )
         admin_only = Depends(auth.require_role("admin"))
         stream_token = auth.bearer
         session_creator = auth.current_user
@@ -357,9 +366,15 @@ def create_app(
 
         mark_guard(session_access, "owner")
 
-        def full_view(user: Annotated[User, Depends(session_access)]) -> bool:
-            """Judges mode's engine room: an admin, in a session that is their own."""
-            return user.role == "admin"
+        def full_view(
+            user: Annotated[User, Depends(session_access)],
+            token: Annotated[str, Depends(auth.bearer)],
+        ) -> bool:
+            """Judges mode's engine room: an admin, or a login the admin password unlocked
+            (COMPASS_JUDGES_UNLOCK), in a session that is their own (session_access)."""
+            if user.role == "admin":
+                return True
+            return settings.judges_unlock_on and accounts.session_flags(token).judges_unlocked
 
     IsAdmin = Annotated[bool, Depends(full_view)]
     SessionUser = Annotated[User | None, Depends(session_access)]
@@ -436,6 +451,7 @@ def create_app(
         request: Request,
         session_id: str,
         admin: IsAdmin,
+        user: SessionUser,
         token: Annotated[str | None, Depends(stream_token)],
         last_event_id: Annotated[int | None, Header(alias="Last-Event-ID", ge=0)] = None,
         after: Annotated[
@@ -449,9 +465,22 @@ def create_app(
 
         async def events() -> AsyncIterator[ServerSentEvent]:
             cursor = start
+            full = admin
+            # an unlocked login can lock again while its stream is open: the next batch is redacted
+            relock = (
+                accounts_on
+                and settings.judges_unlock_on
+                and user is not None
+                and user.role != "admin"
+                and token is not None
+            )
             waiter = broker.subscribe(session_id)
             try:
                 while True:
+                    if relock:
+                        full = await run_in_threadpool(
+                            lambda: accounts.session_flags(token).judges_unlocked  # type: ignore[arg-type]
+                        )
                     waiter.clear()  # clear first: a commit after this read will set it again
                     try:
                         batch = await run_in_threadpool(store.events_after, session_id, cursor)
@@ -460,7 +489,7 @@ def create_app(
                     for event in batch:
                         cursor = event.seq
                         data = event.model_dump()
-                        if not admin:
+                        if not full:
                             data["payload"] = public_payload(event.type, event.payload)
                         yield ServerSentEvent(
                             id=str(event.seq),
@@ -494,7 +523,15 @@ def create_app(
 
     # /api/auth/* (COMPASS_AUTH=1; off: the routes do not exist)
     if auth is not None:
-        add_auth_routes(api, settings, auth, app.state.login_guard, store, broker)
+        add_auth_routes(
+            api,
+            settings,
+            auth,
+            app.state.login_guard,
+            store,
+            broker,
+            getattr(app.state, "judges_guard", None),
+        )
 
     # /api/conversations and /api/admin/users, /api/admin/invites (COMPASS_AUTH=1; off: absent)
     if auth is not None:
@@ -689,6 +726,10 @@ def create_app(
             # only with COMPASS_AUTH=1 (off: the response is as it was): the UI shows the
             # landing page and login. The UI reads the flag here, never from its own constant.
             **({"accounts": True} if settings.auth else {}),
+            # only with COMPASS_JUDGES_UNLOCK=1 / COMPASS_DEMO_LOGIN=1 (and accounts): the UI shows
+            # the unlock dialog / the quick access on the landing page
+            **({"judges_unlock": True} if settings.judges_unlock_on else {}),
+            **({"demo_login": True} if settings.demo_login_on else {}),
             # "scripted": demo mode (the UI shows its badge and the scripts' messages).
             "llm": llm_mode,
             "demo_scripts": scripts,

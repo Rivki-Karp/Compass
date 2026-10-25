@@ -30,11 +30,14 @@ PUBLIC = {
     "/api/occupations": "the occupation list",
     "/api/auth/register": "how someone without an account gets one (an invite code is checked)",
     "/api/auth/login": "how someone logs in",
+    "/api/auth/demo-login": "the demo accounts, no password (COMPASS_DEMO_LOGIN)",
 }
 LOGIN_ONLY = {
     "/api/sessions": "starts a conversation owned by the caller",
     "/api/auth/logout": "ends the caller's own login",
     "/api/auth/me": "the caller's own name and role",
+    "/api/auth/judges-unlock": "the caller's own login session, with an admin's password",
+    "/api/auth/judges-lock": "the caller's own login session",
     "/api/conversations": "the caller's own conversations",
     "/api/profile": "deletes the caller's own saved details (COMPASS_PROFILE_MEMORY)",
 }
@@ -105,6 +108,25 @@ def test_every_route_is_guarded_as_its_class_requires(full_settings: Settings) -
         "/profile/apply",
         "/profile/dismiss",
     }
+
+
+def test_the_new_routes_exist_with_their_flags_on_and_are_classified(
+    access_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = create_app(access_settings, agent=NullAgentRunner())
+    paths = {path for _, path, _ in api_routes(app)}
+    new = {"/api/auth/demo-login", "/api/auth/judges-unlock", "/api/auth/judges-lock"}
+    assert new <= paths
+    assert problems(app) == []
+    # and the walk fails on each one that nobody classified
+    for path, table in (
+        ("/api/auth/demo-login", PUBLIC),
+        ("/api/auth/judges-unlock", LOGIN_ONLY),
+        ("/api/auth/judges-lock", LOGIN_ONLY),
+    ):
+        with monkeypatch.context() as m:
+            m.delitem(table, path)
+            assert [p for p in problems(app) if p.endswith(path)] == [f"['POST'] {path}"]
 
 
 def test_the_walk_catches_a_new_route_that_skips_the_check(full_settings: Settings) -> None:

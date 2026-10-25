@@ -299,7 +299,8 @@ def test_deleting_a_user_clears_their_tickets_from_the_inbox(
 
 # --- the privacy rule, in the schemas -------------------------------------------------------
 
-ALLOWED = USER_FIELDS | {"code", "expires_at", "detail"}
+# "demo": whether an account is a protected shared demo account (COMPASS_DEMO_LOGIN)
+ALLOWED = USER_FIELDS | {"code", "expires_at", "detail", "demo"}
 FORBIDDEN = (
     "message",
     "profile",

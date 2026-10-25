@@ -5,7 +5,15 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from authkit import EMAILS, PASSWORD, STATIC_ADMIN, STATIC_REP
+from authkit import (
+    DEMO_ADMIN_PASSWORD,
+    DEMO_EMAILS,
+    DEMO_USER_PASSWORD,
+    EMAILS,
+    PASSWORD,
+    STATIC_ADMIN,
+    STATIC_REP,
+)
 from fastapi.testclient import TestClient
 
 from compass.api import Settings, create_app
@@ -100,4 +108,44 @@ def full_settings(auth_settings: Settings) -> Settings:
 @pytest.fixture
 def full_client(full_settings: Settings) -> Iterator[TestClient]:
     with TestClient(create_app(full_settings, agent=NullAgentRunner())) as test_client:
+        yield test_client
+
+
+@pytest.fixture(scope="session")
+def demo_hashes() -> dict[str, str]:
+    return {
+        "admin": hash_password(DEMO_ADMIN_PASSWORD),
+        "user": hash_password(DEMO_USER_PASSWORD),
+    }
+
+
+@pytest.fixture
+def access_settings(full_settings: Settings, demo_hashes: dict[str, str]) -> Settings:
+    """Everything of full_settings, plus judges unlock and the demo login, and three demo
+    accounts beside the four real ones."""
+    demo = parse_seed_users(
+        json.dumps(
+            [
+                {
+                    "email": DEMO_EMAILS[role],
+                    "name": f"Demo {role}",
+                    "role": role,
+                    "password_hash": demo_hashes["admin" if role == "admin" else "user"],
+                    "demo": True,
+                }
+                for role in ("employee", "rep", "admin")
+            ]
+        )
+    )
+    return replace(
+        full_settings,
+        judges_unlock=True,
+        demo_login=True,
+        seed_users=full_settings.seed_users + demo,
+    )
+
+
+@pytest.fixture
+def access_client(access_settings: Settings) -> Iterator[TestClient]:
+    with TestClient(create_app(access_settings, agent=NullAgentRunner())) as test_client:
         yield test_client

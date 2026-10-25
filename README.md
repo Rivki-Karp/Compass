@@ -150,7 +150,7 @@ E-001 to its expected chip and origin label.
 
 Per-scenario figures are averages over the repeats.
 
-**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-21): pytest **1295** · vitest **302** · Playwright **35**. CI runs all of them on every push.
+**Tests** ([backend/tests/counts.json](backend/tests/counts.json), 2026-10-25): pytest **1332** · vitest **302** · Playwright **35**. CI runs all of them on every push.
 
 **Cost per conversation:** **$0.0334**, the last report's run cost over its 22 scenario runs.
 

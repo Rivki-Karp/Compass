@@ -73,6 +73,10 @@ DEFAULT_LOGIN_LOCK_MINUTES = 15
 # a looser ceiling per email over all addresses (the 5-failure lock is per email and address)
 DEFAULT_LOGIN_EMAIL_CEILING = 50
 DEFAULT_LOGIN_EMAIL_WINDOW_MINUTES = 60
+# The demo quick access (COMPASS_DEMO_LOGIN): logins per IP per minute; invites a demo session may
+# make per UTC day, all demo sessions together
+DEFAULT_DEMO_LOGIN_PER_IP_PER_MINUTE = 10
+DEFAULT_DEMO_INVITES_PER_DAY = 20
 
 
 class SettingsError(ValueError):
@@ -344,6 +348,22 @@ class Settings:
     login_email_window_minutes: int = DEFAULT_LOGIN_EMAIL_WINDOW_MINUTES
     # The accounts re-created at every start (hashes only; never shown by repr)
     seed_users: tuple[SeedUser, ...] = field(default=(), repr=False)
+    # Judges mode for any logged-in user, unlocked with an admin's password
+    # (COMPASS_JUDGES_UNLOCK=1), and one-click login to the demo accounts (COMPASS_DEMO_LOGIN=1).
+    # Both off by default; off = their routes answer 404 and nothing else changes. Both need
+    # accounts (see the `_on` properties).
+    judges_unlock: bool = False
+    demo_login: bool = False
+    demo_login_per_ip_per_minute: int = DEFAULT_DEMO_LOGIN_PER_IP_PER_MINUTE
+    demo_invites_per_day: int = DEFAULT_DEMO_INVITES_PER_DAY
+
+    @property
+    def judges_unlock_on(self) -> bool:
+        return self.judges_unlock and self.auth
+
+    @property
+    def demo_login_on(self) -> bool:
+        return self.demo_login and self.auth
 
     @property
     def profile_memory_on(self) -> bool:
@@ -448,4 +468,16 @@ class Settings:
                 DEFAULT_LOGIN_PER_IP_PER_MINUTE,
             ),
             seed_users=_seed_users(env.get("COMPASS_SEED_USERS")),
+            judges_unlock=env.get("COMPASS_JUDGES_UNLOCK") == "1",
+            demo_login=env.get("COMPASS_DEMO_LOGIN") == "1",
+            demo_login_per_ip_per_minute=_positive_int(
+                env.get("COMPASS_DEMO_LOGIN_PER_IP_PER_MINUTE"),
+                "COMPASS_DEMO_LOGIN_PER_IP_PER_MINUTE",
+                DEFAULT_DEMO_LOGIN_PER_IP_PER_MINUTE,
+            ),
+            demo_invites_per_day=_positive_int(
+                env.get("COMPASS_DEMO_INVITES_PER_DAY"),
+                "COMPASS_DEMO_INVITES_PER_DAY",
+                DEFAULT_DEMO_INVITES_PER_DAY,
+            ),
         )

@@ -219,6 +219,14 @@ class Store:
         ("sessions", "auth_session_id", "TEXT"),
         # a slot from an earlier conversation: when it was first confirmed (profile memory)
         ("profile_slots", "previous_from", "TEXT"),
+        # judges mode for any user and the shared demo (COMPASS_JUDGES_UNLOCK, COMPASS_DEMO_LOGIN):
+        # when this login was unlocked; whether it came from the demo quick access
+        ("auth_sessions", "judges_unlocked_at", "TEXT"),
+        ("auth_sessions", "demo_session", "INTEGER NOT NULL DEFAULT 0"),
+        # a shared demo account; an account (and its invite) made from a demo session
+        ("users", "demo", "INTEGER NOT NULL DEFAULT 0"),
+        ("users", "demo_origin", "INTEGER NOT NULL DEFAULT 0"),
+        ("invites", "demo_origin", "INTEGER NOT NULL DEFAULT 0"),
     )
 
     @staticmethod

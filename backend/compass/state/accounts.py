@@ -37,11 +37,23 @@ class User(BaseModel):
     status: str
     created_at: str
     last_login_at: str | None
+    # a shared demo account (COMPASS_SEED_USERS "demo"); an account made from a demo session
+    demo: bool = False
+    demo_origin: bool = False
     # the argon2id hash: never in a repr, a dump or a response
     password_hash: str = ""
 
     def __repr_args__(self) -> Iterable[tuple[str | None, Any]]:
         return [(k, v) for k, v in super().__repr_args__() if k != "password_hash"]
+
+
+class SessionFlags(BaseModel):
+    """What a live login session carries beyond who it belongs to."""
+
+    model_config = ConfigDict(frozen=True)
+
+    judges_unlocked: bool = False
+    demo: bool = False
 
 
 class LoggedIn(BaseModel):
@@ -63,6 +75,8 @@ def _user(row: Any) -> User:
         status=row["status"],
         created_at=row["created_at"],
         last_login_at=row["last_login_at"],
+        demo=bool(row["demo"]),
+        demo_origin=bool(row["demo_origin"]),
         password_hash=row["password_hash"],
     )
 
@@ -121,11 +135,11 @@ class Accounts:
         with self.store._write() as (conn, _events):
             for seed in seeds:
                 conn.execute(
-                    "INSERT INTO users (id, email, name, role, password_hash, status, created_at) "
-                    "VALUES (?, ?, ?, ?, ?, 'active', ?) "
+                    "INSERT INTO users (id, email, name, role, password_hash, status, created_at, "
+                    "demo) VALUES (?, ?, ?, ?, ?, 'active', ?, ?) "
                     "ON CONFLICT (email) DO UPDATE SET name = excluded.name, "
                     "role = excluded.role, password_hash = excluded.password_hash, "
-                    "status = 'active'",
+                    "status = 'active', demo = excluded.demo",
                     (
                         uuid.uuid4().hex,
                         seed.email,
@@ -133,6 +147,7 @@ class Accounts:
                         seed.role,
                         seed.password_hash,
                         self._now(),
+                        int(seed.demo),
                     ),
                 )
                 count += 1
@@ -143,6 +158,35 @@ class Accounts:
         with self.store._read() as conn:
             rows = conn.execute("SELECT * FROM users ORDER BY created_at, email").fetchall()
         return [_user(r) for r in rows]
+
+    def list_demo_scope_users(self) -> list[User]:
+        """What a demo session may see: the demo accounts and the accounts made from a demo
+        session. No other account, however many there are."""
+        with self.store._read() as conn:
+            rows = conn.execute(
+                "SELECT * FROM users WHERE demo = 1 OR demo_origin = 1 ORDER BY created_at, email"
+            ).fetchall()
+        return [_user(r) for r in rows]
+
+    def demo_user(self, role: str) -> User | None:
+        """The active demo account with this role (the oldest, if there are several)."""
+        with self.store._read() as conn:
+            row = conn.execute(
+                "SELECT * FROM users WHERE demo = 1 AND role = ? AND status = 'active' "
+                "ORDER BY created_at, email LIMIT 1",
+                (role,),
+            ).fetchone()
+        return None if row is None else _user(row)
+
+    def judges_password_hashes(self) -> list[str]:
+        """The hashes a judges-mode password is checked against: every active admin's, except
+        an admin made from a demo session (anyone could have set that password)."""
+        with self.store._read() as conn:
+            rows = conn.execute(
+                "SELECT password_hash FROM users WHERE role = 'admin' AND status = 'active' "
+                "AND demo_origin = 0 ORDER BY created_at, email"
+            ).fetchall()
+        return [r["password_hash"] for r in rows]
 
     def count_active_admins(self) -> int:
         with self.store._read() as conn:
@@ -209,10 +253,36 @@ class Accounts:
         admin sees it (XXXXX-XXXXX): the only time it exists in plain text."""
         return self.issue_invite(email, role, created_by, ttl_hours)[0]
 
+    def unused_invite_is_not_demo(self, email: str) -> bool:
+        """Whether `email` has an unused invite that did not come from a demo session (a demo
+        session may not replace it)."""
+        with self.store._read() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM invites WHERE email = ? AND used_at IS NULL AND demo_origin = 0",
+                (normalize_email(email),),
+            ).fetchone()
+        return row is not None
+
+    def demo_invites_today(self) -> int:
+        """The invites demo sessions made since 00:00 UTC, all of them together."""
+        midnight = self.clock().replace(hour=0, minute=0, second=0, microsecond=0)
+        with self.store._read() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM invites WHERE demo_origin = 1 AND created_at >= ?",
+                (_stamp(midnight),),
+            ).fetchone()
+        return int(row[0])
+
     def issue_invite(
-        self, email: str, role: str, created_by: str, ttl_hours: float
+        self,
+        email: str,
+        role: str,
+        created_by: str,
+        ttl_hours: float,
+        demo_origin: bool = False,
     ) -> tuple[str, str]:
-        """create_invite, with the time it expires: (code, expires_at)."""
+        """create_invite, with the time it expires: (code, expires_at). `demo_origin`: made from
+        a demo session; the account that uses it carries the mark."""
         code = new_invite_code()
         expires_at = self._later(ttl_hours)
         with self.store._write() as (conn, _events):
@@ -220,7 +290,7 @@ class Accounts:
             conn.execute("DELETE FROM invites WHERE email = ? AND used_at IS NULL", (email,))
             conn.execute(
                 "INSERT INTO invites (id, email, role, code_hash, created_by, created_at, "
-                "expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "expires_at, demo_origin) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     uuid.uuid4().hex,
                     email,
@@ -229,6 +299,7 @@ class Accounts:
                     created_by,
                     self._now(),
                     expires_at,
+                    int(demo_origin),
                 ),
             )
         return format_code(code), expires_at
@@ -242,7 +313,7 @@ class Accounts:
         email = normalize_email(email)
         with self.store._write() as (conn, _events):
             invite = conn.execute(
-                "SELECT id, role FROM invites WHERE code_hash = ? AND email = ? "
+                "SELECT id, role, demo_origin FROM invites WHERE code_hash = ? AND email = ? "
                 "AND used_at IS NULL AND expires_at > ?",
                 (hash_secret(normalize_code(code)), email, self._now()),
             ).fetchone()
@@ -253,8 +324,17 @@ class Accounts:
             user_id = uuid.uuid4().hex
             conn.execute(
                 "INSERT INTO users (id, email, name, role, password_hash, status, created_at, "
-                "last_login_at) VALUES (?, ?, ?, ?, ?, 'active', ?, ?)",
-                (user_id, email, name, invite["role"], password_hash, self._now(), self._now()),
+                "last_login_at, demo_origin) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)",
+                (
+                    user_id,
+                    email,
+                    name,
+                    invite["role"],
+                    password_hash,
+                    self._now(),
+                    self._now(),
+                    invite["demo_origin"],
+                ),
             )
             conn.execute("UPDATE invites SET used_at = ? WHERE id = ?", (self._now(), invite["id"]))
             token = self._open_session(conn, user_id, session_ttl_hours)
@@ -264,25 +344,49 @@ class Accounts:
 
     # --- login sessions -----------------------------------------------------------------------
 
-    def _open_session(self, conn: Any, user_id: str, ttl_hours: float) -> str:
+    def _open_session(self, conn: Any, user_id: str, ttl_hours: float, demo: bool = False) -> str:
         token = new_token()
         now = self._now()
         conn.execute(
-            "INSERT INTO auth_sessions (token_hash, user_id, created_at, expires_at, last_seen_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (hash_secret(token), user_id, now, self._later(ttl_hours), now),
+            "INSERT INTO auth_sessions (token_hash, user_id, created_at, expires_at, "
+            "last_seen_at, demo_session) VALUES (?, ?, ?, ?, ?, ?)",
+            (hash_secret(token), user_id, now, self._later(ttl_hours), now, int(demo)),
         )
         return token
 
-    def open_session(self, user_id: str, ttl_hours: float) -> str:
-        """A login session for the user; returns its token (never stored). Also forgets login
-        sessions that expired more than a day ago."""
+    def open_session(self, user_id: str, ttl_hours: float, demo: bool = False) -> str:
+        """A login session for the user; returns its token (never stored). `demo`: it came from
+        the demo quick access. Also forgets login sessions that expired more than a day ago."""
         with self.store._write() as (conn, _events):
             conn.execute(
                 "DELETE FROM auth_sessions WHERE expires_at < ?",
                 (_stamp(self.clock() - KEEP_EXPIRED),),
             )
-            return self._open_session(conn, user_id, ttl_hours)
+            return self._open_session(conn, user_id, ttl_hours, demo)
+
+    def session_flags(self, token: str) -> SessionFlags:
+        """The flags of a live login session (not revoked, not expired); all off for any other
+        token. A disabled user's sessions are revoked by `user_for_token`, which runs first."""
+        with self.store._read() as conn:
+            row = conn.execute(
+                "SELECT judges_unlocked_at, demo_session FROM auth_sessions "
+                "WHERE token_hash = ? AND revoked_at IS NULL AND expires_at > ?",
+                (hash_secret(token), self._now()),
+            ).fetchone()
+        if row is None:
+            return SessionFlags()
+        return SessionFlags(
+            judges_unlocked=row["judges_unlocked_at"] is not None, demo=bool(row["demo_session"])
+        )
+
+    def set_judges_unlocked(self, token: str, unlocked: bool) -> None:
+        """Unlock (or lock again) judges mode for this login session only."""
+        with self.store._write() as (conn, _events):
+            conn.execute(
+                "UPDATE auth_sessions SET judges_unlocked_at = ? WHERE token_hash = ? "
+                "AND revoked_at IS NULL",
+                (self._now() if unlocked else None, hash_secret(token)),
+            )
 
     def user_for_token(self, token: str) -> User | None:
         """The active user a live token belongs to, else None. A token is live until it is

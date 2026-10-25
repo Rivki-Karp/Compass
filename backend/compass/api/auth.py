@@ -5,6 +5,17 @@
     POST /api/auth/logout                                   -> 204
     GET  /api/auth/me                                       -> {name, role}
 
+    Two more, each behind its own flag (off: not registered, 404, not in the schema):
+
+    POST /api/auth/judges-unlock {password}  (COMPASS_JUDGES_UNLOCK=1)  -> 204
+    POST /api/auth/judges-lock                                          -> 204
+    POST /api/auth/demo-login    {role}      (COMPASS_DEMO_LOGIN=1)     -> 200 {token, name, role}
+
+Judges-unlock: the password of any active admin turns this login session's judges mode on (the
+full engine room, in the user's own conversations only; the ownership rule is untouched). Every
+admin hash is verified, with no short-circuit. Failures lock per (user, IP) like login does.
+Demo-login: logs in as the shared demo account of the role, with no password.
+
 Off (the default) these routes are not registered: they answer 404 and are not in the schema. The
 token goes in `Authorization: Bearer` (no cookie, so no CSRF surface); it is shown once, here.
 
@@ -21,7 +32,7 @@ long. Nothing here logs an email, a password, a code or a token.
 
 import logging
 from collections.abc import Callable
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
@@ -61,6 +72,7 @@ def mark_guard[F: Callable[..., object]](guard: F, kind: str, *detail: str) -> F
 REGISTER_ERROR_HE = "הקוד או המייל אינם תקינים"
 LOGIN_ERROR_HE = "מייל או סיסמה שגויים"
 RETRY_HINT_HE = "נסו שוב בעוד כמה דקות"
+JUDGES_ERROR_HE = "הסיסמה שגויה"
 # Password rules do not depend on the invite, so they are checked first and can be specific
 PASSWORD_LENGTH_HE = "הסיסמה צריכה להיות באורך 10 עד 128 תווים"
 PASSWORD_EMAIL_HE = "הסיסמה צריכה להיות שונה מהמייל"
@@ -86,6 +98,14 @@ class LoginBody(_Body):
     password: str = Field(max_length=MAX_PASSWORD_INPUT, repr=False)
 
 
+class JudgesUnlockBody(_Body):
+    password: str = Field(max_length=MAX_PASSWORD_INPUT, repr=False)
+
+
+class DemoLoginBody(_Body):
+    role: Literal["employee", "rep", "admin"]
+
+
 class Granted(BaseModel):
     token: str
     name: str
@@ -95,6 +115,9 @@ class Granted(BaseModel):
 class Me(BaseModel):
     name: str
     role: str
+    # only with COMPASS_JUDGES_UNLOCK=1 / COMPASS_DEMO_LOGIN=1 (off: not in the response)
+    judges_unlocked: bool | None = None
+    demo: bool | None = None
 
 
 class Auth:
@@ -162,7 +185,13 @@ def _acceptable(email: str, name: str) -> bool:
 
 
 def add_auth_routes(
-    api: APIRouter, settings: Settings, auth: Auth, guard: LoginGuard, store: Store, broker: Broker
+    api: APIRouter,
+    settings: Settings,
+    auth: Auth,
+    guard: LoginGuard,
+    store: Store,
+    broker: Broker,
+    judges_guard: LoginGuard | None = None,
 ) -> None:
     accounts = auth.accounts
     register_limiter = RateLimiter(settings.login_per_ip_per_minute)
@@ -245,7 +274,98 @@ def add_auth_routes(
         log.info("logout: user=%s", user.id)
         return Response(status_code=204)
 
-    @api.get("/auth/me", response_model=Me, tags=["auth"])
-    def me(user: Annotated[User, Depends(auth.current_user)]) -> Me:
-        """Who the token belongs to: just the name and the role."""
-        return Me(name=user.name, role=user.role)
+    @api.get("/auth/me", response_model=Me, response_model_exclude_unset=True, tags=["auth"])
+    def me(
+        token: Annotated[str, Depends(auth.bearer)],
+        user: Annotated[User, Depends(auth.current_user)],
+    ) -> Me:
+        """Who the token belongs to: the name and the role. With judges unlock or the demo login
+        on, also whether this login is unlocked and whether it is a demo login."""
+        who = Me(name=user.name, role=user.role)
+        if settings.judges_unlock_on or settings.demo_login_on:
+            flags = accounts.session_flags(token)
+            if settings.judges_unlock_on:
+                who.judges_unlocked = flags.judges_unlocked
+            if settings.demo_login_on:
+                who.demo = flags.demo
+        return who
+
+    if settings.demo_login_on:
+        demo_limiter = RateLimiter(settings.demo_login_per_ip_per_minute)
+
+        @api.post(
+            "/auth/demo-login",
+            response_model=Granted,
+            tags=["auth"],
+            responses={
+                404: {"description": "No active demo account has this role"},
+                429: {"description": "Too many demo logins from this IP (Retry-After)"},
+            },
+        )
+        def demo_login(body: DemoLoginBody, request: Request) -> Granted | JSONResponse:
+            """Log in as the shared demo account of this role, with no password. The login
+            session is marked as a demo session (see compass/api/admin_users.py)."""
+            wait = demo_limiter.check(client_ip(request, settings.trust_proxy))
+            if wait is not None:
+                return _refusal(429, RETRY_HINT_HE, wait)
+            user = accounts.demo_user(body.role)
+            if user is None:
+                raise HTTPException(404, "Not Found")
+            accounts.record_login(user.id)
+            token = accounts.open_session(user.id, settings.session_ttl_hours, demo=True)
+            log.info("demo login: user=%s", user.id)
+            return Granted(token=token, name=user.name, role=user.role)
+
+    if settings.judges_unlock_on:
+        assert judges_guard is not None
+
+        @api.post(
+            "/auth/judges-unlock",
+            status_code=204,
+            response_model=None,
+            tags=["auth"],
+            responses={
+                401: {"description": "The same message for every reason"},
+                429: {"description": "Too many attempts, or locked: the same message"},
+            },
+        )
+        def judges_unlock(
+            body: JudgesUnlockBody,
+            request: Request,
+            token: Annotated[str, Depends(auth.bearer)],
+            user: Annotated[User, Depends(auth.current_user)],
+        ) -> Response | JSONResponse:
+            """Turn judges mode on for this login session with the password of any active admin
+            (not one made from a demo session). It ends with the login. The error is always the
+            same; five failures from one address lock it for a while."""
+            ip = client_ip(request, settings.trust_proxy)
+            who = f"judges:{user.id}"  # (user, IP), kept apart from the login's keys
+            wait = judges_guard.check_ip(ip)
+            if wait is not None:
+                return _refusal(429, f"{JUDGES_ERROR_HE}. {RETRY_HINT_HE}", wait)
+            if judges_guard.is_locked(who, ip):
+                log.info("judges unlock refused: locked")
+                return _refusal(429, f"{JUDGES_ERROR_HE}. {RETRY_HINT_HE}")
+            # Every hash is verified, whichever matches: the time does not say which admin it was
+            # (or how early). With no admin at all, a dummy hash costs the same as one.
+            matched = False
+            for password_hash in accounts.judges_password_hashes() or [dummy_hash()]:
+                matched = verify_password(password_hash, body.password) or matched
+            if not matched:
+                judges_guard.record_failure(who, ip)
+                log.info("judges unlock refused")
+                return _refusal(401, JUDGES_ERROR_HE)
+            judges_guard.record_success(who, ip)
+            accounts.set_judges_unlocked(token, True)
+            log.info("judges unlocked: user=%s", user.id)
+            return Response(status_code=204)
+
+        @api.post("/auth/judges-lock", status_code=204, tags=["auth"])
+        def judges_lock(
+            token: Annotated[str, Depends(auth.bearer)],
+            user: Annotated[User, Depends(auth.current_user)],
+        ) -> Response:
+            """Turn judges mode off again for this login session."""
+            accounts.set_judges_unlocked(token, False)
+            log.info("judges locked: user=%s", user.id)
+            return Response(status_code=204)

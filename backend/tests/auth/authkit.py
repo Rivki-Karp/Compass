@@ -17,3 +17,13 @@ EMAILS = {
     "rep": "rep@example.com",
     "admin": "admin@example.com",
 }
+
+# The shared demo accounts (COMPASS_DEMO_LOGIN): an admin whose password is the one judges are
+# given, and an employee and a rep whose password is nothing an admin password could be
+DEMO_EMAILS = {
+    "employee": "demo-employee@example.com",
+    "rep": "demo-rep@example.com",
+    "admin": "demo-admin@example.com",
+}
+DEMO_ADMIN_PASSWORD = "demo admin password"
+DEMO_USER_PASSWORD = "demo user password"

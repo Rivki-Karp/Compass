@@ -86,7 +86,11 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash  TEXT NOT NULL,  -- argon2id
     status         TEXT NOT NULL CHECK (status IN ('active', 'disabled')),
     created_at     TEXT NOT NULL,
-    last_login_at  TEXT
+    last_login_at  TEXT,
+    -- a shared demo account (COMPASS_SEED_USERS "demo"); made from a demo session. Both are also
+    -- added in place to older files (store.py).
+    demo           INTEGER NOT NULL DEFAULT 0,
+    demo_origin    INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS invites (
@@ -97,7 +101,8 @@ CREATE TABLE IF NOT EXISTS invites (
     created_by  TEXT NOT NULL,
     created_at  TEXT NOT NULL,
     expires_at  TEXT NOT NULL,
-    used_at     TEXT
+    used_at     TEXT,
+    demo_origin INTEGER NOT NULL DEFAULT 0  -- created from a demo session
 );
 -- one active (unused) invite per email: a new invite replaces the old one
 CREATE UNIQUE INDEX IF NOT EXISTS invites_one_active ON invites (email) WHERE used_at IS NULL;
@@ -108,7 +113,11 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
     created_at    TEXT NOT NULL,
     expires_at    TEXT NOT NULL,
     last_seen_at  TEXT NOT NULL,
-    revoked_at    TEXT
+    revoked_at    TEXT,
+    -- judges mode for this login (COMPASS_JUDGES_UNLOCK): set by the admin password, gone with
+    -- the login; and whether the login came from the demo quick access (COMPASS_DEMO_LOGIN)
+    judges_unlocked_at TEXT,
+    demo_session  INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS auth_sessions_by_user ON auth_sessions (user_id);
 
