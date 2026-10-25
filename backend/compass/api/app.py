@@ -9,6 +9,7 @@ import hmac
 import json
 import logging
 import sqlite3
+import sys
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager, suppress
 from datetime import date
@@ -338,13 +339,15 @@ def create_app(
         # anyone else logged in the routes do not exist (404)
         rep_only = Depends(auth.require_role("rep", hidden=True))
         if settings.judges_unlock_on:
-            # its own counts and locks: a wrong admin password never touches a login's
+            # its own counts and locks: a wrong admin password never touches a login's. Per IP
+            # per minute, and per (user, IP) after max_failures; no ceiling per user over all
+            # addresses: on the shared demo employee it would let anyone lock every judge out.
             app.state.judges_guard = LoginGuard(
                 settings.login_per_ip_per_minute,
                 settings.login_max_failures,
                 settings.login_lock_minutes * 60,
-                settings.login_email_ceiling,
-                settings.login_email_window_minutes * 60,
+                email_ceiling=sys.maxsize,
+                email_window_seconds=settings.login_email_window_minutes * 60,
             )
         admin_only = Depends(auth.require_role("admin"))
         stream_token = auth.bearer

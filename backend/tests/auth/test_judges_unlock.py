@@ -204,6 +204,38 @@ def test_the_lock_ends_and_a_wrong_unlock_never_touches_the_logins_count(
         )
 
 
+def test_failures_from_many_addresses_do_not_block_a_correct_unlock_from_a_new_one(
+    proxied: Settings,
+) -> None:
+    """The shared demo employee: nobody can lock every judge out by failing from many places."""
+    with TestClient(create_app(proxied, agent=NullAgentRunner())) as client:
+        demo = {
+            "Authorization": "Bearer "
+            + client.post("/api/auth/demo-login", json={"role": "employee"}).json()["token"]
+        }
+        for n in range(1, 121):  # well past the login's 50-an-hour ceiling
+            reply = client.post(
+                UNLOCK, headers=_from(f"198.51.100.{n}", demo), json={"password": WRONG}
+            )
+            assert reply.status_code == 401, n
+        fresh = _from("203.0.113.77", demo)
+        assert client.post(UNLOCK, headers=fresh, json={"password": PASSWORD}).status_code == 204
+
+
+def test_unlock_attempts_are_limited_per_ip(access_settings: Settings) -> None:
+    limited = replace(access_settings, login_per_ip_per_minute=3, trust_proxy=True)
+    with TestClient(create_app(limited, agent=NullAgentRunner())) as client:
+        dana = _as(client, "employee")
+        mine = _from("203.0.113.5", dana)
+        codes = [
+            client.post(UNLOCK, headers=mine, json={"password": WRONG}).status_code
+            for _ in range(4)
+        ]
+        assert codes == [401, 401, 401, 429]
+        other = _from("203.0.113.6", dana)
+        assert client.post(UNLOCK, headers=other, json={"password": PASSWORD}).status_code == 204
+
+
 # --- timing parity -----------------------------------------------------------
 
 
