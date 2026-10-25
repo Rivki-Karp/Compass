@@ -12,6 +12,8 @@ const ROLE_LABEL: Record<Role, string> = { employee: "עובד/ת", rep: "נצי
 const STATUS_LABEL = { active: "פעיל", disabled: "מושבת" } as const;
 const ROLES: Role[] = ["employee", "rep", "admin"];
 
+const DEMO_PROTECTED = "חשבון הדגמה משותף. אי אפשר למחוק אותו, להשבית אותו או לשנות את התפקיד שלו";
+
 function day(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -199,7 +201,7 @@ export function AdminPage() {
                 onChange={(e) => setRole(e.target.value as Role)}
                 className="h-12 rounded-tile border border-line bg-surface px-3 text-[15px]"
               >
-                {ROLES.map((r) => (
+                {ROLES.filter((r) => !(auth.user?.demo && r === "admin")).map((r) => (
                   <option key={r} value={r}>
                     {ROLE_LABEL[r]}
                   </option>
@@ -235,6 +237,11 @@ export function AdminPage() {
                   <tr key={user.id} className="border-b border-line-soft last:border-0">
                     <td className="px-5 py-3 font-medium">
                       <bdi>{user.name}</bdi>
+                      {user.demo ? (
+                        <span className="ms-2 rounded-chip border border-line bg-ground px-2 py-0.5 text-[12px] font-medium text-steel">
+                          הדגמה
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-5 py-3">
                       <bdi dir="ltr">{user.email}</bdi>
@@ -243,6 +250,8 @@ export function AdminPage() {
                       <select
                         aria-label={`תפקיד של ${user.name}`}
                         value={user.role}
+                        disabled={user.demo === true}
+                        title={user.demo ? DEMO_PROTECTED : undefined}
                         onChange={(e) => void change(user, { role: e.target.value as Role })}
                         className="h-11 rounded-control border border-line bg-surface px-2"
                       >
@@ -257,6 +266,8 @@ export function AdminPage() {
                       <button
                         type="button"
                         aria-pressed={user.status === "active"}
+                        disabled={user.demo === true}
+                        title={user.demo ? DEMO_PROTECTED : undefined}
                         aria-label={`${user.status === "active" ? "השבתת" : "הפעלת"} ${user.name}`}
                         onClick={() =>
                           void change(user, { status: user.status === "active" ? "disabled" : "active" })
@@ -276,6 +287,8 @@ export function AdminPage() {
                       <Button
                         variant="secondary"
                         aria-label={`מחיקת ${user.name}`}
+                        disabled={user.demo === true}
+                        title={user.demo ? DEMO_PROTECTED : undefined}
                         onClick={() => setDeleting(user)}
                       >
                         מחיקה

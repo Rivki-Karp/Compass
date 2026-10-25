@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import mark from "../assets/compass-mark.png";
 import { Icon } from "../ui/icons";
 import { DemoCard } from "./DemoCard";
+import { DemoQuickAccess } from "./DemoQuickAccess";
 import { LoginForm } from "./LoginForm";
 import "./landing.css";
 
@@ -143,8 +144,9 @@ export function Landing() {
           >
             {/* on a phone the login comes first, then the demo: the DOM order; from 700px the demo
                 is the first column (the right one in RTL) */}
-            <div className="min-w-0 min-[700px]:order-2">
+            <div className="flex min-w-0 flex-col gap-6 min-[700px]:order-2">
               <LoginForm />
+              <DemoQuickAccess />
             </div>
             <div className="min-w-0 min-[700px]:order-1">
               <DemoCard />

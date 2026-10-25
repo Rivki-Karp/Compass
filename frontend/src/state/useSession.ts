@@ -97,12 +97,14 @@ export interface SessionOptions {
    * here; `onGone` is called when the server does not know it (or it is not the user's). */
   fixedId?: string;
   onGone?: () => void;
+  /** Change it to reopen the stream (judges mode was unlocked or locked: the replay differs). */
+  reopenKey?: number;
 }
 
 /** `adminToken`: open the stream with it (judges mode gets the full events; with accounts, the
  * login's token). */
 export function useSession(adminToken: string | null, options: SessionOptions = {}): UseSession {
-  const { fixedId, onGone } = options;
+  const { fixedId, onGone, reopenKey } = options;
   const [ownId, setSessionId] = useState<string | null>(fixedId ?? storedSession);
   const sessionId = fixedId ?? ownId;
   const [stream, dispatch] = useReducer(streamReducer, initialStream);
@@ -160,7 +162,7 @@ export function useSession(adminToken: string | null, options: SessionOptions = 
     return close;
     // onGone is the page's own callback: a change of it must not reopen the stream
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, adminToken]);
+  }, [sessionId, adminToken, reopenKey]);
 
   // The run started (or finished): the message is no longer "sending".
   useEffect(() => {

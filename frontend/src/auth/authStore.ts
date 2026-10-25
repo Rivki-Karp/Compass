@@ -12,6 +12,8 @@ export interface AuthUser {
   token: string;
   name: string;
   role: Role;
+  /** The login came from the demo quick access: a shared demo account. */
+  demo?: boolean;
 }
 
 export interface AuthSnapshot {
@@ -29,7 +31,12 @@ function read(): AuthUser | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<AuthUser>;
     if (typeof parsed.token === "string" && typeof parsed.name === "string" && parsed.role) {
-      return { token: parsed.token, name: parsed.name, role: parsed.role };
+      return {
+        token: parsed.token,
+        name: parsed.name,
+        role: parsed.role,
+        ...(parsed.demo ? { demo: true } : {}),
+      };
     }
   } catch {
     // storage blocked or not ours: logged out

@@ -98,6 +98,16 @@ export interface AdminUser {
   status: "active" | "disabled";
   created_at: string;
   last_login_at: string | null;
+  /** Only with COMPASS_DEMO_LOGIN=1: a protected, shared demo account. */
+  demo?: boolean;
+}
+
+/** GET /auth/me. `judges_unlocked` and `demo` are present only with their flags on. */
+export interface Me {
+  name: string;
+  role: Role;
+  judges_unlocked?: boolean;
+  demo?: boolean;
 }
 
 export interface InviteCreated {
@@ -114,7 +124,20 @@ export const api = {
   register: (body: { email: string; code: string; name: string; password: string }) =>
     request<Granted>("/auth/register", { method: "POST", body: JSON.stringify(body) }),
   logout: () => request<null>("/auth/logout", { method: "POST" }),
-  me: () => request<{ name: string; role: Role }>("/auth/me"),
+  me: () => request<Me>("/auth/me"),
+  /** One click into the shared demo account of a role: no password. */
+  demoLogin: (role: Role) =>
+    request<Granted>("/auth/demo-login", { method: "POST", body: JSON.stringify({ role }) }),
+  /** Judges mode for this login, with an admin's password (204). */
+  judgesUnlock: (password: string) =>
+    // a wrong password is a 401 too, and is not the end of the login: the bearer is set here
+    // so apiFetch does not treat the answer as an expired session
+    request<null>(
+      "/auth/judges-unlock",
+      { method: "POST", body: JSON.stringify({ password }) },
+      getAuth()?.token,
+    ),
+  judgesLock: () => request<null>("/auth/judges-lock", { method: "POST" }),
   conversations: () => request<ConversationEntry[]>("/conversations"),
   /** The session snapshot (what resuming restores): here only to see whether it is empty. */
   snapshot: (id: string) => request<{ messages: unknown[] }>(`/sessions/${id}`),

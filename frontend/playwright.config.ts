@@ -1,7 +1,15 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
-import { AUTH_PORT, PAYSLIP_PORT, PROFILE_PORT, SEED_USERS, TOKENS } from "./e2e/support";
+import {
+  ACCESS_PORT,
+  ACCESS_SEED_USERS,
+  AUTH_PORT,
+  PAYSLIP_PORT,
+  PROFILE_PORT,
+  SEED_USERS,
+  TOKENS,
+} from "./e2e/support";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -35,6 +43,8 @@ const SERVER_ENV = {
 const AUTH_DB = path.join(HERE, "test-results", `e2e-auth-${Date.now()}.db`);
 // Remembered details (COMPASS_PROFILE_MEMORY=1): its own server and database as well.
 const PROFILE_DB = path.join(HERE, "test-results", `e2e-profile-${Date.now()}.db`);
+// Judges unlock and the demo login (COMPASS_JUDGES_UNLOCK, COMPASS_DEMO_LOGIN): their own server.
+const ACCESS_DB = path.join(HERE, "test-results", `e2e-access-${Date.now()}.db`);
 const EXTERNAL = process.env.E2E_BASE_URL;
 
 export default defineConfig({
@@ -111,6 +121,25 @@ export default defineConfig({
         COMPASS_PROFILE_MEMORY: "1",
         COMPASS_SEED_USERS: SEED_USERS,
         COMPASS_LOGIN_PER_IP_PER_MINUTE: "1000",
+      },
+    },
+    {
+      command: `cd ../backend && uv run python -m uvicorn compass.api.main:app --workers 1 --port ${ACCESS_PORT}`,
+      cwd: HERE,
+      url: `http://127.0.0.1:${ACCESS_PORT}/api/health`,
+      reuseExistingServer: false,
+      timeout: 180_000,
+      env: {
+        ...SERVER_ENV,
+        COMPASS_DEMO_DB: ACCESS_DB,
+        COMPASS_PAYSLIP: "0",
+        COMPASS_AUTH: "1",
+        COMPASS_JUDGES_UNLOCK: "1",
+        COMPASS_DEMO_LOGIN: "1",
+        COMPASS_SEED_USERS: ACCESS_SEED_USERS,
+        // every test comes from 127.0.0.1: not the per-IP limits under test here
+        COMPASS_LOGIN_PER_IP_PER_MINUTE: "1000",
+        COMPASS_DEMO_LOGIN_PER_IP_PER_MINUTE: "1000",
       },
     },
   ],

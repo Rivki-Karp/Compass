@@ -37,6 +37,8 @@ import { NotFound } from "./NotFound";
 import { ConnectionPill, DemoBadge, Header, JudgesToggle } from "../ui/Header";
 import { tokenCheck, type TokenCheck } from "../lib/tokenCheck";
 import { TokenDialog } from "../ui/TokenDialog";
+import { Button } from "../ui/Button";
+import { JudgesUnlockDialog } from "../judges/JudgesUnlockDialog";
 import { Waterfall } from "../waterfall/Waterfall";
 
 const HERO_ID = "hero-card";
@@ -69,6 +71,10 @@ export function EmployeePage({ conversationId }: { conversationId?: string } = {
   const [drawer, setDrawer] = useState(false);
   const [judges, setJudges] = useState(false);
   const [asking, setAsking] = useState(false);
+  // judges mode for any login (COMPASS_JUDGES_UNLOCK): the admin password, once per login
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
+  const [streamKey, setStreamKey] = useState(0);
   const [adminToken, setAdminToken] = useState<string | null>(() => getToken("admin"));
   // with accounts the stream carries the login (the server decides what each role may see)
   const auth = useAuth();
@@ -77,12 +83,26 @@ export function EmployeePage({ conversationId }: { conversationId?: string } = {
   const session = useSession(login ?? (judges ? adminToken : null), {
     fixedId: accounts ? conversationId : undefined,
     onGone: () => setGone(true),
+    reopenKey: streamKey,
   });
   const { state } = session;
   // the list beside the chat (accounts): reloaded as this conversation moves
   const conversations = useConversations(accounts, state.lastSeq);
   // with accounts the admin's judges mode needs no token dialog: the login is the proof
   const isAdmin = accounts && auth.user?.role === "admin";
+  const unlockable = accounts && !isAdmin && health?.judges_unlock === true;
+  // is this login already unlocked (a refresh keeps it: the server holds it)?
+  useEffect(() => {
+    if (!unlockable) return;
+    let live = true;
+    api
+      .me()
+      .then((me) => live && setUnlocked(me.judges_unlocked === true))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [unlockable]);
   // Which effects (motion, announcements) already played, per session: never twice.
   // A new, empty memory for each session id (the dependency is the point, not an input).
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,8 +137,18 @@ export function EmployeePage({ conversationId }: { conversationId?: string } = {
 
   function toggleJudges() {
     if (judges) setJudges(false);
-    else if (accounts || adminToken) setJudges(true);
+    else if (accounts) {
+      if (isAdmin || unlocked) setJudges(true);
+      else setUnlocking(true);
+    } else if (adminToken) setJudges(true);
     else setAsking(true);
+  }
+
+  async function lockJudges() {
+    await api.judgesLock().catch(() => undefined);
+    setUnlocked(false);
+    setJudges(false);
+    setStreamKey((k) => k + 1); // the replay is the public part again
   }
 
   async function verifyAdmin(token: string): Promise<TokenCheck> {
@@ -188,7 +218,14 @@ export function EmployeePage({ conversationId }: { conversationId?: string } = {
         <Header variant={accounts ? "account" : "employee"}>
           <ConnectionPill status={session.connection} />
           {health?.llm === "scripted" ? <DemoBadge /> : null}
-          {!login || isAdmin ? <JudgesToggle on={judges} onToggle={toggleJudges} /> : null}
+          {!login || isAdmin || unlockable ? (
+            <JudgesToggle on={judges} onToggle={toggleJudges} />
+          ) : null}
+          {unlockable && unlocked && !judges ? (
+            <Button variant="secondary" onClick={() => void lockJudges()}>
+              נעילה
+            </Button>
+          ) : null}
           {accounts && auth.user ? (
             <AccountBar
               user={auth.user}
@@ -215,6 +252,19 @@ export function EmployeePage({ conversationId }: { conversationId?: string } = {
         {comparison && phoneBarVisible({ narrow: phone, comparison, judges }) ? (
           <PhoneBar comparison={comparison} heroId={HERO_ID} hidden={heroInView} />
         ) : null}
+        <JudgesUnlockDialog
+          open={unlocking}
+          unlock={async (password) => {
+            await api.judgesUnlock(password);
+          }}
+          onCancel={() => setUnlocking(false)}
+          onUnlocked={() => {
+            setUnlocked(true);
+            setUnlocking(false);
+            setStreamKey((k) => k + 1); // reopen: the replay now carries the engine room
+            setJudges(true);
+          }}
+        />
         <TokenDialog
           open={asking}
           title="מצב שופטים"

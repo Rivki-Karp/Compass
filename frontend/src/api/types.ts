@@ -332,6 +332,10 @@ export interface Health {
   auth?: { rep: boolean; admin: boolean };
   /** Present (true) only with COMPASS_AUTH=1: the app shows the landing page and the login. */
   accounts?: boolean;
+  /** Present (true) only with COMPASS_JUDGES_UNLOCK=1: any login may unlock judges mode. */
+  judges_unlock?: boolean;
+  /** Present (true) only with COMPASS_DEMO_LOGIN=1: the landing page offers the quick access. */
+  demo_login?: boolean;
   /** Present only with COMPASS_PAYSLIP=1: the upload's limits (absent: no attach button). */
   payslip?: { max_bytes: number; max_pages: number; types: string[] };
 }

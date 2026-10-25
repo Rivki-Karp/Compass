@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { AuthUser } from "./authStore";
+import type { AuthUser, Role } from "./authStore";
 
 /**
  * "loading": the server has not said yet whether accounts are on. "off": COMPASS_AUTH=0, nothing
@@ -14,6 +14,8 @@ export interface AuthValue {
   notice: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (body: { email: string; code: string; name: string; password: string }) => Promise<void>;
+  /** The demo quick access (COMPASS_DEMO_LOGIN): a shared demo account, no password. */
+  demoLogin: (role: Role) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -23,6 +25,7 @@ const OFF: AuthValue = {
   notice: null,
   login: () => Promise.reject(new Error("accounts are off")),
   register: () => Promise.reject(new Error("accounts are off")),
+  demoLogin: () => Promise.reject(new Error("accounts are off")),
   logout: () => Promise.resolve(),
 };
 

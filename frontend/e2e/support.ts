@@ -14,6 +14,8 @@ export const PAYSLIP_PORT = 8766;
 export const AUTH_PORT = 8767;
 /** The e2e server with remembered details on (accounts, number sources); see playwright.config.ts. */
 export const PROFILE_PORT = 8768;
+/** The e2e server with judges unlock and the demo login on (accounts, the demo accounts below). */
+export const ACCESS_PORT = 8769;
 /** The one password of the e2e accounts. A test value, public on purpose; only its hash is seeded. */
 export const E2E_PASSWORD = "e2e-password-only-for-tests";
 const E2E_HASH =
@@ -29,6 +31,17 @@ export const ACCOUNTS = {
 export const SEED_USERS = JSON.stringify(
   Object.values(ACCOUNTS).map((a) => ({ ...a, password_hash: E2E_HASH })),
 );
+
+/** The shared demo accounts of the ACCESS server (COMPASS_SEED_USERS "demo"); same test hash. */
+export const DEMO_ACCOUNTS = {
+  employee: { email: "demo-employee@example.com", name: "עובדת הדגמה", role: "employee" },
+  rep: { email: "demo-rep@example.com", name: "נציג הדגמה", role: "rep" },
+  admin: { email: "demo-admin@example.com", name: "מנהלת הדגמה", role: "admin" },
+} as const;
+export const ACCESS_SEED_USERS = JSON.stringify([
+  ...Object.values(ACCOUNTS).map((a) => ({ ...a, password_hash: E2E_HASH })),
+  ...Object.values(DEMO_ACCOUNTS).map((a) => ({ ...a, password_hash: E2E_HASH, demo: true })),
+]);
 
 /** README screenshots (brief Stage 8): committed from this run. */
 export const SCREENSHOTS = path.resolve(HERE, "..", "..", "docs", "screenshots");

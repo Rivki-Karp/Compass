@@ -41,8 +41,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .me()
       .then((me) => {
         const current = user;
-        if (current && (current.name !== me.name || current.role !== me.role)) {
-          setAuth({ ...current, name: me.name, role: me.role });
+        const demo = me.demo ?? Boolean(current?.demo);
+        if (
+          current &&
+          (current.name !== me.name || current.role !== me.role || Boolean(current.demo) !== demo)
+        ) {
+          const { token } = current;
+          setAuth({ token, name: me.name, role: me.role, ...(demo ? { demo: true } : {}) });
         }
       })
       .catch(() => undefined);
@@ -62,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       notice,
       login: async (email, password) => grant(await api.login(email.trim(), password)),
       register: async (body) => grant(await api.register({ ...body, email: body.email.trim() })),
+      demoLogin: async (role) => grant({ ...(await api.demoLogin(role)), demo: true }),
       logout: async () => {
         try {
           await api.logout();

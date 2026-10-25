@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-
 import { AdminPage } from "./admin/AdminPage";
 import { AuthProvider } from "./auth/AuthContext";
 import { useAuth } from "./auth/context";
+import { DemoBanner } from "./home/DemoBanner";
 import { HomeEntry } from "./home/HomeEntry";
 import { Landing } from "./landing/Landing";
 import { EmployeePage } from "./routes/EmployeePage";
@@ -26,7 +27,9 @@ function AccountRoutes() {
   const { status, user } = useAuth();
   const loggedIn = status === "in";
   return (
-    <Routes>
+    <>
+      <DemoBanner />
+      <Routes>
       <Route path="/" element={loggedIn ? <HomeEntry /> : <Landing />} />
       <Route path="/new" element={loggedIn ? <HomeEntry /> : <Navigate to="/" replace />} />
       <Route path="/c/:conversationId" element={loggedIn ? <Conversation /> : <Navigate to="/" replace />} />
@@ -44,7 +47,8 @@ function AccountRoutes() {
         }
       />
       <Route path="*" element={<NotFound />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }
 
