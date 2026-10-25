@@ -154,7 +154,7 @@ Per-scenario figures are averages over the repeats.
 
 **Cost per conversation:** **$0.0334**, the last report's run cost over its 22 scenario runs.
 
-**Total spend on evals:** **$13.69** of the $30.00 cap, over every eval run so far: 447 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
+**Total spend on evals:** **$14.06** of the $30.00 cap, over every eval run so far: 455 scenario runs ([backend/evals/spend.jsonl](backend/evals/spend.jsonl)).
 
 <!-- results:end -->
 
@@ -346,7 +346,8 @@ list of their own conversations, can resume any of them from any browser, and ca
 representative sees the tickets and nothing else of the employee's. **The admin manages access
 only** (email, name, role, status, created, last login): an admin can never read an employee's
 conversation, profile or payslip data, and the representative's screen is not the admin's. Judges
-mode's engine room is shown to an admin only in their own conversations. A test walks the router
+mode's engine room is shown to an admin, or to a login unlocked with the admin password
+([below](#מצב-שופטים-לכל-משתמש-feature-flag-compass_judges_unlock)), only in their own conversations. A test walks the router
 and fails on any `/api` route that does not carry the rule for its class.
 
 **No persistence on the free plan.** Render's free plan has no disk, so **users and history are
@@ -358,6 +359,55 @@ commands: `tasks.py setup-demo-accounts`, then `tasks.py serve --accounts`. A li
 `COMPASS_AUTH=1` refuses to start without an admin among them, or with a hash that is not
 argon2id. A password, an invite code or a token is never logged or stored in plain text, and logs
 name users by id, never by email.
+
+## מצב שופטים לכל משתמש (feature flag `COMPASS_JUDGES_UNLOCK`: off in the code, on in production)
+
+Judges mode (the engine room: tool calls, the number guard's sources, drafts, usage and cost) was
+the admin's. With `COMPASS_JUDGES_UNLOCK=1` (and accounts) any logged-in user can turn it on for
+**their own conversations**: the toggle "מצב שופטים" asks for **the admin password** once. Off, none
+of this exists: the routes answer 404 and nothing in any response changes.
+
+- **The unlock.** `POST /api/auth/judges-unlock {password}` checks the password against **every
+  active admin's** argon2id hash, all of them, with no short-circuit, so the time does not say which
+  admin it was. On success it marks **that login session** (`auth_sessions.judges_unlocked_at`): not
+  a new token. It ends on logout, on the session's expiry (8 hours) or when the user is disabled,
+  and it is not carried to the user's other logins. `POST /api/auth/judges-lock` (the "נעילה"
+  button) turns it off; an open event stream is redacted from its next event.
+- **What it grants.** Exactly the full payload an admin sees in their own session, and only in
+  sessions the user owns. The ownership rule is unchanged: an unlocked employee still gets `404` on
+  anyone else's conversation. The representative's screen has no conversations, so no judges mode.
+- **Guessing the password.** The error is always "הסיסמה שגויה". Five failures from one address for
+  one user lock the unlock for 15 minutes (a lock adds a hint to wait, as login does), and there is a
+  per-IP rate limit. There is deliberately **no ceiling per user over all addresses**: on the shared
+  demo employee it would let anyone lock every judge out. The admin password is therefore the
+  unlock's only secret and must be strong (14+ characters). An admin made from a demo session (an
+  invite a demo admin sent; see below) does not count: its password is not checked.
+- **Never shown.** The UI never shows a password. Judges get the admin password through the
+  submission form only.
+
+## כניסה מהירה להדגמה (feature flag `COMPASS_DEMO_LOGIN`: off in the code, on in production)
+
+For judges and recruiters: the landing page, below the login card, has "כניסה מהירה להתנסות" with
+three buttons, **עובדת · נציג · מנהלת**. Each logs in to the shared demo account of that role with
+no password (`POST /api/auth/demo-login {role}`, rate-limited per IP, 10 a minute by default). The
+demo accounts are the entries of `COMPASS_SEED_USERS` marked `"demo": true`. A thin strip, "את/ה
+בחשבון הדגמה משותף", with a way to log out, shows on every page of such a login.
+
+**The demo is shared.** Everyone who uses the demo employee shares its conversations and saved
+details (the memory card still asks first), so the page says: "חשבונות הדגמה משותפים. אל תזינו מידע
+אישי אמיתי." Because anyone can be the demo admin:
+
+- **Demo accounts cannot be deleted, disabled or given another role**, by anyone (the buttons are
+  disabled, with the reason).
+- **A demo session sees and manages only the demo accounts and the users invited from a demo
+  session.** Real users' emails and names are never in a response to it, and a real user's id is a
+  `404` to it, the same as an id that does not exist. A login of a demo account itself (with its
+  password) is scoped the same way.
+- **Its invites** are employees and reps only (never an admin: that would let anyone set the unlock
+  password), capped at 20 a day for all demo sessions together (`COMPASS_DEMO_INVITES_PER_DAY`),
+  expire as usual, and give one identical refusal for a real user, a demo user or a real pending
+  invite, so they tell nothing about who is real.
+- Judges unlock in a demo session works as anywhere: it needs the admin password.
 
 ## All commands
 

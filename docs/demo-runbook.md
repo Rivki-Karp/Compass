@@ -585,3 +585,68 @@ survives a redeploy.
    has none.
 9. On a phone (400 px) the card fits, each button is reachable, and the keyboard reaches every
    control.
+
+## 12. Judges mode for any user, and the demo quick access (optional, behind two flags)
+
+Both need accounts (`COMPASS_AUTH=1`) and are off by default (`0` in the code); `render.yaml` turns
+both on. With a flag off its routes answer 404 and nothing in any response changes.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `COMPASS_JUDGES_UNLOCK` | `0` | any logged-in user can unlock judges mode for their own conversations with an admin's password |
+| `COMPASS_DEMO_LOGIN` | `0` | the landing page's "כניסה מהירה להתנסות" logs in to the shared demo accounts with no password |
+| `COMPASS_DEMO_LOGIN_PER_IP_PER_MINUTE` | `10` | demo logins per address per minute |
+| `COMPASS_DEMO_INVITES_PER_DAY` | `20` | invites all demo sessions together may send per UTC day |
+
+**The admin password is the unlock secret. Make it strong: 14 or more characters, not a word and
+not reused.** Anyone logged in (the shared demo employee included) may guess it, limited only by 5
+failures per user and address per 15 minutes and by the per-IP rate limit; there is deliberately no
+ceiling over all addresses (it would let anyone lock every judge out). Give judges the password
+through the submission form only; the UI never shows it. Every active admin's password works, so
+disable or delete an admin whose password you no longer want to count.
+
+**Marking the demo accounts.** The demo accounts are the entries of `COMPASS_SEED_USERS` with
+`"demo": true` (optional; missing means false). Build the list as in section 11, then add the key,
+in Windows PowerShell from the repository root:
+
+```powershell
+$accounts = @(
+  @{ email = 'demo-employee@example.com'; name = 'עובדת הדגמה'; role = 'employee'; demo = $true },
+  @{ email = 'demo-rep@example.com';      name = 'נציג הדגמה';  role = 'rep';      demo = $true },
+  @{ email = 'demo-admin@example.com';    name = 'מנהלת הדגמה'; role = 'admin';    demo = $true }
+)
+foreach ($account in $accounts) {
+  Write-Host "Password for $($account.email) (typed at the prompt; 14+ characters for the admin):"
+  $account.password_hash = uv run --project backend python tasks.py hash-password | Select-Object -Last 1
+}
+$env:COMPASS_SEED_USERS = ConvertTo-Json -Compress -InputObject @($accounts)
+```
+
+`demo` must be a JSON `true` or `false`; anything else stops the start and names the entry. The
+demo login uses the oldest active demo account of the role. Real accounts (without `demo`) are never
+reachable through it. In the Render dashboard paste the same `COMPASS_SEED_USERS` (`sync: false`).
+The demo admin's password is also an admin password for the unlock, so give judges that one.
+
+**What is protected while `COMPASS_DEMO_LOGIN=1`.** Demo accounts cannot be deleted, disabled or
+given another role, by anyone. A demo session (a quick-access login, or a login of a demo account)
+lists and manages only the demo accounts and the users invited from a demo session; it never sees a
+real user's email or name. Its invites are employees or reps only, capped per day, and give one
+refusal for every email it cannot use. A user invited from a demo session is marked `demo_origin`;
+an admin made that way cannot occur (admins cannot be invited from a demo), and any such admin's
+password would not count for the unlock anyway.
+
+**The demo is shared.** Everyone on the demo employee shares its conversations and saved details
+(the memory card still asks first). A redeploy wipes them (section 11). Do not enter anything real.
+
+**By-hand checklist (after turning it on, from outside).**
+
+1. The landing page shows "כניסה מהירה להתנסות" under the login card; each of the three buttons logs
+   in, the strip "את/ה בחשבון הדגמה משותף" shows, and "התנתקות" returns to the landing page.
+2. As the demo employee: have a conversation, press "מצב שופטים", enter a wrong password (the
+   generic "הסיסמה שגויה"), then the admin password: the engine room opens with the guard card.
+   "מצב שופטים" off shows "נעילה"; pressing it asks for the password again next time.
+3. As the demo admin: `/admin` lists only the three demo accounts (and anyone invited from here);
+   their delete, disable and role controls are disabled; an invite cannot be an admin.
+4. Log in as a real user in another browser: the demo session did not show their email anywhere.
+5. With both flags set to `0` the landing page has no such section and the toggle asks for the
+   admin token as before (accounts off) or is the admin's only (accounts on).

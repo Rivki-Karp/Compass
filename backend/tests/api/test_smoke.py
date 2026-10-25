@@ -101,6 +101,9 @@ def test_render_blueprint() -> None:
         "COMPASS_PROFILE_MEMORY": "1",
         # accounts: ON in production (the code's default stays 0: see the auth settings tests)
         "COMPASS_AUTH": "1",
+        # judges mode for any user, and the demo quick access: ON in production (default 0)
+        "COMPASS_JUDGES_UNLOCK": "1",
+        "COMPASS_DEMO_LOGIN": "1",
     }
 
     # the UI: a static site whose CSP and API URL name the backend above

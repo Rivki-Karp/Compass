@@ -78,6 +78,15 @@ services:
         value: "1"
       - key: COMPASS_SEED_USERS
         sync: false
+      # Judges mode for any logged-in user, unlocked with an admin's password; and one-click login
+      # to the shared demo accounts (the ones marked "demo": true in COMPASS_SEED_USERS). Both
+      # need accounts. ON in production. The code's default stays 0 (settings.py); these lines are
+      # the only switch. The admin password is the unlock secret: 14+ characters
+      # (docs/demo-runbook.md, section 12).
+      - key: COMPASS_JUDGES_UNLOCK
+        value: "1"
+      - key: COMPASS_DEMO_LOGIN
+        value: "1"
 
   - type: web
     name: compass-web
